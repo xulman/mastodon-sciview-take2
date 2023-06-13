@@ -1,13 +1,19 @@
-import org.scijava.Context;
 import sc.iview.SciView;
 import sc.iview.ui.MainWindow;
 
 public class Test {
 
 	public static void main(String[] args) {
-		final Context ctx = new Context();
-		SciView sv = new SciView(ctx);
+		/*
+		SciView sv = new SciView("Vlado window",800,600);
+		sv.waitForSceneInitialisation();
 		MainWindow mainWindow = sv.getMainWindow();
 		mainWindow.toggleSidebar();
+		*/
+		try {
+			SciView sv = SciView.create();
+		} catch (Exception e) {
+			System.out.println("got exception: "+e.getMessage());
+		}
 	}
 }
