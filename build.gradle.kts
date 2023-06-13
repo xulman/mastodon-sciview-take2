@@ -18,6 +18,8 @@ dependencies {
     implementation("sc.iview:sciview")
     implementation("net.imagej:imagej-common")
 
+    implementation("org.mastodon:mastodon:1.0.0-beta-27-SNAPSHOT")
+
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
