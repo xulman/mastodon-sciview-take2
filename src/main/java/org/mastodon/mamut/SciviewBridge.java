@@ -4,6 +4,12 @@ package org.mastodon.mamut;
 import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
 import mpicbg.spim.data.SpimDataException;
+import net.imglib2.RealLocalizable;
+import net.imglib2.RealPoint;
+import net.imglib2.RealPositionable;
+import net.imglib2.realtransform.AffineTransform3D;
+import org.joml.Vector3f;
+import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.project.MamutProjectIO;
 import org.mastodon.mamut.util.SphereNodes;
 import org.scijava.Context;
@@ -42,21 +48,40 @@ public class SciviewBridge {
 	public MamutViewBdv openSyncedBDV() {
 		final MamutViewBdv bdvWin = mastodonWin.createBigDataViewer();
 		bdvWin.getFrame().setTitle("BDV linked to Sciview");
+		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
+
+		//initial spots content:
+		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
+		lastDisplayedTimepoint = tp;
+
+		Vector3f centreCoord = getSpotsAveragePos(tp);
+		sciviewWin.centerOnPosition(centreCoord);
+
+		new BdvNotifier(
+				() -> repaintOnSciView(bdvWin),
+				mastodonWin.getAppModel(),
+				bdvWin);
 
 		//bdvWin.getViewerPanelMamut().renderTransformListeners().
 		//drawSpotsFromThisTimepoint(10);
 		//sciviewWin.getCamera().setfo
 
 		//temporary drawing
-		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), 10);
 		keyHandlersForTestingForNow(bdvWin);
-
-		//todo: setup a callback that
-		// -- get's triggered when the BDV window is closed
-		// -- takes DE-register handlers created above
 		return bdvWin;
 	}
 
+	private void repaintOnSciView(final MamutViewBdv forThisBdv) {
+		//new timepoint?
+		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		if (tp != lastDisplayedTimepoint) {
+			lastDisplayedTimepoint = tp;
+			sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
+		}
+
+	}
+
+	private int lastDisplayedTimepoint = -1;
 	private void keyHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
