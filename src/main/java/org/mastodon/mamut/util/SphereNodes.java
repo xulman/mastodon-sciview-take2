@@ -44,8 +44,8 @@ public class SphereNodes {
 				// when there were fewer spots before)
 			} else {
 				//adding some new nodes
+				//todo: fix me after #497 is solved
 				node = new Sphere();
-				node.setParent(parentNode);
 				parentNode.addChild(node);
 				addedExtraNodes.add(node);
 			}
@@ -56,6 +56,7 @@ public class SphereNodes {
 		if (addedExtraNodes.size() > 0) {
 			//NB: also means that the knownNodes were fully exhausted
 			knownNodes.addAll(addedExtraNodes);
+			addedExtraNodes.forEach(sv::publishNode);
 			System.out.println("Added new "+addedExtraNodes.size()+" spheres");
 		} else {
 			System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
@@ -63,6 +64,9 @@ public class SphereNodes {
 			int i = visibleNodesAfterall;
 			while (i < knownNodes.size()) knownNodes.get(i++).setVisible(false);
 		}
+		System.out.println("Drawing currently in total "+visibleNodesAfterall
+				+ " and there are "+(knownNodes.size()-visibleNodesAfterall)
+				+ " hidden...");
 		return visibleNodesAfterall;
 	}
 
