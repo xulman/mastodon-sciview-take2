@@ -62,7 +62,10 @@ public class SphereNodes {
 			System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
 			//NB: mark not-touched knownNodes as hidden
 			int i = visibleNodesAfterall;
-			while (i < knownNodes.size()) knownNodes.get(i++).setVisible(false);
+			while (i < knownNodes.size()) {
+				knownNodes.get(i).setName("not used now");
+				knownNodes.get(i++).setVisible(false);
+			}
 		}
 		System.out.println("Drawing currently in total "+visibleNodesAfterall
 				+ " and there are "+(knownNodes.size()-visibleNodesAfterall)
