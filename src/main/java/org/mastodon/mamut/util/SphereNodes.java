@@ -15,7 +15,7 @@ import java.util.LinkedList;
 
 public class SphereNodes {
 
-	float SCALE_FACTOR = 10.f;
+	float SCALE_FACTOR = 1.f;
 
 	final SciView sv;
 	final Node parentNode;
