@@ -62,16 +62,6 @@ public class SciviewBridge {
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
 		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
 
-		int[] currentTimepoint = {10};
-		final Behaviour clk_PREV_TP = (ClickBehaviour) (x, y) -> {
-			currentTimepoint[0]--;
-			sphereNodes.showTheseSpots(mastodonWin.getAppModel(), currentTimepoint[0]);
-		};
-		final Behaviour clk_NEXT_TP = (ClickBehaviour) (x, y) -> {
-			currentTimepoint[0]++;
-			sphereNodes.showTheseSpots(mastodonWin.getAppModel(), currentTimepoint[0]);
-		};
-
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
 		handler.addKeyBinding("decrease_initial_spheres_size", "O");
@@ -79,22 +69,12 @@ public class SciviewBridge {
 		handler.addKeyBinding("increase_initial_spheres_size", "shift O");
 		handler.addBehaviour("increase_initial_spheres_size", clk_INC_SPH);
 
-		handler.addKeyBinding("bbaacckk","I");
-		handler.addBehaviour("bbaacckk", clk_PREV_TP);
-		handler.addKeyBinding("ffoorrww","U");
-		handler.addBehaviour("ffoorrww", clk_NEXT_TP);
-
 		//deregister them when they are due
 		forThisBdv.onClose(() -> {
 			handler.removeKeyBinding("decrease_initial_spheres_size");
 			handler.removeBehaviour("decrease_initial_spheres_size");
 			handler.removeKeyBinding("increase_initial_spheres_size");
 			handler.removeBehaviour("increase_initial_spheres_size");
-
-			handler.removeKeyBinding("bbaacckk");
-			handler.removeBehaviour("bbaacckk");
-			handler.removeKeyBinding("ffoorrww");
-			handler.removeBehaviour("ffoorrww");
 		});
 	}
 
