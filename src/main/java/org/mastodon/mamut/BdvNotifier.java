@@ -30,7 +30,6 @@ package org.mastodon.mamut;
 import bdv.viewer.TransformListener;
 import net.imglib2.realtransform.AffineTransform3D;
 import org.mastodon.graph.GraphChangeListener;
-import org.mastodon.mamut.plugin.MamutPluginAppModel;
 import org.mastodon.spatial.VertexPositionListener;
 
 public class BdvNotifier {
@@ -54,21 +53,21 @@ public class BdvNotifier {
 		//create a thread that would be watching over the listener and would take only
 		//the most recent data if no updates came from BDV for a little while
 		//(this is _delayed_ handling of the data, skipping over any intermediate changes)
-		final BdvEventsCatherThread blenderSenderThread
+		final BdvEventsCatherThread cumulatingEventsHandlerThread
 				= new BdvEventsCatherThread(bdvUpdateListener, 10, redisplayProcessor);
 
 		//register the BDV listener and start the thread
 		bdvWindow.getViewerPanelMamut().renderTransformListeners().add(bdvUpdateListener);
 		mastodonAppModel.getModel().getGraph().addVertexPositionListener(bdvUpdateListener);
 		mastodonAppModel.getModel().getGraph().addGraphChangeListener(bdvUpdateListener);
-		blenderSenderThread.start();
+		cumulatingEventsHandlerThread.start();
 
 		bdvWindow.onClose(() -> {
 			System.out.println("Cleaning up while BDV window is closing.");
 			bdvWindow.getViewerPanelMamut().renderTransformListeners().remove(bdvUpdateListener);
 			mastodonAppModel.getModel().getGraph().removeGraphChangeListener(bdvUpdateListener);
 			mastodonAppModel.getModel().getGraph().removeVertexPositionListener(bdvUpdateListener);
-			blenderSenderThread.stopTheWatching();
+			cumulatingEventsHandlerThread.stopTheWatching();
 		});
 	}
 
