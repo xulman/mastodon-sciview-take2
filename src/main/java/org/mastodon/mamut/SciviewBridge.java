@@ -1,13 +1,13 @@
 //TODO add license text
 package org.mastodon.mamut;
 
+import graphics.scenery.Camera;
 import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
 import mpicbg.spim.data.SpimDataException;
-import net.imglib2.RealLocalizable;
-import net.imglib2.RealPoint;
-import net.imglib2.RealPositionable;
 import net.imglib2.realtransform.AffineTransform3D;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.project.MamutProjectIO;
@@ -73,7 +73,22 @@ public class SciviewBridge {
 			sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
 		}
 
+		forThisBdv.getViewerPanelMamut().state().getViewerTransform(auxTransform);
+		for (int r = 0; r < 3; ++r)
+			for (int c = 0; c < 4; ++c)
+				viewMatrix.set(c,r, (float)auxTransform.get(r,c));
+		viewMatrix.getUnnormalizedRotation( viewRotation );
+
+		final Camera.CameraSpatial camSpatial = sciviewWin.getCamera().spatial();
+		camSpatial.setRotation( viewRotation );
+		float dist = camSpatial.getPosition().length();
+		camSpatial.setPosition( sciviewWin.getCamera().getForward().normalize().mul(-1f * dist) );
 	}
+
+	private final AffineTransform3D auxTransform = new AffineTransform3D();
+	private final Matrix4f viewMatrix = new Matrix4f(1f,0,0,0, 0,1f,0,0, 0,0,1f,0, 0,0,0,1);
+	private final Quaternionf viewRotation = new Quaternionf();
+
 
 	private int lastDisplayedTimepoint = -1;
 
