@@ -80,6 +80,8 @@ public class SciviewBridge {
 		viewMatrix.getUnnormalizedRotation( viewRotation );
 
 		final Camera.CameraSpatial camSpatial = sciviewWin.getCamera().spatial();
+		viewRotation.y *= -1;
+		viewRotation.z *= -1;
 		camSpatial.setRotation( viewRotation );
 		float dist = camSpatial.getPosition().length();
 		camSpatial.setPosition( sciviewWin.getCamera().getForward().normalize().mul(-1f * dist) );

@@ -89,6 +89,8 @@ public class SphereNodes {
 		auxSpatialPos[0] -= minusThisOffset[0];
 		auxSpatialPos[1] -= minusThisOffset[1];
 		auxSpatialPos[2] -= minusThisOffset[2];
+		auxSpatialPos[1] *= -1;
+		auxSpatialPos[2] *= -1;
 		node.spatial().setPosition(auxSpatialPos);
 
 		node.spatial().setScale( new Vector3f(
