@@ -48,25 +48,19 @@ public class SciviewBridge {
 	public MamutViewBdv openSyncedBDV() {
 		final MamutViewBdv bdvWin = mastodonWin.createBigDataViewer();
 		bdvWin.getFrame().setTitle("BDV linked to Sciview");
-		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
 
 		//initial spots content:
-		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
-		lastDisplayedTimepoint = tp;
-
-		Vector3f centreCoord = getSpotsAveragePos(tp);
-		sciviewWin.centerOnPosition(centreCoord);
+		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
+		lastDisplayedTimepoint = -1; //NB: to make sure something gets rendered
+		sphereNodes.setDataCentre( getSpotsAveragePos(tp) );
+		repaintOnSciView(bdvWin);
 
 		new BdvNotifier(
 				() -> repaintOnSciView(bdvWin),
 				mastodonWin.getAppModel(),
 				bdvWin);
 
-		//bdvWin.getViewerPanelMamut().renderTransformListeners().
-		//drawSpotsFromThisTimepoint(10);
-		//sciviewWin.getCamera().setfo
-
-		//temporary drawing
+		//temporary handlers mostly for testing
 		keyHandlersForTestingForNow(bdvWin);
 		return bdvWin;
 	}
@@ -82,6 +76,21 @@ public class SciviewBridge {
 	}
 
 	private int lastDisplayedTimepoint = -1;
+
+	private Vector3f getSpotsAveragePos(final int tp) {
+		final float[] pos = new float[3];
+		final float[] avg = {0,0,0};
+		int cnt = 0;
+		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
+			s.localize(pos);
+			avg[0] += pos[0];
+			avg[1] += pos[1];
+			avg[2] += pos[2];
+			++cnt;
+		}
+		return new Vector3f(avg[0]/(float)cnt, avg[1]/(float)cnt, avg[2]/(float)cnt);
+	}
+
 	private void keyHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
