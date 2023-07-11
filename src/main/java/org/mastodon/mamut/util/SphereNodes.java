@@ -73,13 +73,23 @@ public class SphereNodes {
 		return visibleNodesAfterall;
 	}
 
-	private float[] spatialPos = new float[3];
+	private final float[] auxSpatialPos = new float[3];
+	private final float[] minusThisOffset = {0,0,0};
+
+	public void setDataCentre(final Vector3f centre) {
+		minusThisOffset[0] = centre.x;
+		minusThisOffset[1] = centre.y;
+		minusThisOffset[2] = centre.z;
+	}
 
 	private void setSphereNode(final Sphere node, final Spot s) {
 		node.setName(s.getLabel());
 
-		s.localize(spatialPos);
-		node.spatial().setPosition(spatialPos);
+		s.localize(auxSpatialPos);
+		auxSpatialPos[0] -= minusThisOffset[0];
+		auxSpatialPos[1] -= minusThisOffset[1];
+		auxSpatialPos[2] -= minusThisOffset[2];
+		node.spatial().setPosition(auxSpatialPos);
 
 		node.spatial().setScale( new Vector3f(
 				SCALE_FACTOR * (float)Math.sqrt(s.getBoundingSphereRadiusSquared()) ) );
