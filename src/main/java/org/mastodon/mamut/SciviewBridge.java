@@ -119,7 +119,6 @@ public class SciviewBridge {
 
 		//initial spots content:
 		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
-		lastDisplayedTimepoint = -1; //NB: to make sure something gets rendered
 		sphereNodes.setDataCentre( getSpotsAveragePos(tp) );
 		updateSciviewContent(bdvWin);
 
@@ -172,9 +171,6 @@ public class SciviewBridge {
 	private final AffineTransform3D auxTransform = new AffineTransform3D();
 	private final Matrix4f viewMatrix = new Matrix4f(1f,0,0,0, 0,1f,0,0, 0,0,1f,0, 0,0,0,1);
 	private final Quaternionf viewRotation = new Quaternionf();
-
-
-	private int lastDisplayedTimepoint = -1;
 
 	// --------------------------------------------------------------------------
 	private void keyboardHandlersForTestingForNow(final MamutViewBdv forThisBdv) {

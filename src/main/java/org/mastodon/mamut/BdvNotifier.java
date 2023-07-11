@@ -97,9 +97,7 @@ public class BdvNotifier {
 		@Override
 		public void vertexPositionChanged(Object vertex) { contentChanged(); }
 		@Override
-		public void transformChanged(AffineTransform3D affineTransform3D) {
-			viewChanged();
-		}
+		public void transformChanged(AffineTransform3D affineTransform3D) { viewChanged(); }
 
 		void contentChanged() {
 			timeStampOfLastEvent = System.currentTimeMillis();
