@@ -56,7 +56,7 @@ public class SphereNodes {
 		if (addedExtraNodes.size() > 0) {
 			//NB: also means that the knownNodes were fully exhausted
 			knownNodes.addAll(addedExtraNodes);
-			addedExtraNodes.forEach(sv::publishNode);
+			sv.publishNode( addedExtraNodes.get(0) ); //NB: publishes only once
 			System.out.println("Added new "+addedExtraNodes.size()+" spheres");
 		} else {
 			System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
