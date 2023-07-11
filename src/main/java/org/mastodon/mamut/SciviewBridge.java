@@ -121,10 +121,11 @@ public class SciviewBridge {
 		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
 		lastDisplayedTimepoint = -1; //NB: to make sure something gets rendered
 		sphereNodes.setDataCentre( getSpotsAveragePos(tp) );
-		repaintOnSciView(bdvWin);
+		updateSciviewContent(bdvWin);
 
 		new BdvNotifier(
-				() -> repaintOnSciView(bdvWin),
+				() -> updateSciviewContent(bdvWin),
+				() -> updateSciviewCamera(bdvWin),
 				mastodonWin.getAppModel(),
 				bdvWin);
 
@@ -148,14 +149,12 @@ public class SciviewBridge {
 	}
 
 	// --------------------------------------------------------------------------
-	private void repaintOnSciView(final MamutViewBdv forThisBdv) {
-		//new timepoint?
+	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
-		if (tp != lastDisplayedTimepoint) {
-			lastDisplayedTimepoint = tp;
-			sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
-		}
+		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
+	}
 
+	private void updateSciviewCamera(final MamutViewBdv forThisBdv) {
 		forThisBdv.getViewerPanelMamut().state().getViewerTransform(auxTransform);
 		for (int r = 0; r < 3; ++r)
 			for (int c = 0; c < 4; ++c)
