@@ -65,7 +65,10 @@ public class SciviewBridge {
 		sphereParent = sciviewWin.addSphere();
 		//todo: make the parent node (sphere) invisible
 		sphereParent.setName( mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+
+		//scene scaling...
 		sphereParent.spatial().setScale( new Vector3f(0.05f) );
+		sciviewWin.getCamera().spatial().move(30f,2);
 
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
