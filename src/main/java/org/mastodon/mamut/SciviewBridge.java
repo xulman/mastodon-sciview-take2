@@ -32,6 +32,8 @@ public class SciviewBridge {
 	//data sink stuff
 	final SciView sciviewWin;
 	final SphereNodes sphereNodes;
+
+	//sink scene graph structuring nodes
 	final Sphere sphereParent;
 	final Node axesParent;
 
@@ -55,6 +57,7 @@ public class SciviewBridge {
 		});
 		sciviewWin.addNode( new AmbientLight(0.05f, new Vector3f(1,1,1)) );
 
+		//add "root" with data axes
 		this.axesParent = addDataAxes();
 		sciviewWin.addChild( axesParent );
 
@@ -70,6 +73,7 @@ public class SciviewBridge {
 		//todo: add similar handler for the volume
 	}
 
+	// --------------------------------------------------------------------------
 	public static void adjustHeadLight(final PointLight hl) {
 		hl.setIntensity(1.5f);
 		hl.spatial().setRotation(new Quaternionf().rotateY((float) Math.PI));
@@ -105,6 +109,7 @@ public class SciviewBridge {
 		return axesParent;
 	}
 
+	// --------------------------------------------------------------------------
 	public MamutViewBdv openSyncedBDV() {
 		final MamutViewBdv bdvWin = mastodonWin.createBigDataViewer();
 		bdvWin.getFrame().setTitle("BDV linked to Sciview");
@@ -121,10 +126,25 @@ public class SciviewBridge {
 				bdvWin);
 
 		//temporary handlers mostly for testing
-		keyHandlersForTestingForNow(bdvWin);
+		keyboardHandlersForTestingForNow(bdvWin);
 		return bdvWin;
 	}
 
+	private Vector3f getSpotsAveragePos(final int tp) {
+		final float[] pos = new float[3];
+		final float[] avg = {0,0,0};
+		int cnt = 0;
+		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
+			s.localize(pos);
+			avg[0] += pos[0];
+			avg[1] += pos[1];
+			avg[2] += pos[2];
+			++cnt;
+		}
+		return new Vector3f(avg[0]/(float)cnt, avg[1]/(float)cnt, avg[2]/(float)cnt);
+	}
+
+	// --------------------------------------------------------------------------
 	private void repaintOnSciView(final MamutViewBdv forThisBdv) {
 		//new timepoint?
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
@@ -154,21 +174,8 @@ public class SciviewBridge {
 
 	private int lastDisplayedTimepoint = -1;
 
-	private Vector3f getSpotsAveragePos(final int tp) {
-		final float[] pos = new float[3];
-		final float[] avg = {0,0,0};
-		int cnt = 0;
-		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
-			s.localize(pos);
-			avg[0] += pos[0];
-			avg[1] += pos[1];
-			avg[2] += pos[2];
-			++cnt;
-		}
-		return new Vector3f(avg[0]/(float)cnt, avg[1]/(float)cnt, avg[2]/(float)cnt);
-	}
-
-	private void keyHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
+	// --------------------------------------------------------------------------
+	private void keyboardHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
 		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
