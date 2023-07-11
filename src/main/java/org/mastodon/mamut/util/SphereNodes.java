@@ -3,9 +3,10 @@ package org.mastodon.mamut.util;
 import graphics.scenery.Node;
 import org.joml.Vector3f;
 import org.mastodon.mamut.MamutAppModel;
-import org.mastodon.spatial.SpatialIndex;
 import org.mastodon.mamut.model.Spot;
-
+import org.mastodon.mamut.model.Link;
+import org.mastodon.spatial.SpatialIndex;
+import org.mastodon.ui.coloring.GraphColorGenerator;
 import sc.iview.SciView;
 import graphics.scenery.Sphere;
 
@@ -16,6 +17,7 @@ import java.util.LinkedList;
 public class SphereNodes {
 
 	float SCALE_FACTOR = 1.f;
+	int DEFAULT_COLOR = 0x00FFFFFF;
 
 	final SciView sv;
 	final Node parentNode;
@@ -28,7 +30,9 @@ public class SphereNodes {
 	final List<Sphere> knownNodes = new ArrayList<>(1000);
 	final List<Sphere> addedExtraNodes = new LinkedList<>();
 
-	public int showTheseSpots(final MamutAppModel mastodonData, final int timepoint) {
+	public int showTheseSpots(final MamutAppModel mastodonData,
+	                          final int timepoint,
+	                          final GraphColorGenerator<Spot, Link> colorizer) {
 		int visibleNodesAfterall = 0;
 		addedExtraNodes.clear();
 
@@ -49,7 +53,7 @@ public class SphereNodes {
 				parentNode.addChild(node);
 				addedExtraNodes.add(node);
 			}
-			setSphereNode(node,s);
+			setSphereNode(node,s,colorizer);
 			++visibleNodesAfterall;
 		}
 
@@ -82,7 +86,9 @@ public class SphereNodes {
 		minusThisOffset[2] = centre.z;
 	}
 
-	private void setSphereNode(final Sphere node, final Spot s) {
+	private void setSphereNode(final Sphere node,
+	                           final Spot s,
+	                           final GraphColorGenerator<Spot, Link> colorizer) {
 		node.setName(s.getLabel());
 
 		s.localize(auxSpatialPos);
@@ -96,7 +102,12 @@ public class SphereNodes {
 		node.spatial().setScale( new Vector3f(
 				SCALE_FACTOR * (float)Math.sqrt(s.getBoundingSphereRadiusSquared()) ) );
 
-		node.material().setDiffuse( new Vector3f(1.0f, 0.f, 0.f) );
+		int intColor = colorizer.color(s);
+		if (intColor == 0x00000000) intColor = DEFAULT_COLOR;
+		float r = ((intColor >> 16) & 0x000000FF) / 255.f;
+		float g = ((intColor >> 8) & 0x000000FF) / 255.f;
+		float b =  (intColor & 0x000000FF) / 255.f;
+		node.material().getDiffuse().set(r,g,b);
 	}
 
 	public void decreaseSphereScale() {

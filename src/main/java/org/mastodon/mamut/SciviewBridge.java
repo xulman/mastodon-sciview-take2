@@ -15,8 +15,13 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.mastodon.mamut.model.Spot;
+import org.mastodon.mamut.model.Link;
 import org.mastodon.mamut.project.MamutProjectIO;
 import org.mastodon.mamut.util.SphereNodes;
+import org.mastodon.model.tag.TagSetStructure;
+import org.mastodon.ui.coloring.TagSetGraphColorGenerator;
+import org.mastodon.ui.coloring.DefaultGraphColorGenerator;
+import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.scijava.Context;
 import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
@@ -148,9 +153,26 @@ public class SciviewBridge {
 	}
 
 	// --------------------------------------------------------------------------
+	private TagSetStructure.TagSet recentTagSet;
+	private GraphColorGenerator<Spot, Link> recentColorizer;
+	private DefaultGraphColorGenerator<Spot, Link> noTScolorizer = new DefaultGraphColorGenerator<>();
+
 	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
-		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
+
+		//NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending
+		GraphColorGenerator<Spot, Link> colorizer;
+		final TagSetStructure.TagSet ts = forThisBdv.getColoringModel().getTagSet();
+		if (ts != null) {
+			if (ts != recentTagSet) {
+				recentColorizer = new TagSetGraphColorGenerator<>(mastodonWin.getAppModel().getModel().getTagSetModel(), ts);
+			}
+			colorizer = recentColorizer;
+		} else {
+			colorizer = noTScolorizer;
+		}
+		recentTagSet = ts;
+		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp, colorizer);
 	}
 
 	private void updateSciviewCamera(final MamutViewBdv forThisBdv) {
