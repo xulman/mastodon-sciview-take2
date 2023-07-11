@@ -27,6 +27,7 @@ public class SciviewBridge {
 	//data sink stuff
 	final SciView sciviewWin;
 	final SphereNodes sphereNodes;
+	final Sphere sphereParent;
 
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
@@ -35,12 +36,13 @@ public class SciviewBridge {
 		this.sciviewWin = targetSciviewWindow;
 
 		//add the "root" node for this Mastodon session
-		Sphere parentNode = sciviewWin.addSphere();
+		sphereParent = sciviewWin.addSphere();
 		//todo: make the parent node (sphere) invisible
-		parentNode.setName( mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		sphereParent.setName( mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		sphereParent.spatial().setScale( new Vector3f(0.05f) );
 
 		//add the sciview-side displaying handler for the spots
-		this.sphereNodes = new SphereNodes(this.sciviewWin, parentNode);
+		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
 
 		//todo: add similar handler for the volume
 	}
