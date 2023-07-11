@@ -1,9 +1,12 @@
 //TODO add license text
 package org.mastodon.mamut;
 
+import graphics.scenery.Box;
 import graphics.scenery.Camera;
+import graphics.scenery.Node;
 import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
+import graphics.scenery.primitives.Cylinder;
 import mpicbg.spim.data.SpimDataException;
 import net.imglib2.realtransform.AffineTransform3D;
 import org.joml.Matrix4f;
@@ -28,12 +31,16 @@ public class SciviewBridge {
 	final SciView sciviewWin;
 	final SphereNodes sphereNodes;
 	final Sphere sphereParent;
+	final Node axesParent;
 
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
+
+		this.axesParent = addDataAxes();
+		sciviewWin.addChild( axesParent );
 
 		//add the "root" node for this Mastodon session
 		sphereParent = sciviewWin.addSphere();
@@ -45,6 +52,36 @@ public class SciviewBridge {
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
 
 		//todo: add similar handler for the volume
+	}
+
+	public static Node addDataAxes() {
+		//add the data axes
+		final float AXES_LINE_WIDTHS = 0.25f;
+		final float AXES_LINE_LENGTHS = 5.f;
+		//
+		final Node axesParent = new Box( new Vector3f(0.1f) );
+		axesParent.setName("Data Axes");
+		//
+		Cylinder c = new Cylinder(AXES_LINE_WIDTHS/2.0f, AXES_LINE_LENGTHS, 12);
+		c.setName("Data x axis");
+		c.material().setDiffuse( new Vector3f(1,0,0) );
+		final float halfPI = (float)Math.PI / 2.0f;
+		c.spatial().setRotation( new Quaternionf().rotateLocalZ(-halfPI) );
+		axesParent.addChild(c);
+		//
+		c = new Cylinder(AXES_LINE_WIDTHS/2.0f, AXES_LINE_LENGTHS, 12);
+		c.setName("Data y axis");
+		c.material().setDiffuse( new Vector3f(0,1,0) );
+		c.spatial().setRotation( new Quaternionf().rotateLocalZ((float)Math.PI) );
+		axesParent.addChild(c);
+		//
+		c = new Cylinder(AXES_LINE_WIDTHS/2.0f, AXES_LINE_LENGTHS, 12);
+		c.setName("Data z axis");
+		c.material().setDiffuse( new Vector3f(0,0,1) );
+		c.spatial().setRotation( new Quaternionf().rotateLocalX(-halfPI) );
+		axesParent.addChild(c);
+
+		return axesParent;
 	}
 
 	public MamutViewBdv openSyncedBDV() {
