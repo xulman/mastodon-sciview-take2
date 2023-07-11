@@ -1,9 +1,11 @@
 //TODO add license text
 package org.mastodon.mamut;
 
+import graphics.scenery.AmbientLight;
 import graphics.scenery.Box;
 import graphics.scenery.Camera;
 import graphics.scenery.Node;
+import graphics.scenery.PointLight;
 import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
 import graphics.scenery.primitives.Cylinder;
@@ -39,6 +41,20 @@ public class SciviewBridge {
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
 
+		//adjust the default scene's settings
+		sciviewWin.getFloor().setVisible(false);
+		sciviewWin.getLights().forEach(l -> {
+			if (l.getName().startsWith("headli"))
+				adjustHeadLight(l);
+			else
+				l.setVisible(false);
+		});
+		sciviewWin.getCamera().getChildren().forEach(l -> {
+			if (l.getName().startsWith("headli") && l instanceof PointLight)
+				adjustHeadLight((PointLight)l);
+		});
+		sciviewWin.addNode( new AmbientLight(0.05f, new Vector3f(1,1,1)) );
+
 		this.axesParent = addDataAxes();
 		sciviewWin.addChild( axesParent );
 
@@ -52,6 +68,11 @@ public class SciviewBridge {
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
 
 		//todo: add similar handler for the volume
+	}
+
+	public static void adjustHeadLight(final PointLight hl) {
+		hl.setIntensity(1.5f);
+		hl.spatial().setRotation(new Quaternionf().rotateY((float) Math.PI));
 	}
 
 	public static Node addDataAxes() {
