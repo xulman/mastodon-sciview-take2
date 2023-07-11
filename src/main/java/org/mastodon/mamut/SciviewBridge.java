@@ -1,13 +1,13 @@
 //TODO add license text
 package org.mastodon.mamut;
 
+import graphics.scenery.Camera;
 import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
 import mpicbg.spim.data.SpimDataException;
-import net.imglib2.RealLocalizable;
-import net.imglib2.RealPoint;
-import net.imglib2.RealPositionable;
 import net.imglib2.realtransform.AffineTransform3D;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.project.MamutProjectIO;
@@ -48,25 +48,19 @@ public class SciviewBridge {
 	public MamutViewBdv openSyncedBDV() {
 		final MamutViewBdv bdvWin = mastodonWin.createBigDataViewer();
 		bdvWin.getFrame().setTitle("BDV linked to Sciview");
-		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
 
 		//initial spots content:
-		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
-		lastDisplayedTimepoint = tp;
-
-		Vector3f centreCoord = getSpotsAveragePos(tp);
-		sciviewWin.centerOnPosition(centreCoord);
+		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
+		lastDisplayedTimepoint = -1; //NB: to make sure something gets rendered
+		sphereNodes.setDataCentre( getSpotsAveragePos(tp) );
+		repaintOnSciView(bdvWin);
 
 		new BdvNotifier(
 				() -> repaintOnSciView(bdvWin),
 				mastodonWin.getAppModel(),
 				bdvWin);
 
-		//bdvWin.getViewerPanelMamut().renderTransformListeners().
-		//drawSpotsFromThisTimepoint(10);
-		//sciviewWin.getCamera().setfo
-
-		//temporary drawing
+		//temporary handlers mostly for testing
 		keyHandlersForTestingForNow(bdvWin);
 		return bdvWin;
 	}
@@ -79,9 +73,41 @@ public class SciviewBridge {
 			sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
 		}
 
+		forThisBdv.getViewerPanelMamut().state().getViewerTransform(auxTransform);
+		for (int r = 0; r < 3; ++r)
+			for (int c = 0; c < 4; ++c)
+				viewMatrix.set(c,r, (float)auxTransform.get(r,c));
+		viewMatrix.getUnnormalizedRotation( viewRotation );
+
+		final Camera.CameraSpatial camSpatial = sciviewWin.getCamera().spatial();
+		viewRotation.y *= -1;
+		viewRotation.z *= -1;
+		camSpatial.setRotation( viewRotation );
+		float dist = camSpatial.getPosition().length();
+		camSpatial.setPosition( sciviewWin.getCamera().getForward().normalize().mul(-1f * dist) );
 	}
 
+	private final AffineTransform3D auxTransform = new AffineTransform3D();
+	private final Matrix4f viewMatrix = new Matrix4f(1f,0,0,0, 0,1f,0,0, 0,0,1f,0, 0,0,0,1);
+	private final Quaternionf viewRotation = new Quaternionf();
+
+
 	private int lastDisplayedTimepoint = -1;
+
+	private Vector3f getSpotsAveragePos(final int tp) {
+		final float[] pos = new float[3];
+		final float[] avg = {0,0,0};
+		int cnt = 0;
+		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
+			s.localize(pos);
+			avg[0] += pos[0];
+			avg[1] += pos[1];
+			avg[2] += pos[2];
+			++cnt;
+		}
+		return new Vector3f(avg[0]/(float)cnt, avg[1]/(float)cnt, avg[2]/(float)cnt);
+	}
+
 	private void keyHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();

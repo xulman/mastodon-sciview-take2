@@ -15,7 +15,7 @@ import java.util.LinkedList;
 
 public class SphereNodes {
 
-	float SCALE_FACTOR = 10.f;
+	float SCALE_FACTOR = 1.f;
 
 	final SciView sv;
 	final Node parentNode;
@@ -56,7 +56,7 @@ public class SphereNodes {
 		if (addedExtraNodes.size() > 0) {
 			//NB: also means that the knownNodes were fully exhausted
 			knownNodes.addAll(addedExtraNodes);
-			addedExtraNodes.forEach(sv::publishNode);
+			sv.publishNode( addedExtraNodes.get(0) ); //NB: publishes only once
 			System.out.println("Added new "+addedExtraNodes.size()+" spheres");
 		} else {
 			System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
@@ -73,13 +73,25 @@ public class SphereNodes {
 		return visibleNodesAfterall;
 	}
 
-	private float[] spatialPos = new float[3];
+	private final float[] auxSpatialPos = new float[3];
+	private final float[] minusThisOffset = {0,0,0};
+
+	public void setDataCentre(final Vector3f centre) {
+		minusThisOffset[0] = centre.x;
+		minusThisOffset[1] = centre.y;
+		minusThisOffset[2] = centre.z;
+	}
 
 	private void setSphereNode(final Sphere node, final Spot s) {
 		node.setName(s.getLabel());
 
-		s.localize(spatialPos);
-		node.spatial().setPosition(spatialPos);
+		s.localize(auxSpatialPos);
+		auxSpatialPos[0] -= minusThisOffset[0];
+		auxSpatialPos[1] -= minusThisOffset[1];
+		auxSpatialPos[2] -= minusThisOffset[2];
+		auxSpatialPos[1] *= -1;
+		auxSpatialPos[2] *= -1;
+		node.spatial().setPosition(auxSpatialPos);
 
 		node.spatial().setScale( new Vector3f(
 				SCALE_FACTOR * (float)Math.sqrt(s.getBoundingSphereRadiusSquared()) ) );
