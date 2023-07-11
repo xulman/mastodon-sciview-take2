@@ -55,7 +55,7 @@ public class BdvNotifier {
 		//the most recent data if no updates came from BDV for a little while
 		//(this is _delayed_ handling of the data, skipping over any intermediate changes)
 		final BdvEventsCatherThread blenderSenderThread
-				= new BdvEventsCatherThread(bdvUpdateListener, 100, redisplayProcessor);
+				= new BdvEventsCatherThread(bdvUpdateListener, 10, redisplayProcessor);
 
 		//register the BDV listener and start the thread
 		bdvWindow.getViewerPanelMamut().renderTransformListeners().add(bdvUpdateListener);
