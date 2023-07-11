@@ -27,10 +27,16 @@
  */
 package org.mastodon.mamut;
 
+import bdv.viewer.TimePointListener;
 import bdv.viewer.TransformListener;
 import net.imglib2.realtransform.AffineTransform3D;
 import org.mastodon.graph.GraphChangeListener;
+import org.mastodon.model.FocusListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+
 import org.mastodon.spatial.VertexPositionListener;
+import org.mastodon.ui.coloring.ColoringModel;
 
 public class BdvNotifier {
 	/**
@@ -63,6 +69,10 @@ public class BdvNotifier {
 
 		//register the BDV listener and start the thread
 		bdvWindow.getViewerPanelMamut().renderTransformListeners().add(bdvUpdateListener);
+		bdvWindow.getViewerPanelMamut().timePointListeners().add(bdvUpdateListener);
+		bdvWindow.getViewerPanelMamut().addPropertyChangeListener(bdvUpdateListener);
+		bdvWindow.getColoringModel().listeners().add(bdvUpdateListener);
+		mastodonAppModel.getFocusModel().listeners().add(bdvUpdateListener);
 		mastodonAppModel.getModel().getGraph().addVertexPositionListener(bdvUpdateListener);
 		mastodonAppModel.getModel().getGraph().addGraphChangeListener(bdvUpdateListener);
 		cumulatingEventsHandlerThread.start();
@@ -70,6 +80,10 @@ public class BdvNotifier {
 		bdvWindow.onClose(() -> {
 			System.out.println("Cleaning up while BDV window is closing.");
 			bdvWindow.getViewerPanelMamut().renderTransformListeners().remove(bdvUpdateListener);
+			bdvWindow.getViewerPanelMamut().timePointListeners().remove(bdvUpdateListener);
+			bdvWindow.getViewerPanelMamut().removePropertyChangeListener(bdvUpdateListener);
+			bdvWindow.getColoringModel().listeners().remove(bdvUpdateListener);
+			mastodonAppModel.getFocusModel().listeners().remove(bdvUpdateListener);
 			mastodonAppModel.getModel().getGraph().removeGraphChangeListener(bdvUpdateListener);
 			mastodonAppModel.getModel().getGraph().removeVertexPositionListener(bdvUpdateListener);
 			cumulatingEventsHandlerThread.stopTheWatching();
@@ -84,8 +98,12 @@ public class BdvNotifier {
 	 */
 	class BdvEventsWatcher implements
 			TransformListener<AffineTransform3D>,
+			TimePointListener,
 			GraphChangeListener,
-			VertexPositionListener
+			VertexPositionListener,
+			PropertyChangeListener,
+			FocusListener,
+			ColoringModel.ColoringChangedListener
 	{
 		final MamutViewBdv myBdvIamServicing;
 		BdvEventsWatcher(final MamutViewBdv viewBdv) {
@@ -98,6 +116,14 @@ public class BdvNotifier {
 		public void vertexPositionChanged(Object vertex) { contentChanged(); }
 		@Override
 		public void transformChanged(AffineTransform3D affineTransform3D) { viewChanged(); }
+		@Override
+		public void timePointChanged(int timePointIndex) { contentChanged(); }
+		@Override
+		public void focusChanged() { contentChanged(); }
+		@Override
+		public void propertyChange(PropertyChangeEvent propertyChangeEvent) { contentChanged(); }
+		@Override
+		public void coloringChanged() { contentChanged(); }
 
 		void contentChanged() {
 			timeStampOfLastEvent = System.currentTimeMillis();
