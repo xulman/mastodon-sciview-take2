@@ -1,9 +1,14 @@
 //TODO add license text
 package org.mastodon.mamut;
 
+import graphics.scenery.AmbientLight;
+import graphics.scenery.Box;
 import graphics.scenery.Camera;
+import graphics.scenery.Node;
+import graphics.scenery.PointLight;
 import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
+import graphics.scenery.primitives.Cylinder;
 import mpicbg.spim.data.SpimDataException;
 import net.imglib2.realtransform.AffineTransform3D;
 import org.joml.Matrix4f;
@@ -27,6 +32,8 @@ public class SciviewBridge {
 	//data sink stuff
 	final SciView sciviewWin;
 	final SphereNodes sphereNodes;
+	final Sphere sphereParent;
+	final Node axesParent;
 
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
@@ -34,15 +41,68 @@ public class SciviewBridge {
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
 
+		//adjust the default scene's settings
+		sciviewWin.getFloor().setVisible(false);
+		sciviewWin.getLights().forEach(l -> {
+			if (l.getName().startsWith("headli"))
+				adjustHeadLight(l);
+			else
+				l.setVisible(false);
+		});
+		sciviewWin.getCamera().getChildren().forEach(l -> {
+			if (l.getName().startsWith("headli") && l instanceof PointLight)
+				adjustHeadLight((PointLight)l);
+		});
+		sciviewWin.addNode( new AmbientLight(0.05f, new Vector3f(1,1,1)) );
+
+		this.axesParent = addDataAxes();
+		sciviewWin.addChild( axesParent );
+
 		//add the "root" node for this Mastodon session
-		Sphere parentNode = sciviewWin.addSphere();
+		sphereParent = sciviewWin.addSphere();
 		//todo: make the parent node (sphere) invisible
-		parentNode.setName( mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		sphereParent.setName( mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		sphereParent.spatial().setScale( new Vector3f(0.05f) );
 
 		//add the sciview-side displaying handler for the spots
-		this.sphereNodes = new SphereNodes(this.sciviewWin, parentNode);
+		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
 
 		//todo: add similar handler for the volume
+	}
+
+	public static void adjustHeadLight(final PointLight hl) {
+		hl.setIntensity(1.5f);
+		hl.spatial().setRotation(new Quaternionf().rotateY((float) Math.PI));
+	}
+
+	public static Node addDataAxes() {
+		//add the data axes
+		final float AXES_LINE_WIDTHS = 0.25f;
+		final float AXES_LINE_LENGTHS = 5.f;
+		//
+		final Node axesParent = new Box( new Vector3f(0.1f) );
+		axesParent.setName("Data Axes");
+		//
+		Cylinder c = new Cylinder(AXES_LINE_WIDTHS/2.0f, AXES_LINE_LENGTHS, 12);
+		c.setName("Data x axis");
+		c.material().setDiffuse( new Vector3f(1,0,0) );
+		final float halfPI = (float)Math.PI / 2.0f;
+		c.spatial().setRotation( new Quaternionf().rotateLocalZ(-halfPI) );
+		axesParent.addChild(c);
+		//
+		c = new Cylinder(AXES_LINE_WIDTHS/2.0f, AXES_LINE_LENGTHS, 12);
+		c.setName("Data y axis");
+		c.material().setDiffuse( new Vector3f(0,1,0) );
+		c.spatial().setRotation( new Quaternionf().rotateLocalZ((float)Math.PI) );
+		axesParent.addChild(c);
+		//
+		c = new Cylinder(AXES_LINE_WIDTHS/2.0f, AXES_LINE_LENGTHS, 12);
+		c.setName("Data z axis");
+		c.material().setDiffuse( new Vector3f(0,0,1) );
+		c.spatial().setRotation( new Quaternionf().rotateLocalX(-halfPI) );
+		axesParent.addChild(c);
+
+		return axesParent;
 	}
 
 	public MamutViewBdv openSyncedBDV() {
