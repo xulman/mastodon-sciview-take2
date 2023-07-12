@@ -30,11 +30,16 @@ public class SphereNodes {
 	final List<Sphere> knownNodes = new ArrayList<>(1000);
 	final List<Sphere> addedExtraNodes = new LinkedList<>();
 
+	private Spot spotRef = null;
+
 	public int showTheseSpots(final MamutAppModel mastodonData,
 	                          final int timepoint,
 	                          final GraphColorGenerator<Spot, Link> colorizer) {
 		int visibleNodesAfterall = 0;
 		addedExtraNodes.clear();
+
+		if (spotRef == null) spotRef = mastodonData.getModel().getGraph().vertexRef();
+		Spot focusedSpotRef = mastodonData.getFocusModel().getFocusedVertex(spotRef);
 
 		final SpatialIndex<Spot> spots
 				= mastodonData.getModel().getSpatioTemporalIndex().getSpatialIndex(timepoint);
@@ -54,6 +59,9 @@ public class SphereNodes {
 				addedExtraNodes.add(node);
 			}
 			setSphereNode(node,s,colorizer);
+			if (focusedSpotRef != null && focusedSpotRef.getInternalPoolIndex() == s.getInternalPoolIndex()) {
+				node.material().setWireframe(true);
+			}
 			++visibleNodesAfterall;
 		}
 
@@ -108,6 +116,7 @@ public class SphereNodes {
 		float g = ((intColor >> 8) & 0x000000FF) / 255.f;
 		float b =  (intColor & 0x000000FF) / 255.f;
 		node.material().getDiffuse().set(r,g,b);
+		node.material().setWireframe(false);
 	}
 
 	public void decreaseSphereScale() {
