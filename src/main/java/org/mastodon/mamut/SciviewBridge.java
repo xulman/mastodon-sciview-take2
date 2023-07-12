@@ -15,8 +15,13 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.mastodon.mamut.model.Spot;
+import org.mastodon.mamut.model.Link;
 import org.mastodon.mamut.project.MamutProjectIO;
 import org.mastodon.mamut.util.SphereNodes;
+import org.mastodon.model.tag.TagSetStructure;
+import org.mastodon.ui.coloring.TagSetGraphColorGenerator;
+import org.mastodon.ui.coloring.DefaultGraphColorGenerator;
+import org.mastodon.ui.coloring.GraphColorGenerator;
 import org.scijava.Context;
 import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
@@ -32,6 +37,8 @@ public class SciviewBridge {
 	//data sink stuff
 	final SciView sciviewWin;
 	final SphereNodes sphereNodes;
+
+	//sink scene graph structuring nodes
 	final Sphere sphereParent;
 	final Node axesParent;
 
@@ -55,6 +62,7 @@ public class SciviewBridge {
 		});
 		sciviewWin.addNode( new AmbientLight(0.05f, new Vector3f(1,1,1)) );
 
+		//add "root" with data axes
 		this.axesParent = addDataAxes();
 		sciviewWin.addChild( axesParent );
 
@@ -62,7 +70,10 @@ public class SciviewBridge {
 		sphereParent = sciviewWin.addSphere();
 		//todo: make the parent node (sphere) invisible
 		sphereParent.setName( mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+
+		//scene scaling...
 		sphereParent.spatial().setScale( new Vector3f(0.05f) );
+		sciviewWin.getCamera().spatial().move(30f,2);
 
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
@@ -70,6 +81,7 @@ public class SciviewBridge {
 		//todo: add similar handler for the volume
 	}
 
+	// --------------------------------------------------------------------------
 	public static void adjustHeadLight(final PointLight hl) {
 		hl.setIntensity(1.5f);
 		hl.spatial().setRotation(new Quaternionf().rotateY((float) Math.PI));
@@ -105,34 +117,65 @@ public class SciviewBridge {
 		return axesParent;
 	}
 
+	// --------------------------------------------------------------------------
 	public MamutViewBdv openSyncedBDV() {
 		final MamutViewBdv bdvWin = mastodonWin.createBigDataViewer();
 		bdvWin.getFrame().setTitle("BDV linked to Sciview");
 
 		//initial spots content:
 		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
-		lastDisplayedTimepoint = -1; //NB: to make sure something gets rendered
 		sphereNodes.setDataCentre( getSpotsAveragePos(tp) );
-		repaintOnSciView(bdvWin);
+		updateSciviewContent(bdvWin);
 
 		new BdvNotifier(
-				() -> repaintOnSciView(bdvWin),
+				() -> updateSciviewContent(bdvWin),
+				() -> updateSciviewCamera(bdvWin),
 				mastodonWin.getAppModel(),
 				bdvWin);
 
 		//temporary handlers mostly for testing
-		keyHandlersForTestingForNow(bdvWin);
+		keyboardHandlersForTestingForNow(bdvWin);
 		return bdvWin;
 	}
 
-	private void repaintOnSciView(final MamutViewBdv forThisBdv) {
-		//new timepoint?
-		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
-		if (tp != lastDisplayedTimepoint) {
-			lastDisplayedTimepoint = tp;
-			sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp);
+	private Vector3f getSpotsAveragePos(final int tp) {
+		final float[] pos = new float[3];
+		final float[] avg = {0,0,0};
+		int cnt = 0;
+		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
+			s.localize(pos);
+			avg[0] += pos[0];
+			avg[1] += pos[1];
+			avg[2] += pos[2];
+			++cnt;
 		}
+		return new Vector3f(avg[0]/(float)cnt, avg[1]/(float)cnt, avg[2]/(float)cnt);
+	}
 
+	// --------------------------------------------------------------------------
+	private TagSetStructure.TagSet recentTagSet;
+	private GraphColorGenerator<Spot, Link> recentColorizer;
+	private DefaultGraphColorGenerator<Spot, Link> noTScolorizer = new DefaultGraphColorGenerator<>();
+
+	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
+		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+
+		//NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending
+		GraphColorGenerator<Spot, Link> colorizer;
+		final TagSetStructure.TagSet ts = forThisBdv.getColoringModel().getTagSet();
+		if (ts != null) {
+			if (ts != recentTagSet) {
+				recentColorizer = new TagSetGraphColorGenerator<>(mastodonWin.getAppModel().getModel().getTagSetModel(), ts);
+			}
+			colorizer = recentColorizer;
+		} else {
+			colorizer = noTScolorizer;
+		}
+		recentTagSet = ts;
+		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp, colorizer);
+	}
+
+	private void updateSciviewCamera(final MamutViewBdv forThisBdv) {
 		forThisBdv.getViewerPanelMamut().state().getViewerTransform(auxTransform);
 		for (int r = 0; r < 3; ++r)
 			for (int c = 0; c < 4; ++c)
@@ -151,24 +194,8 @@ public class SciviewBridge {
 	private final Matrix4f viewMatrix = new Matrix4f(1f,0,0,0, 0,1f,0,0, 0,0,1f,0, 0,0,0,1);
 	private final Quaternionf viewRotation = new Quaternionf();
 
-
-	private int lastDisplayedTimepoint = -1;
-
-	private Vector3f getSpotsAveragePos(final int tp) {
-		final float[] pos = new float[3];
-		final float[] avg = {0,0,0};
-		int cnt = 0;
-		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
-			s.localize(pos);
-			avg[0] += pos[0];
-			avg[1] += pos[1];
-			avg[2] += pos[2];
-			++cnt;
-		}
-		return new Vector3f(avg[0]/(float)cnt, avg[1]/(float)cnt, avg[2]/(float)cnt);
-	}
-
-	private void keyHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
+	// --------------------------------------------------------------------------
+	private void keyboardHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
 		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
@@ -234,7 +261,7 @@ public class SciviewBridge {
 			bridge.openSyncedBDV();
 
 		} catch (Exception e) {
-			System.out.println("got exception: "+e.getMessage());
+			System.out.println("Got this exception: "+e.getMessage());
 		}
 	}
 }

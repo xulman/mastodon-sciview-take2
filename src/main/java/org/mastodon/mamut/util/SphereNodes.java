@@ -3,9 +3,10 @@ package org.mastodon.mamut.util;
 import graphics.scenery.Node;
 import org.joml.Vector3f;
 import org.mastodon.mamut.MamutAppModel;
-import org.mastodon.spatial.SpatialIndex;
 import org.mastodon.mamut.model.Spot;
-
+import org.mastodon.mamut.model.Link;
+import org.mastodon.spatial.SpatialIndex;
+import org.mastodon.ui.coloring.GraphColorGenerator;
 import sc.iview.SciView;
 import graphics.scenery.Sphere;
 
@@ -16,6 +17,7 @@ import java.util.LinkedList;
 public class SphereNodes {
 
 	float SCALE_FACTOR = 1.f;
+	int DEFAULT_COLOR = 0x00FFFFFF;
 
 	final SciView sv;
 	final Node parentNode;
@@ -28,9 +30,16 @@ public class SphereNodes {
 	final List<Sphere> knownNodes = new ArrayList<>(1000);
 	final List<Sphere> addedExtraNodes = new LinkedList<>();
 
-	public int showTheseSpots(final MamutAppModel mastodonData, final int timepoint) {
+	private Spot spotRef = null;
+
+	public int showTheseSpots(final MamutAppModel mastodonData,
+	                          final int timepoint,
+	                          final GraphColorGenerator<Spot, Link> colorizer) {
 		int visibleNodesAfterall = 0;
 		addedExtraNodes.clear();
+
+		if (spotRef == null) spotRef = mastodonData.getModel().getGraph().vertexRef();
+		Spot focusedSpotRef = mastodonData.getFocusModel().getFocusedVertex(spotRef);
 
 		final SpatialIndex<Spot> spots
 				= mastodonData.getModel().getSpatioTemporalIndex().getSpatialIndex(timepoint);
@@ -49,7 +58,10 @@ public class SphereNodes {
 				parentNode.addChild(node);
 				addedExtraNodes.add(node);
 			}
-			setSphereNode(node,s);
+			setSphereNode(node,s,colorizer);
+			if (focusedSpotRef != null && focusedSpotRef.getInternalPoolIndex() == s.getInternalPoolIndex()) {
+				node.material().setWireframe(true);
+			}
 			++visibleNodesAfterall;
 		}
 
@@ -57,9 +69,9 @@ public class SphereNodes {
 			//NB: also means that the knownNodes were fully exhausted
 			knownNodes.addAll(addedExtraNodes);
 			sv.publishNode( addedExtraNodes.get(0) ); //NB: publishes only once
-			System.out.println("Added new "+addedExtraNodes.size()+" spheres");
+			//System.out.println("Added new "+addedExtraNodes.size()+" spheres");
 		} else {
-			System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
+			//System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
 			//NB: mark not-touched knownNodes as hidden
 			int i = visibleNodesAfterall;
 			while (i < knownNodes.size()) {
@@ -82,7 +94,9 @@ public class SphereNodes {
 		minusThisOffset[2] = centre.z;
 	}
 
-	private void setSphereNode(final Sphere node, final Spot s) {
+	private void setSphereNode(final Sphere node,
+	                           final Spot s,
+	                           final GraphColorGenerator<Spot, Link> colorizer) {
 		node.setName(s.getLabel());
 
 		s.localize(auxSpatialPos);
@@ -96,7 +110,13 @@ public class SphereNodes {
 		node.spatial().setScale( new Vector3f(
 				SCALE_FACTOR * (float)Math.sqrt(s.getBoundingSphereRadiusSquared()) ) );
 
-		node.material().setDiffuse( new Vector3f(1.0f, 0.f, 0.f) );
+		int intColor = colorizer.color(s);
+		if (intColor == 0x00000000) intColor = DEFAULT_COLOR;
+		float r = ((intColor >> 16) & 0x000000FF) / 255.f;
+		float g = ((intColor >> 8) & 0x000000FF) / 255.f;
+		float b =  (intColor & 0x000000FF) / 255.f;
+		node.material().getDiffuse().set(r,g,b);
+		node.material().setWireframe(false);
 	}
 
 	public void decreaseSphereScale() {
@@ -105,13 +125,13 @@ public class SphereNodes {
 		if (SCALE_FACTOR < 0.4f) SCALE_FACTOR = 0.5f;
 		final float factor = SCALE_FACTOR / oldScale;
 		knownNodes.forEach(s -> s.spatial().setScale( s.spatial().getScale().mul(factor)) );
-		System.out.println("decreasing scale to "+SCALE_FACTOR+", by factor "+factor);
+		System.out.println("Decreasing scale to "+SCALE_FACTOR+", by factor "+factor);
 	}
 	public void increaseSphereScale() {
 		float oldScale = SCALE_FACTOR;
 		SCALE_FACTOR += 0.5f;
 		final float factor = SCALE_FACTOR / oldScale;
 		knownNodes.forEach(s -> s.spatial().setScale( s.spatial().getScale().mul(factor)) );
-		System.out.println("increasing scale to "+SCALE_FACTOR+", by factor "+factor);
+		System.out.println("Increasing scale to "+SCALE_FACTOR+", by factor "+factor);
 	}
 }
