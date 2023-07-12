@@ -26,6 +26,7 @@ import org.scijava.Context;
 import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
+import javax.swing.WindowConstants;
 
 import java.io.IOException;
 
@@ -237,7 +238,7 @@ public class SciviewBridge {
 		win.setVisible( true );
 
 		//this makes the whole thing (incl. the central hub) go down when the GUI is closed
-		win.setDefaultCloseOperation( /* WindowConstants.EXIT_ON_CLOSE == */ 3 );
+		win.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE );
 
 		return windowManager;
 	}
