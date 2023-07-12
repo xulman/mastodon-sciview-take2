@@ -27,24 +27,33 @@
  */
 package org.mastodon.mamut;
 
+import bdv.viewer.TimePointListener;
 import bdv.viewer.TransformListener;
 import net.imglib2.realtransform.AffineTransform3D;
 import org.mastodon.graph.GraphChangeListener;
-import org.mastodon.mamut.plugin.MamutPluginAppModel;
+import org.mastodon.model.FocusListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+
 import org.mastodon.spatial.VertexPositionListener;
+import org.mastodon.ui.coloring.ColoringModel;
 
 public class BdvNotifier {
 	/**
-	 * Runs the redisplayProcessor when an event occurs on the given
-	 * BDV window, an event that is worth redrawing the scene. A shortcut
+	 * Runs the updateContentProcessor() when an event occurs on the given
+	 * BDV window, an event that is worth rebuilding the scene content. Similarly,
+	 * runs the updateViewProcessor() when an event occurs on the given BDV
+	 * window, an event that is worth moving the scene's camera. A shortcut
 	 * reference (to the underlying Mastodon data that the BDV window
 	 * operates over) must be provided.
 	 *
-	 * @param redisplayProcessor  handler of the redrawing event
+	 * @param updateContentProcessor  handler of the scene rebuilding event
+	 * @param updateViewProcessor  handler of the scene viewing-angle event
 	 * @param mastodonAppModel  the underlying Mastodon data
 	 * @param bdvWindow  BDV window that operated on the underlying Mastodon data
 	 */
-	public BdvNotifier(final Runnable redisplayProcessor,
+	public BdvNotifier(final Runnable updateContentProcessor,
+	                   final Runnable updateViewProcessor,
 	                   final MamutAppModel mastodonAppModel,
 	                   final MamutViewBdv bdvWindow)
 	{
@@ -54,32 +63,47 @@ public class BdvNotifier {
 		//create a thread that would be watching over the listener and would take only
 		//the most recent data if no updates came from BDV for a little while
 		//(this is _delayed_ handling of the data, skipping over any intermediate changes)
-		final BdvEventsCatherThread blenderSenderThread
-				= new BdvEventsCatherThread(bdvUpdateListener, 100, redisplayProcessor);
+		final BdvEventsCatherThread cumulatingEventsHandlerThread
+				= new BdvEventsCatherThread(bdvUpdateListener, 10,
+						updateContentProcessor, updateViewProcessor);
 
 		//register the BDV listener and start the thread
 		bdvWindow.getViewerPanelMamut().renderTransformListeners().add(bdvUpdateListener);
+		bdvWindow.getViewerPanelMamut().timePointListeners().add(bdvUpdateListener);
+		bdvWindow.getViewerPanelMamut().addPropertyChangeListener(bdvUpdateListener);
+		bdvWindow.getColoringModel().listeners().add(bdvUpdateListener);
+		mastodonAppModel.getFocusModel().listeners().add(bdvUpdateListener);
 		mastodonAppModel.getModel().getGraph().addVertexPositionListener(bdvUpdateListener);
 		mastodonAppModel.getModel().getGraph().addGraphChangeListener(bdvUpdateListener);
-		blenderSenderThread.start();
+		cumulatingEventsHandlerThread.start();
 
 		bdvWindow.onClose(() -> {
 			System.out.println("Cleaning up while BDV window is closing.");
 			bdvWindow.getViewerPanelMamut().renderTransformListeners().remove(bdvUpdateListener);
+			bdvWindow.getViewerPanelMamut().timePointListeners().remove(bdvUpdateListener);
+			bdvWindow.getViewerPanelMamut().removePropertyChangeListener(bdvUpdateListener);
+			bdvWindow.getColoringModel().listeners().remove(bdvUpdateListener);
+			mastodonAppModel.getFocusModel().listeners().remove(bdvUpdateListener);
 			mastodonAppModel.getModel().getGraph().removeGraphChangeListener(bdvUpdateListener);
 			mastodonAppModel.getModel().getGraph().removeVertexPositionListener(bdvUpdateListener);
-			blenderSenderThread.stopTheWatching();
+			cumulatingEventsHandlerThread.stopTheWatching();
 		});
 	}
 
 	/**
 	 * this class only registers timestamp of the most recently
-	 * occurred relevant BDV/Mastodon event
+	 * occurred relevant BDV/Mastodon event, it recognized two types
+	 * of events: events requiring scene camera repositioning, and events
+	 * requiring scene content rebuild
 	 */
 	class BdvEventsWatcher implements
 			TransformListener<AffineTransform3D>,
+			TimePointListener,
 			GraphChangeListener,
-			VertexPositionListener
+			VertexPositionListener,
+			PropertyChangeListener,
+			FocusListener,
+			ColoringModel.ColoringChangedListener
 	{
 		final MamutViewBdv myBdvIamServicing;
 		BdvEventsWatcher(final MamutViewBdv viewBdv) {
@@ -87,42 +111,59 @@ public class BdvNotifier {
 		}
 
 		@Override
-		public void transformChanged(AffineTransform3D affineTransform3D) { somethingChanged(); }
+		public void graphChanged() { contentChanged(); }
 		@Override
-		public void graphChanged() { somethingChanged(); }
+		public void vertexPositionChanged(Object vertex) { contentChanged(); }
 		@Override
-		public void vertexPositionChanged(Object vertex) { somethingChanged(); }
+		public void transformChanged(AffineTransform3D affineTransform3D) { viewChanged(); }
+		@Override
+		public void timePointChanged(int timePointIndex) { contentChanged(); }
+		@Override
+		public void focusChanged() { contentChanged(); }
+		@Override
+		public void propertyChange(PropertyChangeEvent propertyChangeEvent) { contentChanged(); }
+		@Override
+		public void coloringChanged() { contentChanged(); }
 
-		void somethingChanged() {
-			timeStampOfLastRequest = System.currentTimeMillis();
-			isLastRequestDataValid = true;
-			//System.out.println("detected new tp and some new transform");
+		void contentChanged() {
+			timeStampOfLastEvent = System.currentTimeMillis();
+			isLastContentEventValid = true;
+		}
+		void viewChanged() {
+			timeStampOfLastEvent = System.currentTimeMillis();
+			isLastViewEventValid = true;
 		}
 
-		boolean isLastRequestDataValid = false;
-		long timeStampOfLastRequest = 0;
+		boolean isLastContentEventValid = false;
+		boolean isLastViewEventValid = false;
+		long timeStampOfLastEvent = 0;
 	}
 
 	/**
 	 * this class iteratively inspects (via a busy-wait loop cycle in its own
 	 * separate thread) the associated BdvEventsWatcher if there is a recent
-	 * (and not out-dated) event pending, and if so, it calls the eventHandler
+	 * (and not out-dated) event(s) pending, and if so, it calls the respective
+	 * eventHandler(s)
 	 */
 	class BdvEventsCatherThread extends Thread
 	{
 		final BdvEventsWatcher eventsSource;
+		final Runnable contentEventProcessor;
+		final Runnable viewEventProcessor;
+
 		final long updateInterval;
-		final Runnable eventProcessor;
 		boolean keepWatching = true;
 
 		final private static String SERVICE_NAME = "Mastodon BDV events watcher";
 		BdvEventsCatherThread(final BdvEventsWatcher dataSupplier,
 		                      final long updateIntervalInMilis,
-		                      final Runnable dataEventHandler) {
+		                      final Runnable contentEventProcessor,
+		                      final Runnable viewEventProcessor) {
 			super(SERVICE_NAME);
 			eventsSource = dataSupplier;
 			updateInterval = updateIntervalInMilis;
-			eventProcessor = dataEventHandler;
+			this.contentEventProcessor = contentEventProcessor;
+			this.viewEventProcessor = viewEventProcessor;
 		}
 
 		void stopTheWatching() {
@@ -135,12 +176,19 @@ public class BdvNotifier {
 			try {
 				while (keepWatching)
 				{
-					if (eventsSource.isLastRequestDataValid
-							&& (System.currentTimeMillis() - eventsSource.timeStampOfLastRequest > updateInterval))
+					if (eventsSource.isLastContentEventValid || eventsSource.isLastViewEventValid
+							&& (System.currentTimeMillis() - eventsSource.timeStampOfLastEvent > updateInterval))
 					{
-						System.out.println(SERVICE_NAME+": silence detected -> sending the current data");
-						eventsSource.isLastRequestDataValid = false;
-						eventProcessor.run();
+						if (eventsSource.isLastContentEventValid) {
+							//System.out.println(SERVICE_NAME+": content event and silence detected -> processing it now");
+							eventsSource.isLastContentEventValid = false;
+							contentEventProcessor.run();
+						}
+						if (eventsSource.isLastViewEventValid) {
+							//System.out.println(SERVICE_NAME+": view event and silence detected -> processing it now");
+							eventsSource.isLastViewEventValid = false;
+							viewEventProcessor.run();
+						}
 					} else sleep(updateInterval/2);
 				}
 			}
