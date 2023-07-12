@@ -69,9 +69,9 @@ public class SphereNodes {
 			//NB: also means that the knownNodes were fully exhausted
 			knownNodes.addAll(addedExtraNodes);
 			sv.publishNode( addedExtraNodes.get(0) ); //NB: publishes only once
-			System.out.println("Added new "+addedExtraNodes.size()+" spheres");
+			//System.out.println("Added new "+addedExtraNodes.size()+" spheres");
 		} else {
-			System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
+			//System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
 			//NB: mark not-touched knownNodes as hidden
 			int i = visibleNodesAfterall;
 			while (i < knownNodes.size()) {
@@ -125,13 +125,13 @@ public class SphereNodes {
 		if (SCALE_FACTOR < 0.4f) SCALE_FACTOR = 0.5f;
 		final float factor = SCALE_FACTOR / oldScale;
 		knownNodes.forEach(s -> s.spatial().setScale( s.spatial().getScale().mul(factor)) );
-		System.out.println("decreasing scale to "+SCALE_FACTOR+", by factor "+factor);
+		System.out.println("Decreasing scale to "+SCALE_FACTOR+", by factor "+factor);
 	}
 	public void increaseSphereScale() {
 		float oldScale = SCALE_FACTOR;
 		SCALE_FACTOR += 0.5f;
 		final float factor = SCALE_FACTOR / oldScale;
 		knownNodes.forEach(s -> s.spatial().setScale( s.spatial().getScale().mul(factor)) );
-		System.out.println("increasing scale to "+SCALE_FACTOR+", by factor "+factor);
+		System.out.println("Increasing scale to "+SCALE_FACTOR+", by factor "+factor);
 	}
 }

@@ -261,7 +261,7 @@ public class SciviewBridge {
 			bridge.openSyncedBDV();
 
 		} catch (Exception e) {
-			System.out.println("got exception: "+e.getMessage());
+			System.out.println("Got this exception: "+e.getMessage());
 		}
 	}
 }

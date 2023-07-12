@@ -180,12 +180,12 @@ public class BdvNotifier {
 							&& (System.currentTimeMillis() - eventsSource.timeStampOfLastEvent > updateInterval))
 					{
 						if (eventsSource.isLastContentEventValid) {
-							System.out.println(SERVICE_NAME+": content event and silence detected -> processing it now");
+							//System.out.println(SERVICE_NAME+": content event and silence detected -> processing it now");
 							eventsSource.isLastContentEventValid = false;
 							contentEventProcessor.run();
 						}
 						if (eventsSource.isLastViewEventValid) {
-							System.out.println(SERVICE_NAME+": view event and silence detected -> processing it now");
+							//System.out.println(SERVICE_NAME+": view event and silence detected -> processing it now");
 							eventsSource.isLastViewEventValid = false;
 							viewEventProcessor.run();
 						}
