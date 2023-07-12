@@ -221,10 +221,6 @@ public class SciviewBridge {
 	throws IOException, SpimDataException {
 		String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
 
-		//not sure what this is good for but see it everywhere...
-		//(seems to give no effect on Linux)
-		System.setProperty( "apple.laf.useScreenMenuBar", "true" );
-
 		//ImageJ ij = new ImageJ();
 		//ij.ui().showUI();
 
