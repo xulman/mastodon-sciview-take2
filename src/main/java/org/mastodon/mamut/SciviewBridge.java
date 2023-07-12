@@ -9,8 +9,14 @@ import graphics.scenery.PointLight;
 import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
 import graphics.scenery.primitives.Cylinder;
+import graphics.scenery.volumes.Volume;
 import mpicbg.spim.data.SpimDataException;
+import net.imglib2.Cursor;
+import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.realtransform.AffineTransform3D;
+import net.imglib2.type.numeric.RealType;
+import net.imglib2.view.Views;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -27,7 +33,6 @@ import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
 import javax.swing.WindowConstants;
-
 import java.io.IOException;
 
 public class SciviewBridge {
@@ -40,8 +45,9 @@ public class SciviewBridge {
 	final SphereNodes sphereNodes;
 
 	//sink scene graph structuring nodes
-	final Sphere sphereParent;
 	final Node axesParent;
+	final Sphere sphereParent;
+	final Volume volumeParent;
 
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
@@ -79,7 +85,36 @@ public class SciviewBridge {
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
 
-		//todo: add similar handler for the volume
+		//similar handler for the volume
+		RandomAccessibleInterval<?> imgSrc = mastodonWin.getAppModel()
+						.getSharedBdvData().getSources().get(0)
+						.getSpimSource().getSource(0,0);
+		RandomAccessibleInterval<?> imgHardCopy = ArrayImgs.unsignedShorts( imgSrc.dimension(0),
+				imgSrc.dimension(1), imgSrc.dimension(2) );
+		flatCopy((RandomAccessibleInterval)imgSrc, (RandomAccessibleInterval)imgHardCopy);
+
+		//to make sure full res is rendered on the screen, the volume needs
+		//to be fully loaded (as sciview/scenery doesn't seem to be able to request
+		//fetching of the pixels on its own) by copying the pixels (which mandates
+		//the pixels are fully loaded for the copy)
+		volumeParent = sciviewWin.addVolume(
+				(RandomAccessibleInterval)imgHardCopy,
+				/*
+				(RandomAccessibleInterval)mastodonWin.getAppModel()
+						.getSharedBdvData().getSources().get(0)
+						.getSpimSource().getSource(0,0),
+				*/
+				"full res img",
+				new float[] {0.01f,0.01f,0.01f} );
+		volumeParent.spatial().setScale( new Vector3f(0.5f,0.5f,0.5f) );
+	}
+
+	private static <T extends RealType<T>> void flatCopy(RandomAccessibleInterval<T> input,
+	                                                     RandomAccessibleInterval<T> output) {
+		Cursor<T> reader = Views.flatIterable(input).cursor();
+		Cursor<T> writer = Views.flatIterable(output).cursor();
+		while (writer.hasNext())
+			writer.next().set( reader.next() );
 	}
 
 	// --------------------------------------------------------------------------
