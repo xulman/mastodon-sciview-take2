@@ -111,14 +111,10 @@ public class SciviewBridge {
 		greenVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
 		blueVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
 		//
-		spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
+		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
 				(RandomAccessibleInterval)mastodonWin.getAppModel()
-						.getSharedBdvData().getSources().get(SOURCE_ID)
-						.getSpimSource().getSource(0,0),
-				new long[] {350,350,50},
-				400,
-				99999,
-				new float[] {1,1,0} );
+					.getSharedBdvData().getSources().get(SOURCE_ID)
+					.getSpimSource().getSource(0,0) );
 
 		volumeParent = null; //sciviewWin.addSphere();
 		//volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
@@ -349,6 +345,43 @@ public class SciviewBridge {
 		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp,
 				getCurrentColorizer(forThisBdv));
 	}
+
+	private void updateSciviewColoring(final MamutViewBdv forThisBdv) {
+		long[] pxCoord = new long[3];
+		float[] spotCoord = new float[3];
+		float[] color = new float[3];
+
+		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		RandomAccessibleInterval<?> srcRAI = mastodonWin.getAppModel()
+				.getSharedBdvData().getSources().get(SOURCE_ID)
+				.getSpimSource().getSource(tp,0);
+
+		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
+				(RandomAccessibleInterval)srcRAI);
+
+		GraphColorGenerator<Spot, Link> colorizer = getCurrentColorizer(forThisBdv);
+		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
+			final int col = colorizer.color(s);
+			color[0] = ((col & 0x00FF0000) >> 16) / 255.f;
+			color[1] = ((col & 0x0000FF00) >> 8 ) / 255.f;
+			color[2] = ( col & 0x000000FF       ) / 255.f;
+
+			s.localize(spotCoord);
+			spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
+				(RandomAccessibleInterval)srcRAI,
+				mastodonToImgCoord(spotCoord,pxCoord),
+				20,
+				10,
+				color);
+		}
+
+		try {
+			redVolChannelNode.volumeManager.notifyUpdate(redVolChannelNode);
+			Thread.sleep(300);
+			greenVolChannelNode.volumeManager.notifyUpdate(greenVolChannelNode);
+			Thread.sleep(300);
+			blueVolChannelNode.volumeManager.notifyUpdate(blueVolChannelNode);
+		} catch (InterruptedException e) { /* do nothing */ }
 	}
 
 	private void updateSciviewCamera(final MamutViewBdv forThisBdv) {
