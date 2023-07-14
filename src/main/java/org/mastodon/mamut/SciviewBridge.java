@@ -17,6 +17,7 @@ import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.FinalInterval;
 import net.imglib2.Interval;
 import net.imglib2.img.planar.PlanarImgs;
+import net.imglib2.loops.LoopBuilder;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.RealType;
@@ -186,6 +187,22 @@ public class SciviewBridge {
 		Cursor<T> writer = Views.flatIterable(output).cursor();
 		while (writer.hasNext())
 			writer.next().set( reader.next() );
+	}
+
+	public static <T extends IntegerType<T>>
+	void freshNewWhiteContent(final RandomAccessibleInterval<T> redCh,
+	                          final RandomAccessibleInterval<T> greenCh,
+	                          final RandomAccessibleInterval<T> blueCh,
+	                          final RandomAccessibleInterval<T> srcImg) {
+		LoopBuilder.setImages(srcImg,redCh,greenCh,blueCh)
+				.flatIterationOrder()
+				.multiThreaded()
+				.forEachPixel((s,r,g,b) -> {
+					final int val = s.getInteger();
+					r.setInteger(val);
+					g.setInteger(val);
+					b.setInteger(val);
+				});
 	}
 
 	public static <T extends IntegerType<T>>
