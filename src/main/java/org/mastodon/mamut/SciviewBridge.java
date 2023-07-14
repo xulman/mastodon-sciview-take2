@@ -47,7 +47,7 @@ public class SciviewBridge {
 	//sink scene graph structuring nodes
 	final Node axesParent;
 	final Sphere sphereParent;
-	final Volume volumeParent;
+	final Sphere volumeParent;
 
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
@@ -68,19 +68,21 @@ public class SciviewBridge {
 				adjustHeadLight((PointLight)l);
 		});
 		sciviewWin.addNode( new AmbientLight(0.05f, new Vector3f(1,1,1)) );
+		sciviewWin.getCamera().spatial().move(30f,2);
 
 		//add "root" with data axes
 		this.axesParent = addDataAxes();
 		sciviewWin.addChild( axesParent );
 
 		//add the "root" node for this Mastodon session
+		volumeParent = null; //sciviewWin.addSphere();
+		//volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
 		sphereParent = sciviewWin.addSphere();
 		//todo: make the parent node (sphere) invisible
 		sphereParent.setName( mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
 
 		//scene scaling...
 		sphereParent.spatial().setScale( new Vector3f(0.05f) );
-		sciviewWin.getCamera().spatial().move(30f,2);
 
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
