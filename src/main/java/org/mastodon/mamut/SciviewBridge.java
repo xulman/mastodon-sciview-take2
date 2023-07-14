@@ -63,6 +63,8 @@ public class SciviewBridge {
 	final RandomAccessibleInterval<UnsignedShortType> greenVolChannelImg;
 	final RandomAccessibleInterval<UnsignedShortType> blueVolChannelImg;
 
+	final Vector3f mastodonToImgCoordsTransfer;
+
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
@@ -139,12 +141,13 @@ public class SciviewBridge {
 		//
 		final float MAGIC_ONE_TENTH = 0.1f; //probably something inside scenery...
 		spotsScale.mul( MAGIC_ONE_TENTH * redVolChannelNode.getPixelToWorldRatio() );
+		mastodonToImgCoordsTransfer = new Vector3f(volumePxRess[0],volumePxRess[1],volumePxRess[2]);
 
 		sphereParent.spatial().setScale(spotsScale);
 		sphereParent.spatial().setPosition(
 				new Vector3f( volumeDims[0],volumeDims[1],volumeDims[2])
 						.mul(-0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
-						.mul( volumePxRess[0],volumePxRess[1],volumePxRess[2] ) //raw img coords to Mastodon internal coords
+						.mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
 						.mul(spotsScale) ); //apply the same scaling as if "going through the SphereNodes"
 
 		//add the sciview-side displaying handler for the spots
@@ -239,6 +242,14 @@ public class SciviewBridge {
 				bc.get().setReal( (float)val * rgbValue[2] );
 			}
 		}
+	}
+
+	public long[] mastodonToImgCoord(final float[] mastodonCoord,
+	                                 final long[] pxCoord) {
+		pxCoord[0] = (long)(mastodonCoord[0] / this.mastodonToImgCoordsTransfer.x);
+		pxCoord[1] = (long)(mastodonCoord[1] / this.mastodonToImgCoordsTransfer.y);
+		pxCoord[2] = (long)(mastodonCoord[2] / this.mastodonToImgCoordsTransfer.z);
+		return pxCoord;
 	}
 
 	// --------------------------------------------------------------------------
