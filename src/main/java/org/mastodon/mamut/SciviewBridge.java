@@ -328,9 +328,7 @@ public class SciviewBridge {
 	private GraphColorGenerator<Spot, Link> recentColorizer;
 	private DefaultGraphColorGenerator<Spot, Link> noTScolorizer = new DefaultGraphColorGenerator<>();
 
-	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
-		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
-
+	private GraphColorGenerator<Spot,Link> getCurrentColorizer(final MamutViewBdv forThisBdv) {
 		//NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending
 		GraphColorGenerator<Spot, Link> colorizer;
 		final TagSetStructure.TagSet ts = forThisBdv.getColoringModel().getTagSet();
@@ -343,7 +341,14 @@ public class SciviewBridge {
 			colorizer = noTScolorizer;
 		}
 		recentTagSet = ts;
-		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp, colorizer);
+		return colorizer;
+	}
+
+	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
+		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp,
+				getCurrentColorizer(forThisBdv));
+	}
 	}
 
 	private void updateSciviewCamera(final MamutViewBdv forThisBdv) {
