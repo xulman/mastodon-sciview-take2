@@ -1,6 +1,7 @@
 //TODO add license text
 package org.mastodon.mamut;
 
+import bdv.viewer.Source;
 import graphics.scenery.AmbientLight;
 import graphics.scenery.Box;
 import graphics.scenery.Camera;
@@ -13,9 +14,13 @@ import graphics.scenery.volumes.Volume;
 import mpicbg.spim.data.SpimDataException;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.FinalInterval;
+import net.imglib2.Interval;
+import net.imglib2.img.planar.PlanarImgs;
 import net.imglib2.realtransform.AffineTransform3D;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.RealType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -39,6 +44,7 @@ public class SciviewBridge {
 
 	//data source stuff
 	final WindowManager mastodonWin;
+	final int SOURCE_ID = 0;
 
 	//data sink stuff
 	final SciView sciviewWin;
@@ -74,7 +80,21 @@ public class SciviewBridge {
 		this.axesParent = addDataAxes();
 		sciviewWin.addChild( axesParent );
 
-		//add the "root" node for this Mastodon session
+		//get necessary metadata - from image data
+		final long[] volumeDims = mastodonWin.getAppModel()
+				.getSharedBdvData().getSources().get(SOURCE_ID)
+				.getSpimSource().getSource(0,0).dimensionsAsLongArray();
+		final float[] volumePxRess = calculateDisplayVoxelRatioAlaBDV(mastodonWin.getAppModel()
+				.getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource());
+		//
+		final Vector3f volumeScale = new Vector3f(
+				volumePxRess[0] * volumePxRess[0],
+				volumePxRess[1] * volumePxRess[1],
+				-1.0f * volumePxRess[2] * volumePxRess[2] );
+		final Vector3f spotsScale = new Vector3f(
+				volumeDims[0] * volumePxRess[0],
+				volumeDims[1] * volumePxRess[1],
+				volumeDims[2] * volumePxRess[2] );
 		volumeParent = null; //sciviewWin.addSphere();
 		//volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
 		sphereParent = sciviewWin.addSphere();
@@ -109,6 +129,17 @@ public class SciviewBridge {
 				"full res img",
 				new float[] {0.01f,0.01f,0.01f} );
 		volumeParent.spatial().setScale( new Vector3f(0.5f,0.5f,0.5f) );
+
+	public static
+	float[] calculateDisplayVoxelRatioAlaBDV(final Source<?> forThisSource)
+	{
+		double[] vxAxisRatio = forThisSource.getVoxelDimensions().dimensionsAsDoubleArray();
+		float[] finalRatio = new float[ vxAxisRatio.length ];
+
+		double minLength = vxAxisRatio[0];
+		for (int i = 1; i < vxAxisRatio.length; ++i) minLength = Math.min( vxAxisRatio[i], minLength );
+		for (int i = 0; i < vxAxisRatio.length; ++i) finalRatio[i] = (float)(vxAxisRatio[i] / minLength);
+		return finalRatio;
 	}
 
 	private static <T extends RealType<T>> void flatCopy(RandomAccessibleInterval<T> input,
