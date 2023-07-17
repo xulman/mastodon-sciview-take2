@@ -107,6 +107,16 @@ public class SciviewBridge {
 		redVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
 		greenVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
 		blueVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
+		//
+		spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
+				(RandomAccessibleInterval)mastodonWin.getAppModel()
+						.getSharedBdvData().getSources().get(SOURCE_ID)
+						.getSpimSource().getSource(0,0),
+				new long[] {350,350,50},
+				400,
+				99999,
+				new float[] {1,1,0} );
+
 		volumeParent = null; //sciviewWin.addSphere();
 		//volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
 		//
@@ -162,12 +172,49 @@ public class SciviewBridge {
 		return finalRatio;
 	}
 
-	private static <T extends RealType<T>> void flatCopy(RandomAccessibleInterval<T> input,
-	                                                     RandomAccessibleInterval<T> output) {
+	private static <T extends RealType<T>>
+	void flatCopy(RandomAccessibleInterval<T> input,
+	              RandomAccessibleInterval<T> output) {
 		Cursor<T> reader = Views.flatIterable(input).cursor();
 		Cursor<T> writer = Views.flatIterable(output).cursor();
 		while (writer.hasNext())
 			writer.next().set( reader.next() );
+	}
+
+	public static <T extends IntegerType<T>>
+	void spreadColor(final RandomAccessibleInterval<T> redCh,
+	                 final RandomAccessibleInterval<T> greenCh,
+	                 final RandomAccessibleInterval<T> blueCh,
+	                 final RandomAccessibleInterval<T> srcImg,
+	                 final long[] pxCentre,
+	                 final long maxSpatialDist,
+	                 final int maxIntensityDist,
+	                 final float[] rgbValue) {
+
+		long[] min = new long[3];
+		long[] max = new long[3];
+		for (int d = 0; d < 3; ++d) {
+			min[d] = Math.max(pxCentre[d] - maxSpatialDist, 0);
+			max[d] = Math.min(pxCentre[d] + maxSpatialDist, srcImg.dimension(d)-1);
+		}
+		final Interval roi = new FinalInterval(min,max);
+
+		Cursor<T> rc = Views.interval(redCh,roi).cursor();
+		Cursor<T> gc = Views.interval(greenCh,roi).cursor();
+		Cursor<T> bc = Views.interval(blueCh,roi).cursor();
+		Cursor<T> si = Views.interval(srcImg,roi).cursor();
+		final int sourceVal = srcImg.randomAccess().setPositionAndGet(pxCentre).getInteger();
+
+		while (si.hasNext()) {
+			rc.next(); gc.next(); bc.next();
+			final int val = si.next().getInteger();
+			if (Math.abs(sourceVal-val) <= maxIntensityDist) {
+				//within ROI (by definition...) && within intensity range (the test above)
+				rc.get().setReal( (float)val * rgbValue[0] );
+				gc.get().setReal( (float)val * rgbValue[1] );
+				bc.get().setReal( (float)val * rgbValue[2] );
+			}
+		}
 	}
 
 	// --------------------------------------------------------------------------
