@@ -55,6 +55,13 @@ public class SciviewBridge {
 	final Sphere sphereParent;
 	final Sphere volumeParent;
 
+	final Volume redVolChannelNode;
+	final Volume greenVolChannelNode;
+	final Volume blueVolChannelNode;
+	final RandomAccessibleInterval<UnsignedShortType> redVolChannelImg;
+	final RandomAccessibleInterval<UnsignedShortType> greenVolChannelImg;
+	final RandomAccessibleInterval<UnsignedShortType> blueVolChannelImg;
+
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
@@ -95,40 +102,53 @@ public class SciviewBridge {
 				volumeDims[0] * volumePxRess[0],
 				volumeDims[1] * volumePxRess[1],
 				volumeDims[2] * volumePxRess[2] );
+
+		//volume stuff:
+		redVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
+		greenVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
+		blueVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
 		volumeParent = null; //sciviewWin.addSphere();
 		//volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		//
+		final String commonNodeName = ": "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString();
+		redVolChannelNode = sciviewWin.addVolume(redVolChannelImg, "RED VOL"+commonNodeName, new float[] {1,1,1});
+		adjustAndPlaceVolumeIntoTheScene(redVolChannelNode, "Red.lut", volumeScale, 0, 50);
+		//TODO display range can one learn from the coloring process
+		//
+		greenVolChannelNode = sciviewWin.addVolume(greenVolChannelImg, "GREEN VOL"+commonNodeName, new float[] {1,1,1});
+		adjustAndPlaceVolumeIntoTheScene(greenVolChannelNode, "Green.lut", volumeScale, 0, 50);
+		//
+		blueVolChannelNode = sciviewWin.addVolume(blueVolChannelImg, "BLUE VOL"+commonNodeName, new float[] {1,1,1});
+		adjustAndPlaceVolumeIntoTheScene(blueVolChannelNode, "Blue.lut", volumeScale, 0, 50);
+
+		//spots stuff:
 		sphereParent = sciviewWin.addSphere();
 		//todo: make the parent node (sphere) invisible
-		sphereParent.setName( mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		sphereParent.setName("SPOTS"+commonNodeName);
 
 		//scene scaling...
 		sphereParent.spatial().setScale( new Vector3f(0.05f) );
 
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
+	}
 
-		//similar handler for the volume
-		RandomAccessibleInterval<?> imgSrc = mastodonWin.getAppModel()
-						.getSharedBdvData().getSources().get(0)
-						.getSpimSource().getSource(0,0);
-		RandomAccessibleInterval<?> imgHardCopy = ArrayImgs.unsignedShorts( imgSrc.dimension(0),
-				imgSrc.dimension(1), imgSrc.dimension(2) );
-		flatCopy((RandomAccessibleInterval)imgSrc, (RandomAccessibleInterval)imgHardCopy);
+	private void adjustAndPlaceVolumeIntoTheScene(final Volume v,
+																 final String colorMapName,
+	                                              final Vector3f scale,
+	                                              final double displayRangeMin,
+	                                              final double displayRangeMax) {
+		sciviewWin.setColormap(v, colorMapName);
+		v.spatial().setScale( scale );
+		v.getConverterSetups().get(SOURCE_ID)
+				.setDisplayRange(displayRangeMin,displayRangeMax);
 
-		//to make sure full res is rendered on the screen, the volume needs
-		//to be fully loaded (as sciview/scenery doesn't seem to be able to request
-		//fetching of the pixels on its own) by copying the pixels (which mandates
-		//the pixels are fully loaded for the copy)
-		volumeParent = sciviewWin.addVolume(
-				(RandomAccessibleInterval)imgHardCopy,
-				/*
-				(RandomAccessibleInterval)mastodonWin.getAppModel()
-						.getSharedBdvData().getSources().get(0)
-						.getSpimSource().getSource(0,0),
-				*/
-				"full res img",
-				new float[] {0.01f,0.01f,0.01f} );
-		volumeParent.spatial().setScale( new Vector3f(0.5f,0.5f,0.5f) );
+		//make Bounding Box Grid invisible
+		v.getChildren().forEach(n -> n.setVisible(false));
+
+		//sciviewWin.deleteNode(v, true);
+		//this.volumeParent.addChild(v);
+	}
 
 	public static
 	float[] calculateDisplayVoxelRatioAlaBDV(final Source<?> forThisSource)
