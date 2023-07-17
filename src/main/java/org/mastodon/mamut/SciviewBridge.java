@@ -415,6 +415,7 @@ public class SciviewBridge {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
 		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
+		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> updateSciviewColoring(forThisBdv);
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
@@ -422,6 +423,8 @@ public class SciviewBridge {
 		handler.addBehaviour("decrease_initial_spheres_size", clk_DEC_SPH);
 		handler.addKeyBinding("increase_initial_spheres_size", "shift O");
 		handler.addBehaviour("increase_initial_spheres_size", clk_INC_SPH);
+		handler.addKeyBinding("recolor_volume", "G");
+		handler.addBehaviour("recolor_volume", clk_COLORING);
 
 		//deregister them when they are due
 		forThisBdv.onClose(() -> {
@@ -429,6 +432,8 @@ public class SciviewBridge {
 			handler.removeBehaviour("decrease_initial_spheres_size");
 			handler.removeKeyBinding("increase_initial_spheres_size");
 			handler.removeBehaviour("increase_initial_spheres_size");
+			handler.removeKeyBinding("recolor_volume");
+			handler.removeBehaviour("recolor_volume");
 		});
 	}
 
