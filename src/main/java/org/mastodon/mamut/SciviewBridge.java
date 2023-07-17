@@ -230,6 +230,7 @@ public class SciviewBridge {
 		Cursor<T> si = Views.interval(srcImg,roi).cursor();
 		final int sourceVal = srcImg.randomAccess().setPositionAndGet(pxCentre).getInteger();
 
+		int cnt = 0;
 		while (si.hasNext()) {
 			rc.next(); gc.next(); bc.next();
 			final int val = si.next().getInteger();
@@ -238,8 +239,14 @@ public class SciviewBridge {
 				rc.get().setReal( (float)val * rgbValue[0] );
 				gc.get().setReal( (float)val * rgbValue[1] );
 				bc.get().setReal( (float)val * rgbValue[2] );
+				++cnt;
 			}
 		}
+
+		System.out.println("  colored "+cnt+" pixels in the interval ["
+				+min[0]+","+min[1]+","+min[2]+"] -> ["
+				+max[0]+","+max[1]+","+max[2]+"] @ ["
+				+pxCentre[0]+","+pxCentre[1]+","+pxCentre[2]+"]");
 	}
 
 	public long[] mastodonToImgCoord(final float[] mastodonCoord,
