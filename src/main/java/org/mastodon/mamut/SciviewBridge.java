@@ -46,6 +46,7 @@ public class SciviewBridge {
 	//data source stuff
 	final WindowManager mastodonWin;
 	final int SOURCE_ID = 0;
+	static final float INTENSITY_OF_COLORS = 1400;
 	static final float INTENSITY_RANGE_MAX = 1410;
 	static final float INTENSITY_RANGE_MIN = 0;
 
@@ -236,9 +237,12 @@ public class SciviewBridge {
 			final int val = si.next().getInteger();
 			if (Math.abs(sourceVal-val) <= maxIntensityDist) {
 				//within ROI (by definition...) && within intensity range (the test above)
-				rc.get().setReal( (float)val * rgbValue[0] );
-				gc.get().setReal( (float)val * rgbValue[1] );
-				bc.get().setReal( (float)val * rgbValue[2] );
+				//rc.get().setReal( (float)val * rgbValue[0] );
+				//gc.get().setReal( (float)val * rgbValue[1] );
+				//bc.get().setReal( (float)val * rgbValue[2] );
+				rc.get().setReal( INTENSITY_OF_COLORS * rgbValue[0] );
+				gc.get().setReal( INTENSITY_OF_COLORS * rgbValue[1] );
+				bc.get().setReal( INTENSITY_OF_COLORS * rgbValue[2] );
 				++cnt;
 			}
 		}
