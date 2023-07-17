@@ -351,11 +351,13 @@ public class SciviewBridge {
 		float[] spotCoord = new float[3];
 		float[] color = new float[3];
 
+		System.out.println("COLORING: started");
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
 		RandomAccessibleInterval<?> srcRAI = mastodonWin.getAppModel()
 				.getSharedBdvData().getSources().get(SOURCE_ID)
 				.getSpimSource().getSource(tp,0);
 
+		System.out.println("COLORING: resets with new white content");
 		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
 				(RandomAccessibleInterval)srcRAI);
 
@@ -365,6 +367,7 @@ public class SciviewBridge {
 			color[0] = ((col & 0x00FF0000) >> 16) / 255.f;
 			color[1] = ((col & 0x0000FF00) >> 8 ) / 255.f;
 			color[2] = ( col & 0x000000FF       ) / 255.f;
+			System.out.println("COLORING: colors spot "+s.getLabel()+" with color ["+color[0]+","+color[1]+","+color[2]+"]("+col+")");
 
 			s.localize(spotCoord);
 			spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
@@ -376,12 +379,16 @@ public class SciviewBridge {
 		}
 
 		try {
+			System.out.println("COLORING: notified to update red volume");
 			redVolChannelNode.volumeManager.notifyUpdate(redVolChannelNode);
 			Thread.sleep(300);
+			System.out.println("COLORING: notified to update green volume");
 			greenVolChannelNode.volumeManager.notifyUpdate(greenVolChannelNode);
 			Thread.sleep(300);
+			System.out.println("COLORING: notified to update blue volume");
 			blueVolChannelNode.volumeManager.notifyUpdate(blueVolChannelNode);
 		} catch (InterruptedException e) { /* do nothing */ }
+		System.out.println("COLORING: finished");
 	}
 
 	private void updateSciviewCamera(final MamutViewBdv forThisBdv) {
