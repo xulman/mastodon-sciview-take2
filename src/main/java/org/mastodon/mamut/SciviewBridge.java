@@ -135,9 +135,16 @@ public class SciviewBridge {
 		sphereParent = sciviewWin.addSphere();
 		//todo: make the parent node (sphere) invisible
 		sphereParent.setName("SPOTS"+commonNodeName);
+		//
+		final float MAGIC_ONE_TENTH = 0.1f; //probably something inside scenery...
+		spotsScale.mul( MAGIC_ONE_TENTH * redVolChannelNode.getPixelToWorldRatio() );
 
-		//scene scaling...
-		sphereParent.spatial().setScale( new Vector3f(0.05f) );
+		sphereParent.spatial().setScale(spotsScale);
+		sphereParent.spatial().setPosition(
+				new Vector3f( volumeDims[0],volumeDims[1],volumeDims[2])
+						.mul(-0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
+						.mul( volumePxRess[0],volumePxRess[1],volumePxRess[2] ) //raw img coords to Mastodon internal coords
+						.mul(spotsScale) ); //apply the same scaling as if "going through the SphereNodes"
 
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
@@ -260,7 +267,7 @@ public class SciviewBridge {
 
 		//initial spots content:
 		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
-		sphereNodes.setDataCentre( getSpotsAveragePos(tp) );
+		//sphereNodes.setDataCentre( getSpotsAveragePos(tp) );
 		updateSciviewContent(bdvWin);
 
 		new BdvNotifier(
