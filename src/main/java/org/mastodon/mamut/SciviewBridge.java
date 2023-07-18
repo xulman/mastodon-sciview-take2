@@ -51,6 +51,7 @@ public class SciviewBridge {
 	static final float INTENSITY_OF_COLORS = 2100;  //however, max allowed value for displaying is this one...
 	static final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
 	static final float INTENSITY_RANGE_MIN = 0;
+	static boolean UPDATE_VOLUME_AUTOMATICALLY = true;
 	static final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
 	static boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
 
@@ -385,11 +386,26 @@ public class SciviewBridge {
 
 	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		updateSciviewColoring(forThisBdv);
 		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp,
 				getCurrentColorizer(forThisBdv));
 	}
 
+	private int lastTpWhenVolumeWasUpdated = -1;
 	private void updateSciviewColoring(final MamutViewBdv forThisBdv) {
+		//only a wrapper that conditionally calls the workhorse method
+		if (UPDATE_VOLUME_AUTOMATICALLY) {
+			//HACK FOR NOW to prevent from redrawing of the same volumes
+			//would be better if the BdvNotifier could tell us, instead of us detecting it here
+			int currTP = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+			if (currTP != lastTpWhenVolumeWasUpdated) {
+				lastTpWhenVolumeWasUpdated = currTP;
+				updateSciviewColoringNow(forThisBdv);
+			}
+		}
+	}
+
+	private void updateSciviewColoringNow(final MamutViewBdv forThisBdv) {
 		long[] pxCoord = new long[3];
 		float[] spotCoord = new float[3];
 		float[] color = new float[3];
@@ -460,7 +476,7 @@ public class SciviewBridge {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
 		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
-		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> updateSciviewColoring(forThisBdv);
+		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> updateSciviewColoringNow(forThisBdv);
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
