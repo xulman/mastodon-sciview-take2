@@ -102,11 +102,9 @@ public class SciviewBridge {
 		sciviewWin.addChild( axesParent );
 
 		//get necessary metadata - from image data
-		final long[] volumeDims = mastodonWin.getAppModel()
-				.getSharedBdvData().getSources().get(SOURCE_ID)
-				.getSpimSource().getSource(0,0).dimensionsAsLongArray();
-		final float[] volumePxRess = calculateDisplayVoxelRatioAlaBDV(mastodonWin.getAppModel()
-				.getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource());
+		final Source<?> spimSource = mastodonWin.getAppModel().getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource();
+		final long[] volumeDims = spimSource.getSource(0,0).dimensionsAsLongArray();
+		final float[] volumePxRess = calculateDisplayVoxelRatioAlaBDV(spimSource);
 		//
 		final Vector3f volumeScale = new Vector3f(
 				volumePxRess[0] * volumePxRess[0],
@@ -123,9 +121,7 @@ public class SciviewBridge {
 		blueVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
 		//
 		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
-				(RandomAccessibleInterval)mastodonWin.getAppModel()
-					.getSharedBdvData().getSources().get(SOURCE_ID)
-					.getSpimSource().getSource(0,0) );
+				(RandomAccessibleInterval)spimSource.getSource(0,0) );
 
 		volumeParent = null; //sciviewWin.addSphere();
 		//volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
