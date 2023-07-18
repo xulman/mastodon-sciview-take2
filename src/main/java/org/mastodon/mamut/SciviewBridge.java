@@ -40,14 +40,17 @@ import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
 import javax.swing.WindowConstants;
 import java.io.IOException;
+import java.util.function.BiConsumer;
 
 public class SciviewBridge {
 
 	//data source stuff
 	final WindowManager mastodonWin;
 	final int SOURCE_ID = 0;
-	static final float INTENSITY_OF_COLORS = 1400;
-	static final float INTENSITY_RANGE_MAX = 1410;
+	static final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
+	static final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value;
+	static final float INTENSITY_OF_COLORS = 2100;  //however, max allowed value for displaying is this one...
+	static final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
 	static final float INTENSITY_RANGE_MIN = 0;
 
 	//data sink stuff
@@ -196,15 +199,18 @@ public class SciviewBridge {
 	                          final RandomAccessibleInterval<T> greenCh,
 	                          final RandomAccessibleInterval<T> blueCh,
 	                          final RandomAccessibleInterval<T> srcImg) {
-		LoopBuilder.setImages(srcImg,redCh,greenCh,blueCh)
+		final BiConsumer<T,T> intensityProcessor =
+				(src, tgt) -> tgt.setReal( Math.min(INTENSITY_CONTRAST * src.getRealFloat(), INTENSITY_NOT_ABOVE) );
+		//massage input data into the red channel
+		LoopBuilder.setImages(srcImg,redCh)
 				.flatIterationOrder()
 				.multiThreaded()
-				.forEachPixel((s,r,g,b) -> {
-					final int val = s.getInteger();
-					r.setInteger(val);
-					g.setInteger(val);
-					b.setInteger(val);
-				});
+				.forEachPixel(intensityProcessor);
+		//clone the red channel into the remaining two, which for sure
+		//were created the same way as the red, not needing flatIterationOrder()
+		LoopBuilder.setImages(redCh,greenCh,blueCh)
+				.multiThreaded()
+				.forEachPixel((r,g,b) -> { g.set(r); b.set(r); });
 	}
 
 	public static <T extends IntegerType<T>>
