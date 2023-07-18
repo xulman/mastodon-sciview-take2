@@ -48,11 +48,14 @@ public class SciviewBridge {
 	final int SOURCE_ID = 0;
 	static final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
 	static final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value;
-	static final float INTENSITY_OF_COLORS = 2100;  //however, max allowed value for displaying is this one...
+
+	static boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
+	static final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
+	static final float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
+
 	static final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
 	static final float INTENSITY_RANGE_MIN = 0;
 	static boolean UPDATE_VOLUME_AUTOMATICALLY = true;
-	static final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
 	static boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
 
 	//data sink stuff
@@ -420,22 +423,26 @@ public class SciviewBridge {
 		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
 				(RandomAccessibleInterval)srcRAI);
 
-		GraphColorGenerator<Spot, Link> colorizer = getCurrentColorizer(forThisBdv);
-		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
-			final int col = colorizer.color(s);
-			color[0] = ((col & 0x00FF0000) >> 16) / 255.f;
-			color[1] = ((col & 0x0000FF00) >> 8 ) / 255.f;
-			color[2] = ( col & 0x000000FF       ) / 255.f;
+		if (INTENSITY_OF_COLORS_APPLY) {
+			GraphColorGenerator<Spot, Link> colorizer = getCurrentColorizer(forThisBdv);
+			for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
+				final int col = colorizer.color(s);
+				color[0] = ((col & 0x00FF0000) >> 16) / 255.f;
+				color[1] = ((col & 0x0000FF00) >> 8 ) / 255.f;
+				color[2] = ( col & 0x000000FF       ) / 255.f;
+				if (UPDATE_VOLUME_VERBOSE_REPORTS)
+					System.out.println("COLORING: colors spot "+s.getLabel()+" with color ["+color[0]+","+color[1]+","+color[2]+"]("+col+")");
 
-			s.localize(spotCoord);
-			spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
-				(RandomAccessibleInterval)srcRAI,
-				mastodonToImgCoord(spotCoord,pxCoord),
-				//NB: spot drawing is driven by image intensity, and thus
-				//dark BG doesn't get colorized too much ('cause it is dark),
-				//and thus it doesn't hurt if the spot is considered reasonably larger
-				SPOT_RADIUS_SCALE * Math.sqrt(s.getBoundingSphereRadiusSquared()),
-				color);
+				s.localize(spotCoord);
+				spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
+					(RandomAccessibleInterval)srcRAI,
+					mastodonToImgCoord(spotCoord,pxCoord),
+					//NB: spot drawing is driven by image intensity, and thus
+					//dark BG doesn't get colorized too much ('cause it is dark),
+					//and thus it doesn't hurt if the spot is considered reasonably larger
+					SPOT_RADIUS_SCALE * Math.sqrt(s.getBoundingSphereRadiusSquared()),
+					color);
+			}
 		}
 
 		try {
