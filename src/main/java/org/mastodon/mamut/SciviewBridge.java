@@ -427,6 +427,7 @@ public class SciviewBridge {
 			GraphColorGenerator<Spot, Link> colorizer = getCurrentColorizer(forThisBdv);
 			for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
 				final int col = colorizer.color(s);
+				if (col == 0) continue; //don't imprint black spots into the volume
 				color[0] = ((col & 0x00FF0000) >> 16) / 255.f;
 				color[1] = ((col & 0x0000FF00) >> 8 ) / 255.f;
 				color[2] = ( col & 0x000000FF       ) / 255.f;
