@@ -52,6 +52,7 @@ public class SciviewBridge {
 	static final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
 	static final float INTENSITY_RANGE_MIN = 0;
 	static final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
+	static boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
 
 	//data sink stuff
 	final SciView sciviewWin;
@@ -289,7 +290,8 @@ public class SciviewBridge {
 			}
 		}
 
-		System.out.println("  colored "+cnt+" pixels in the interval ["
+		if (UPDATE_VOLUME_VERBOSE_REPORTS)
+			System.out.println("  colored "+cnt+" pixels in the interval ["
 				+min[0]+","+min[1]+","+min[2]+"] -> ["
 				+max[0]+","+max[1]+","+max[2]+"] @ ["
 				+pxCentre[0]+","+pxCentre[1]+","+pxCentre[2]+"]");
@@ -392,13 +394,13 @@ public class SciviewBridge {
 		float[] spotCoord = new float[3];
 		float[] color = new float[3];
 
-		System.out.println("COLORING: started");
+		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: started");
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
 		RandomAccessibleInterval<?> srcRAI = mastodonWin.getAppModel()
 				.getSharedBdvData().getSources().get(SOURCE_ID)
 				.getSpimSource().getSource(tp,0);
 
-		System.out.println("COLORING: resets with new white content");
+		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: resets with new white content");
 		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
 				(RandomAccessibleInterval)srcRAI);
 
@@ -408,7 +410,6 @@ public class SciviewBridge {
 			color[0] = ((col & 0x00FF0000) >> 16) / 255.f;
 			color[1] = ((col & 0x0000FF00) >> 8 ) / 255.f;
 			color[2] = ( col & 0x000000FF       ) / 255.f;
-			System.out.println("COLORING: colors spot "+s.getLabel()+" with color ["+color[0]+","+color[1]+","+color[2]+"]("+col+")");
 
 			s.localize(spotCoord);
 			spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
@@ -422,16 +423,17 @@ public class SciviewBridge {
 		}
 
 		try {
-			System.out.println("COLORING: notified to update red volume");
+			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update red volume");
 			redVolChannelNode.volumeManager.notifyUpdate(redVolChannelNode);
 			Thread.sleep(300);
-			System.out.println("COLORING: notified to update green volume");
+			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update green volume");
 			greenVolChannelNode.volumeManager.notifyUpdate(greenVolChannelNode);
 			Thread.sleep(300);
-			System.out.println("COLORING: notified to update blue volume");
+			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update blue volume");
 			blueVolChannelNode.volumeManager.notifyUpdate(blueVolChannelNode);
 		} catch (InterruptedException e) { /* do nothing */ }
-		System.out.println("COLORING: finished");
+
+		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: finished");
 	}
 
 	private void updateSciviewCamera(final MamutViewBdv forThisBdv) {
