@@ -12,11 +12,13 @@ repositories {
 }
 
 dependencies {
-    implementation(platform("org.scijava:pom-scijava:31.1.0"))
+    implementation(platform("org.scijava:pom-scijava:35.1.1"))
+
+    implementation("net.imagej:imagej-common")
 
     //api("sc.iview:sciview")
     implementation("sc.iview:sciview")
-    implementation("net.imagej:imagej-common")
+    implementation("org.yaml:snakeyaml:[1.29, 1.33]!!")
 
     implementation("org.mastodon:mastodon:1.0.0-beta-27-SNAPSHOT")
 
