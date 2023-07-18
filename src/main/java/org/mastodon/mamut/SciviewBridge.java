@@ -46,6 +46,8 @@ public class SciviewBridge {
 	//data source stuff
 	final WindowManager mastodonWin;
 	final int SOURCE_ID = 0;
+	static final float INTENSITY_RANGE_MAX = 1410;
+	static final float INTENSITY_RANGE_MIN = 0;
 
 	//data sink stuff
 	final SciView sciviewWin;
@@ -121,14 +123,14 @@ public class SciviewBridge {
 		//
 		final String commonNodeName = ": "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString();
 		redVolChannelNode = sciviewWin.addVolume(redVolChannelImg, "RED VOL"+commonNodeName, new float[] {1,1,1});
-		adjustAndPlaceVolumeIntoTheScene(redVolChannelNode, "Red.lut", volumeScale, 0, 50);
+		adjustAndPlaceVolumeIntoTheScene(redVolChannelNode, "Red.lut", volumeScale, INTENSITY_RANGE_MIN, INTENSITY_RANGE_MAX);
 		//TODO display range can one learn from the coloring process
 		//
 		greenVolChannelNode = sciviewWin.addVolume(greenVolChannelImg, "GREEN VOL"+commonNodeName, new float[] {1,1,1});
-		adjustAndPlaceVolumeIntoTheScene(greenVolChannelNode, "Green.lut", volumeScale, 0, 50);
+		adjustAndPlaceVolumeIntoTheScene(greenVolChannelNode, "Green.lut", volumeScale, INTENSITY_RANGE_MIN, INTENSITY_RANGE_MAX);
 		//
 		blueVolChannelNode = sciviewWin.addVolume(blueVolChannelImg, "BLUE VOL"+commonNodeName, new float[] {1,1,1});
-		adjustAndPlaceVolumeIntoTheScene(blueVolChannelNode, "Blue.lut", volumeScale, 0, 50);
+		adjustAndPlaceVolumeIntoTheScene(blueVolChannelNode, "Blue.lut", volumeScale, INTENSITY_RANGE_MIN, INTENSITY_RANGE_MAX);
 
 		//spots stuff:
 		sphereParent = sciviewWin.addSphere();
