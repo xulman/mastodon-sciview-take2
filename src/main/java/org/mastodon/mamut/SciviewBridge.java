@@ -189,12 +189,14 @@ public class SciviewBridge {
 	                                              final double displayRangeMax) {
 		sciviewWin.setColormap(v, colorMapName);
 		v.spatial().setScale( scale );
-		v.getConverterSetups().get(SOURCE_ID)
-				.setDisplayRange(displayRangeMin,displayRangeMax);
+		v.setMinDisplayRange((float)displayRangeMin);
+		v.setMaxDisplayRange((float)displayRangeMax);
 
 		//make Bounding Box Grid invisible
 		v.getChildren().forEach(n -> n.setVisible(false));
 
+		//FAILED to hook the volume nodes under the this.volumeParent node... so commented out for now
+		//(one could construct Volume w/o sciview.addVolume(), but I find that way too difficult)
 		//sciviewWin.deleteNode(v, true);
 		//this.volumeParent.addChild(v);
 	}
