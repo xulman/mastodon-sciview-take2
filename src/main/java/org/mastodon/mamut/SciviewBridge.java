@@ -20,7 +20,6 @@ import net.imglib2.img.planar.PlanarImgs;
 import net.imglib2.loops.LoopBuilder;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.type.numeric.IntegerType;
-import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
 import org.joml.Matrix4f;
@@ -213,15 +212,6 @@ public class SciviewBridge {
 		return finalRatio;
 	}
 
-	private static <T extends RealType<T>>
-	void flatCopy(RandomAccessibleInterval<T> input,
-	              RandomAccessibleInterval<T> output) {
-		Cursor<T> reader = Views.flatIterable(input).cursor();
-		Cursor<T> writer = Views.flatIterable(output).cursor();
-		while (writer.hasNext())
-			writer.next().set( reader.next() );
-	}
-
 	public static <T extends IntegerType<T>>
 	void freshNewWhiteContent(final RandomAccessibleInterval<T> redCh,
 	                          final RandomAccessibleInterval<T> greenCh,
@@ -368,20 +358,6 @@ public class SciviewBridge {
 		//temporary handlers mostly for testing
 		keyboardHandlersForTestingForNow(bdvWin);
 		return bdvWin;
-	}
-
-	private Vector3f getSpotsAveragePos(final int tp) {
-		final float[] pos = new float[3];
-		final float[] avg = {0,0,0};
-		int cnt = 0;
-		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
-			s.localize(pos);
-			avg[0] += pos[0];
-			avg[1] += pos[1];
-			avg[2] += pos[2];
-			++cnt;
-		}
-		return new Vector3f(avg[0]/(float)cnt, avg[1]/(float)cnt, avg[2]/(float)cnt);
 	}
 
 	// --------------------------------------------------------------------------
