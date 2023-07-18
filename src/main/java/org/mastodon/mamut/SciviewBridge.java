@@ -488,6 +488,10 @@ public class SciviewBridge {
 			UPDATE_VOLUME_AUTOMATICALLY = !UPDATE_VOLUME_AUTOMATICALLY;
 			System.out.println("Volume updating auto mode: "+UPDATE_VOLUME_AUTOMATICALLY);
 		};
+		final Behaviour clk_CLRNG_ONOFF = (ClickBehaviour) (x, y) -> {
+			INTENSITY_OF_COLORS_APPLY = !INTENSITY_OF_COLORS_APPLY;
+			System.out.println("Volume spots imprinting enabled: "+INTENSITY_OF_COLORS_APPLY);
+		};
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
@@ -499,6 +503,8 @@ public class SciviewBridge {
 		handler.addBehaviour("recolor_volume_now", clk_COLORING);
 		handler.addKeyBinding("recolor_automatically", "shift G");
 		handler.addBehaviour("recolor_automatically", clk_CLRNG_AUTO);
+		handler.addKeyBinding("recolor_enabled", "ctrl G");
+		handler.addBehaviour("recolor_enabled", clk_CLRNG_ONOFF);
 
 		//deregister them when they are due
 		forThisBdv.onClose(() -> {
@@ -510,6 +516,8 @@ public class SciviewBridge {
 			handler.removeBehaviour("recolor_volume_now");
 			handler.removeKeyBinding("recolor_automatically");
 			handler.removeBehaviour("recolor_automatically");
+			handler.removeKeyBinding("recolor_enabled");
+			handler.removeBehaviour("recolor_enabled");
 		});
 	}
 
