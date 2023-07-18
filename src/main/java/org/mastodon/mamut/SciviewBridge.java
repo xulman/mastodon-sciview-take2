@@ -447,12 +447,15 @@ public class SciviewBridge {
 		}
 
 		try {
+			final long graceTimeForVolumeUpdatingInMS = 50;
 			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update red volume");
 			redVolChannelNode.volumeManager.notifyUpdate(redVolChannelNode);
-			Thread.sleep(300);
+
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
 			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update green volume");
 			greenVolChannelNode.volumeManager.notifyUpdate(greenVolChannelNode);
-			Thread.sleep(300);
+
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
 			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update blue volume");
 			blueVolChannelNode.volumeManager.notifyUpdate(blueVolChannelNode);
 		} catch (InterruptedException e) { /* do nothing */ }
