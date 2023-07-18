@@ -45,7 +45,8 @@ public class SciviewBridge {
 
 	//data source stuff
 	final WindowManager mastodonWin;
-	final int SOURCE_ID = 0;
+	int SOURCE_ID = 0;
+	int SOURCE_USED_RES_LEVEL = 0;
 	static final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
 	static final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value;
 
@@ -104,24 +105,33 @@ public class SciviewBridge {
 		//get necessary metadata - from image data
 		final Source<?> spimSource = mastodonWin.getAppModel().getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource();
 		final long[] volumeDims = spimSource.getSource(0,0).dimensionsAsLongArray();
+		SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
+		final long[] volumeDims_usedResLevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray();
+		final float[] volumeDownscale = new float[] {
+				(float)volumeDims[0] / (float)volumeDims_usedResLevel[0],
+				(float)volumeDims[1] / (float)volumeDims_usedResLevel[1],
+				(float)volumeDims[2] / (float)volumeDims_usedResLevel[2] };
+		System.out.println("downscale factors: "+volumeDownscale[0]+"x, "+volumeDownscale[1]+"x, "+volumeDownscale[2]+"x");
+		//
 		final float[] volumePxRess = calculateDisplayVoxelRatioAlaBDV(spimSource);
+		System.out.println("pixel ratios: "+volumePxRess[0]+"x, "+volumePxRess[1]+"x, "+volumePxRess[2]+"x");
 		//
 		final Vector3f volumeScale = new Vector3f(
-				volumePxRess[0] * volumePxRess[0],
-				volumePxRess[1] * volumePxRess[1],
-				-1.0f * volumePxRess[2] * volumePxRess[2] );
+				volumePxRess[0] * volumePxRess[0] * volumeDownscale[0] * volumeDownscale[0],
+				volumePxRess[1] * volumePxRess[1] * volumeDownscale[1] * volumeDownscale[1],
+				-1.0f * volumePxRess[2] * volumePxRess[2] * volumeDownscale[2] * volumeDownscale[2] );
 		final Vector3f spotsScale = new Vector3f(
 				volumeDims[0] * volumePxRess[0],
 				volumeDims[1] * volumePxRess[1],
 				volumeDims[2] * volumePxRess[2] );
 
 		//volume stuff:
-		redVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
-		greenVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
-		blueVolChannelImg = PlanarImgs.unsignedShorts(volumeDims);
+		redVolChannelImg = PlanarImgs.unsignedShorts(volumeDims_usedResLevel);
+		greenVolChannelImg = PlanarImgs.unsignedShorts(volumeDims_usedResLevel);
+		blueVolChannelImg = PlanarImgs.unsignedShorts(volumeDims_usedResLevel);
 		//
 		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
-				(RandomAccessibleInterval)spimSource.getSource(0,0) );
+				(RandomAccessibleInterval)spimSource.getSource(0, SOURCE_USED_RES_LEVEL) );
 
 		volumeParent = null; //sciviewWin.addSphere();
 		//volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
@@ -169,11 +179,14 @@ public class SciviewBridge {
 		//
 		final float MAGIC_ONE_TENTH = 0.1f; //probably something inside scenery...
 		spotsScale.mul( MAGIC_ONE_TENTH * redVolChannelNode.getPixelToWorldRatio() );
-		mastodonToImgCoordsTransfer = new Vector3f(volumePxRess[0],volumePxRess[1],volumePxRess[2]);
+		mastodonToImgCoordsTransfer = new Vector3f(
+				volumePxRess[0]*volumeDownscale[0],
+				volumePxRess[1]*volumeDownscale[1],
+				volumePxRess[2]*volumeDownscale[2] );
 
 		sphereParent.spatial().setScale(spotsScale);
 		sphereParent.spatial().setPosition(
-				new Vector3f( volumeDims[0],volumeDims[1],volumeDims[2])
+				new Vector3f( volumeDims_usedResLevel[0],volumeDims_usedResLevel[1],volumeDims_usedResLevel[2])
 						.mul(-0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
 						.mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
 						.mul(spotsScale) ); //apply the same scaling as if "going through the SphereNodes"
@@ -413,7 +426,7 @@ public class SciviewBridge {
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
 		RandomAccessibleInterval<?> srcRAI = mastodonWin.getAppModel()
 				.getSharedBdvData().getSources().get(SOURCE_ID)
-				.getSpimSource().getSource(tp,0);
+				.getSpimSource().getSource(tp, SOURCE_USED_RES_LEVEL);
 
 		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: resets with new white content");
 		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
