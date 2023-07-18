@@ -38,6 +38,9 @@ public class SphereNodes {
 		int visibleNodesAfterall = 0;
 		addedExtraNodes.clear();
 
+		//nodes should honor if they are wished to be immediately visible or not
+		final boolean finalVisiblityState = parentNode.getVisible();
+
 		if (spotRef == null) spotRef = mastodonData.getModel().getGraph().vertexRef();
 		Spot focusedSpotRef = mastodonData.getFocusModel().getFocusedVertex(spotRef);
 
@@ -48,7 +51,7 @@ public class SphereNodes {
 			if (visibleNodesAfterall < knownNodes.size()) {
 				//injecting into known nodes (already registered with sciview)
 				node = knownNodes.get(visibleNodesAfterall);
-				node.setVisible(true);
+				node.setVisible(finalVisiblityState);
 				//NB: make sure it's visible (could have got hidden
 				// when there were fewer spots before)
 			} else {
@@ -57,6 +60,7 @@ public class SphereNodes {
 				node = new Sphere();
 				parentNode.addChild(node);
 				addedExtraNodes.add(node);
+				node.setVisible(finalVisiblityState);
 			}
 			setSphereNode(node,s,colorizer);
 			if (focusedSpotRef != null && focusedSpotRef.getInternalPoolIndex() == s.getInternalPoolIndex()) {
