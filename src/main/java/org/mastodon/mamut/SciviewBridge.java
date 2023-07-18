@@ -20,7 +20,6 @@ import net.imglib2.img.planar.PlanarImgs;
 import net.imglib2.loops.LoopBuilder;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.type.numeric.IntegerType;
-import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
 import org.joml.Matrix4f;
@@ -49,9 +48,15 @@ public class SciviewBridge {
 	final int SOURCE_ID = 0;
 	static final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
 	static final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value;
-	static final float INTENSITY_OF_COLORS = 2100;  //however, max allowed value for displaying is this one...
+
+	static boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
+	static final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
+	static final float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
+
 	static final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
 	static final float INTENSITY_RANGE_MIN = 0;
+	static boolean UPDATE_VOLUME_AUTOMATICALLY = true;
+	static boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
 
 	//data sink stuff
 	final SciView sciviewWin;
@@ -188,12 +193,14 @@ public class SciviewBridge {
 	                                              final double displayRangeMax) {
 		sciviewWin.setColormap(v, colorMapName);
 		v.spatial().setScale( scale );
-		v.getConverterSetups().get(SOURCE_ID)
-				.setDisplayRange(displayRangeMin,displayRangeMax);
+		v.setMinDisplayRange((float)displayRangeMin);
+		v.setMaxDisplayRange((float)displayRangeMax);
 
 		//make Bounding Box Grid invisible
 		v.getChildren().forEach(n -> n.setVisible(false));
 
+		//FAILED to hook the volume nodes under the this.volumeParent node... so commented out for now
+		//(one could construct Volume w/o sciview.addVolume(), but I find that way too difficult)
 		//sciviewWin.deleteNode(v, true);
 		//this.volumeParent.addChild(v);
 	}
@@ -208,15 +215,6 @@ public class SciviewBridge {
 		for (int i = 1; i < vxAxisRatio.length; ++i) minLength = Math.min( vxAxisRatio[i], minLength );
 		for (int i = 0; i < vxAxisRatio.length; ++i) finalRatio[i] = (float)(vxAxisRatio[i] / minLength);
 		return finalRatio;
-	}
-
-	private static <T extends RealType<T>>
-	void flatCopy(RandomAccessibleInterval<T> input,
-	              RandomAccessibleInterval<T> output) {
-		Cursor<T> reader = Views.flatIterable(input).cursor();
-		Cursor<T> writer = Views.flatIterable(output).cursor();
-		while (writer.hasNext())
-			writer.next().set( reader.next() );
 	}
 
 	public static <T extends IntegerType<T>>
@@ -296,7 +294,8 @@ public class SciviewBridge {
 			}
 		}
 
-		System.out.println("  colored "+cnt+" pixels in the interval ["
+		if (UPDATE_VOLUME_VERBOSE_REPORTS)
+			System.out.println("  colored "+cnt+" pixels in the interval ["
 				+min[0]+","+min[1]+","+min[2]+"] -> ["
 				+max[0]+","+max[1]+","+max[2]+"] @ ["
 				+pxCentre[0]+","+pxCentre[1]+","+pxCentre[2]+"]");
@@ -367,20 +366,6 @@ public class SciviewBridge {
 		return bdvWin;
 	}
 
-	private Vector3f getSpotsAveragePos(final int tp) {
-		final float[] pos = new float[3];
-		final float[] avg = {0,0,0};
-		int cnt = 0;
-		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
-			s.localize(pos);
-			avg[0] += pos[0];
-			avg[1] += pos[1];
-			avg[2] += pos[2];
-			++cnt;
-		}
-		return new Vector3f(avg[0]/(float)cnt, avg[1]/(float)cnt, avg[2]/(float)cnt);
-	}
-
 	// --------------------------------------------------------------------------
 	private TagSetStructure.TagSet recentTagSet;
 	private GraphColorGenerator<Spot, Link> recentColorizer;
@@ -404,52 +389,78 @@ public class SciviewBridge {
 
 	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		updateSciviewColoring(forThisBdv);
 		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp,
 				getCurrentColorizer(forThisBdv));
 	}
 
+	private int lastTpWhenVolumeWasUpdated = -1;
 	private void updateSciviewColoring(final MamutViewBdv forThisBdv) {
+		//only a wrapper that conditionally calls the workhorse method
+		if (UPDATE_VOLUME_AUTOMATICALLY) {
+			//HACK FOR NOW to prevent from redrawing of the same volumes
+			//would be better if the BdvNotifier could tell us, instead of us detecting it here
+			int currTP = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+			if (currTP != lastTpWhenVolumeWasUpdated) {
+				lastTpWhenVolumeWasUpdated = currTP;
+				updateSciviewColoringNow(forThisBdv);
+			}
+		}
+	}
+
+	private void updateSciviewColoringNow(final MamutViewBdv forThisBdv) {
 		long[] pxCoord = new long[3];
 		float[] spotCoord = new float[3];
 		float[] color = new float[3];
 
-		System.out.println("COLORING: started");
+		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: started");
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
 		RandomAccessibleInterval<?> srcRAI = mastodonWin.getAppModel()
 				.getSharedBdvData().getSources().get(SOURCE_ID)
 				.getSpimSource().getSource(tp,0);
 
-		System.out.println("COLORING: resets with new white content");
+		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: resets with new white content");
 		freshNewWhiteContent(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
 				(RandomAccessibleInterval)srcRAI);
 
-		GraphColorGenerator<Spot, Link> colorizer = getCurrentColorizer(forThisBdv);
-		for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
-			final int col = colorizer.color(s);
-			color[0] = ((col & 0x00FF0000) >> 16) / 255.f;
-			color[1] = ((col & 0x0000FF00) >> 8 ) / 255.f;
-			color[2] = ( col & 0x000000FF       ) / 255.f;
-			System.out.println("COLORING: colors spot "+s.getLabel()+" with color ["+color[0]+","+color[1]+","+color[2]+"]("+col+")");
+		if (INTENSITY_OF_COLORS_APPLY) {
+			GraphColorGenerator<Spot, Link> colorizer = getCurrentColorizer(forThisBdv);
+			for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
+				final int col = colorizer.color(s);
+				if (col == 0) continue; //don't imprint black spots into the volume
+				color[0] = ((col & 0x00FF0000) >> 16) / 255.f;
+				color[1] = ((col & 0x0000FF00) >> 8 ) / 255.f;
+				color[2] = ( col & 0x000000FF       ) / 255.f;
+				if (UPDATE_VOLUME_VERBOSE_REPORTS)
+					System.out.println("COLORING: colors spot "+s.getLabel()+" with color ["+color[0]+","+color[1]+","+color[2]+"]("+col+")");
 
-			s.localize(spotCoord);
-			spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
-				(RandomAccessibleInterval)srcRAI,
-				mastodonToImgCoord(spotCoord,pxCoord),
-				Math.sqrt(s.getBoundingSphereRadiusSquared()),
-				color);
+				s.localize(spotCoord);
+				spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
+					(RandomAccessibleInterval)srcRAI,
+					mastodonToImgCoord(spotCoord,pxCoord),
+					//NB: spot drawing is driven by image intensity, and thus
+					//dark BG doesn't get colorized too much ('cause it is dark),
+					//and thus it doesn't hurt if the spot is considered reasonably larger
+					SPOT_RADIUS_SCALE * Math.sqrt(s.getBoundingSphereRadiusSquared()),
+					color);
+			}
 		}
 
 		try {
-			System.out.println("COLORING: notified to update red volume");
+			final long graceTimeForVolumeUpdatingInMS = 50;
+			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update red volume");
 			redVolChannelNode.volumeManager.notifyUpdate(redVolChannelNode);
-			Thread.sleep(300);
-			System.out.println("COLORING: notified to update green volume");
+
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update green volume");
 			greenVolChannelNode.volumeManager.notifyUpdate(greenVolChannelNode);
-			Thread.sleep(300);
-			System.out.println("COLORING: notified to update blue volume");
+
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+			if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: notified to update blue volume");
 			blueVolChannelNode.volumeManager.notifyUpdate(blueVolChannelNode);
 		} catch (InterruptedException e) { /* do nothing */ }
-		System.out.println("COLORING: finished");
+
+		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: finished");
 	}
 
 	private void updateSciviewCamera(final MamutViewBdv forThisBdv) {
@@ -476,7 +487,15 @@ public class SciviewBridge {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
 		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
-		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> updateSciviewColoring(forThisBdv);
+		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> updateSciviewColoringNow(forThisBdv);
+		final Behaviour clk_CLRNG_AUTO = (ClickBehaviour) (x, y) -> {
+			UPDATE_VOLUME_AUTOMATICALLY = !UPDATE_VOLUME_AUTOMATICALLY;
+			System.out.println("Volume updating auto mode: "+UPDATE_VOLUME_AUTOMATICALLY);
+		};
+		final Behaviour clk_CLRNG_ONOFF = (ClickBehaviour) (x, y) -> {
+			INTENSITY_OF_COLORS_APPLY = !INTENSITY_OF_COLORS_APPLY;
+			System.out.println("Volume spots imprinting enabled: "+INTENSITY_OF_COLORS_APPLY);
+		};
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
@@ -484,8 +503,12 @@ public class SciviewBridge {
 		handler.addBehaviour("decrease_initial_spheres_size", clk_DEC_SPH);
 		handler.addKeyBinding("increase_initial_spheres_size", "shift O");
 		handler.addBehaviour("increase_initial_spheres_size", clk_INC_SPH);
-		handler.addKeyBinding("recolor_volume", "G");
-		handler.addBehaviour("recolor_volume", clk_COLORING);
+		handler.addKeyBinding("recolor_volume_now", "G");
+		handler.addBehaviour("recolor_volume_now", clk_COLORING);
+		handler.addKeyBinding("recolor_automatically", "shift G");
+		handler.addBehaviour("recolor_automatically", clk_CLRNG_AUTO);
+		handler.addKeyBinding("recolor_enabled", "ctrl G");
+		handler.addBehaviour("recolor_enabled", clk_CLRNG_ONOFF);
 
 		//deregister them when they are due
 		forThisBdv.onClose(() -> {
@@ -493,8 +516,12 @@ public class SciviewBridge {
 			handler.removeBehaviour("decrease_initial_spheres_size");
 			handler.removeKeyBinding("increase_initial_spheres_size");
 			handler.removeBehaviour("increase_initial_spheres_size");
-			handler.removeKeyBinding("recolor_volume");
-			handler.removeBehaviour("recolor_volume");
+			handler.removeKeyBinding("recolor_volume_now");
+			handler.removeBehaviour("recolor_volume_now");
+			handler.removeKeyBinding("recolor_automatically");
+			handler.removeBehaviour("recolor_automatically");
+			handler.removeKeyBinding("recolor_enabled");
+			handler.removeBehaviour("recolor_enabled");
 		});
 	}
 
