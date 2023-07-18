@@ -52,6 +52,7 @@ public class SciviewBridge {
 	static final float INTENSITY_OF_COLORS = 2100;  //however, max allowed value for displaying is this one...
 	static final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
 	static final float INTENSITY_RANGE_MIN = 0;
+	static final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
 
 	//data sink stuff
 	final SciView sciviewWin;
@@ -435,7 +436,10 @@ public class SciviewBridge {
 			spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
 				(RandomAccessibleInterval)srcRAI,
 				mastodonToImgCoord(spotCoord,pxCoord),
-				Math.sqrt(s.getBoundingSphereRadiusSquared()),
+				//NB: spot drawing is driven by image intensity, and thus
+				//dark BG doesn't get colorized too much ('cause it is dark),
+				//and thus it doesn't hurt if the spot is considered reasonably larger
+				SPOT_RADIUS_SCALE * Math.sqrt(s.getBoundingSphereRadiusSquared()),
 				color);
 		}
 
