@@ -25,6 +25,9 @@ public class SphereNodes {
 	public SphereNodes(final SciView operateForThisSciview, final Node stackSpheresUnderThisParentNode) {
 		this.sv = operateForThisSciview;
 		this.parentNode = stackSpheresUnderThisParentNode;
+
+		//FAILED to hook up here a 'parentNode' listener that would setVisible(false) on all children
+		//of the parent node that are "not used"
 	}
 
 	final List<Sphere> knownNodes = new ArrayList<>(1000);
