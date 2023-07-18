@@ -48,7 +48,8 @@ public class SciviewBridge {
 	int SOURCE_ID = 0;
 	int SOURCE_USED_RES_LEVEL = 0;
 	static final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
-	static final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value;
+	static final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value and...
+	static final float INTENSITY_GAMMA = 1.0f;      //...then gamma-corrected;
 
 	static boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
 	static final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
@@ -232,7 +233,9 @@ public class SciviewBridge {
 	                          final RandomAccessibleInterval<T> blueCh,
 	                          final RandomAccessibleInterval<T> srcImg) {
 		final BiConsumer<T,T> intensityProcessor =
-				(src, tgt) -> tgt.setReal( Math.min(INTENSITY_CONTRAST * src.getRealFloat(), INTENSITY_NOT_ABOVE) );
+				(src, tgt) -> tgt.setReal( INTENSITY_NOT_ABOVE * Math.pow( //TODO, replace pow() with LUT for several gammas
+						Math.min(INTENSITY_CONTRAST * src.getRealFloat(), INTENSITY_NOT_ABOVE) / INTENSITY_NOT_ABOVE,
+						INTENSITY_GAMMA) );
 		//massage input data into the red channel
 		LoopBuilder.setImages(srcImg,redCh)
 				.flatIterationOrder()
