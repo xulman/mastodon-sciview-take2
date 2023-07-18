@@ -213,42 +213,60 @@ public class SciviewBridge {
 				.forEachPixel((r,g,b) -> { g.set(r); b.set(r); });
 	}
 
-	public static <T extends IntegerType<T>>
+	<T extends IntegerType<T>>
 	void spreadColor(final RandomAccessibleInterval<T> redCh,
 	                 final RandomAccessibleInterval<T> greenCh,
 	                 final RandomAccessibleInterval<T> blueCh,
 	                 final RandomAccessibleInterval<T> srcImg,
 	                 final long[] pxCentre,
-	                 final long maxSpatialDist,
-	                 final int maxIntensityDist,
+	                 final double maxSpatialDist,
 	                 final float[] rgbValue) {
 
 		long[] min = new long[3];
 		long[] max = new long[3];
+		long[] maxDist = new long[] {
+				//Mastodon coords -> (raw) image coords
+				(long)(maxSpatialDist/mastodonToImgCoordsTransfer.x),
+				(long)(maxSpatialDist/mastodonToImgCoordsTransfer.y),
+				(long)(maxSpatialDist/mastodonToImgCoordsTransfer.z)
+		};
 		for (int d = 0; d < 3; ++d) {
-			min[d] = Math.max(pxCentre[d] - maxSpatialDist, 0);
-			max[d] = Math.min(pxCentre[d] + maxSpatialDist, srcImg.dimension(d)-1);
+			min[d] = Math.max(pxCentre[d] - maxDist[d], 0);
+			max[d] = Math.min(pxCentre[d] + maxDist[d], srcImg.dimension(d)-1);
 		}
 		final Interval roi = new FinalInterval(min,max);
 
 		Cursor<T> rc = Views.interval(redCh,roi).cursor();
 		Cursor<T> gc = Views.interval(greenCh,roi).cursor();
 		Cursor<T> bc = Views.interval(blueCh,roi).cursor();
-		Cursor<T> si = Views.interval(srcImg,roi).cursor();
-		final int sourceVal = srcImg.randomAccess().setPositionAndGet(pxCentre).getInteger();
+		Cursor<T> si = Views.interval(srcImg,roi).localizingCursor();
+
+		float[] pos = new float[3];
+		final float maxDistSq = (float)(maxSpatialDist*maxSpatialDist);
+
+		//to preserve a color, the r,g,b ratio must be kept (only mul()s, not add()s);
+		//since data values are clamped to INTENSITY_NOT_ABOVE, we can stretch all
+		//the way to INTENSITY_OF_COLORS (the brightest color displayed)
+		final float intensityScale = INTENSITY_OF_COLORS / INTENSITY_NOT_ABOVE;
 
 		int cnt = 0;
 		while (si.hasNext()) {
 			rc.next(); gc.next(); bc.next();
-			final int val = si.next().getInteger();
-			if (Math.abs(sourceVal-val) <= maxIntensityDist) {
-				//within ROI (by definition...) && within intensity range (the test above)
-				//rc.get().setReal( (float)val * rgbValue[0] );
-				//gc.get().setReal( (float)val * rgbValue[1] );
-				//bc.get().setReal( (float)val * rgbValue[2] );
-				rc.get().setReal( INTENSITY_OF_COLORS * rgbValue[0] );
-				gc.get().setReal( INTENSITY_OF_COLORS * rgbValue[1] );
-				bc.get().setReal( INTENSITY_OF_COLORS * rgbValue[2] );
+			si.next();
+
+			si.localize(pos);
+			//(raw) image coords -> Mastodon coords
+			pos[0] = (pos[0]-pxCentre[0]) * this.mastodonToImgCoordsTransfer.x;
+			pos[1] = (pos[1]-pxCentre[1]) * this.mastodonToImgCoordsTransfer.y;
+			pos[2] = (pos[2]-pxCentre[2]) * this.mastodonToImgCoordsTransfer.z;
+
+			final double distSq = pos[0]*pos[0] + pos[1]*pos[1] + pos[2]*pos[2];
+			if (distSq <= maxDistSq) {
+				//we're within the ROI (spot)
+				final float val = si.get().getInteger() * intensityScale;
+				rc.get().setReal( val * rgbValue[0] );
+				gc.get().setReal( val * rgbValue[1] );
+				bc.get().setReal( val * rgbValue[2] );
 				++cnt;
 			}
 		}
@@ -392,8 +410,7 @@ public class SciviewBridge {
 			spreadColor(redVolChannelImg,greenVolChannelImg,blueVolChannelImg,
 				(RandomAccessibleInterval)srcRAI,
 				mastodonToImgCoord(spotCoord,pxCoord),
-				20,
-				10,
+				Math.sqrt(s.getBoundingSphereRadiusSquared()),
 				color);
 		}
 
