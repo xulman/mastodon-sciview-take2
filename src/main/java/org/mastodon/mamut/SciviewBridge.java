@@ -477,6 +477,10 @@ public class SciviewBridge {
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
 		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
 		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> updateSciviewColoringNow(forThisBdv);
+		final Behaviour clk_CLRNG_AUTO = (ClickBehaviour) (x, y) -> {
+			UPDATE_VOLUME_AUTOMATICALLY = !UPDATE_VOLUME_AUTOMATICALLY;
+			System.out.println("Volume updating auto mode: "+UPDATE_VOLUME_AUTOMATICALLY);
+		};
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
@@ -484,8 +488,10 @@ public class SciviewBridge {
 		handler.addBehaviour("decrease_initial_spheres_size", clk_DEC_SPH);
 		handler.addKeyBinding("increase_initial_spheres_size", "shift O");
 		handler.addBehaviour("increase_initial_spheres_size", clk_INC_SPH);
-		handler.addKeyBinding("recolor_volume", "G");
-		handler.addBehaviour("recolor_volume", clk_COLORING);
+		handler.addKeyBinding("recolor_volume_now", "G");
+		handler.addBehaviour("recolor_volume_now", clk_COLORING);
+		handler.addKeyBinding("recolor_automatically", "shift G");
+		handler.addBehaviour("recolor_automatically", clk_CLRNG_AUTO);
 
 		//deregister them when they are due
 		forThisBdv.onClose(() -> {
@@ -493,8 +499,10 @@ public class SciviewBridge {
 			handler.removeBehaviour("decrease_initial_spheres_size");
 			handler.removeKeyBinding("increase_initial_spheres_size");
 			handler.removeBehaviour("increase_initial_spheres_size");
-			handler.removeKeyBinding("recolor_volume");
-			handler.removeBehaviour("recolor_volume");
+			handler.removeKeyBinding("recolor_volume_now");
+			handler.removeBehaviour("recolor_volume_now");
+			handler.removeKeyBinding("recolor_automatically");
+			handler.removeBehaviour("recolor_automatically");
 		});
 	}
 
