@@ -49,7 +49,7 @@ public class SciviewBridge {
 	int SOURCE_ID = 0;
 	int SOURCE_USED_RES_LEVEL = 0;
 	final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
-	final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value and...
+	final float INTENSITY_CLAMP_AT_TOP = 700;//...then clamped not to be above this value and...
 	final float INTENSITY_GAMMA = 1.0f;      //...then gamma-corrected;
 
 	boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
@@ -255,8 +255,8 @@ public class SciviewBridge {
 	                          final RandomAccessibleInterval<T> blueCh,
 	                          final RandomAccessibleInterval<T> srcImg) {
 		final BiConsumer<T,T> intensityProcessor =
-				(src, tgt) -> tgt.setReal( INTENSITY_NOT_ABOVE * Math.pow( //TODO, replace pow() with LUT for several gammas
-						Math.min(INTENSITY_CONTRAST * src.getRealFloat(), INTENSITY_NOT_ABOVE) / INTENSITY_NOT_ABOVE,
+				(src, tgt) -> tgt.setReal( INTENSITY_CLAMP_AT_TOP * Math.pow( //TODO, replace pow() with LUT for several gammas
+						Math.min(INTENSITY_CONTRAST * src.getRealFloat(), INTENSITY_CLAMP_AT_TOP) / INTENSITY_CLAMP_AT_TOP,
 						INTENSITY_GAMMA) );
 		//massage input data into the red channel
 		LoopBuilder.setImages(srcImg,redCh)
@@ -304,7 +304,7 @@ public class SciviewBridge {
 		//to preserve a color, the r,g,b ratio must be kept (only mul()s, not add()s);
 		//since data values are clamped to INTENSITY_NOT_ABOVE, we can stretch all
 		//the way to INTENSITY_OF_COLORS (the brightest color displayed)
-		final float intensityScale = INTENSITY_OF_COLORS / INTENSITY_NOT_ABOVE;
+		final float intensityScale = INTENSITY_OF_COLORS / INTENSITY_CLAMP_AT_TOP;
 
 		int cnt = 0;
 		while (si.hasNext()) {
