@@ -47,18 +47,18 @@ public class SciviewBridge {
 	final WindowManager mastodonWin;
 	int SOURCE_ID = 0;
 	int SOURCE_USED_RES_LEVEL = 0;
-	static final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
-	static final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value and...
-	static final float INTENSITY_GAMMA = 1.0f;      //...then gamma-corrected;
+	final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
+	final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value and...
+	final float INTENSITY_GAMMA = 1.0f;      //...then gamma-corrected;
 
-	static boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
-	static final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
-	static final float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
+	boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
+	final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
+	final float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
 
-	static final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
-	static final float INTENSITY_RANGE_MIN = 0;
-	static boolean UPDATE_VOLUME_AUTOMATICALLY = true;
-	static boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
+	final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
+	final float INTENSITY_RANGE_MIN = 0;
+	boolean UPDATE_VOLUME_AUTOMATICALLY = true;
+	boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
 
 	//data sink stuff
 	final SciView sciviewWin;
@@ -228,7 +228,7 @@ public class SciviewBridge {
 		return finalRatio;
 	}
 
-	public static <T extends IntegerType<T>>
+	public <T extends IntegerType<T>>
 	void freshNewWhiteContent(final RandomAccessibleInterval<T> redCh,
 	                          final RandomAccessibleInterval<T> greenCh,
 	                          final RandomAccessibleInterval<T> blueCh,
@@ -539,7 +539,7 @@ public class SciviewBridge {
 	}
 
 	// --------------------------------------------------------------------------
-	static WindowManager giveMeSomeMastodon(final Context scijavaCtx)
+	private static WindowManager giveMeSomeMastodon(final Context scijavaCtx)
 	throws IOException, SpimDataException {
 		String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
 
@@ -564,7 +564,7 @@ public class SciviewBridge {
 		return windowManager;
 	}
 
-	static SciView createSciview()
+	private static SciView createSciview()
 	throws Exception {
 		return SciView.create();
 	}
