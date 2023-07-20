@@ -208,7 +208,22 @@ public class SciviewBridgeUI {
 	}
 
 	public void updatePaneValues() {
-		UPDATE_VOLUME_AUTOMATICALLY.setEnabled( controlledBridge.UPDATE_VOLUME_AUTOMATICALLY );
+		INTENSITY_CONTRAST.setValue( controlledBridge.INTENSITY_CONTRAST );
+		INTENSITY_CLAMP_AT_TOP.setValue( controlledBridge.INTENSITY_CLAMP_AT_TOP );
+		INTENSITY_GAMMA.setValue( controlledBridge.INTENSITY_GAMMA );
+
+		INTENSITY_OF_COLORS.setValue( controlledBridge.INTENSITY_OF_COLORS );
+
+		INTENSITY_RANGE_MIN.setValue( controlledBridge.INTENSITY_RANGE_MIN );
+		INTENSITY_RANGE_MAX.setValue( controlledBridge.INTENSITY_RANGE_MAX );
+
+		INTENSITY_OF_COLORS_APPLY.setSelected( controlledBridge.INTENSITY_OF_COLORS_APPLY );
+		SPOT_RADIUS_SCALE.setValue( controlledBridge.SPOT_RADIUS_SCALE );
+
+		UPDATE_VOLUME_AUTOMATICALLY.setSelectedItem(
+				controlledBridge.UPDATE_VOLUME_AUTOMATICALLY ?
+						updVolMsgA : updVolMsgM);
+		UPDATE_VOLUME_VERBOSE_REPORTS.setSelected( controlledBridge.UPDATE_VOLUME_VERBOSE_REPORTS );
 	}
 
 	//int SOURCE_ID = 0;
