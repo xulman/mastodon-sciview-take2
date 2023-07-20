@@ -41,6 +41,11 @@ public class SciviewBridgeUI {
 		c.gridy++;
 		INTENSITY_CONTRAST = new SpinnerNumberModel(1.0, 0.0, 100.0, 0.5);
 		new JSpinner(INTENSITY_CONTRAST);
+
+		c.gridy++;
+		JButton closeBtn = new JButton("Close");
+		closeBtn.addActionListener( (e) -> controlledBridge.detachControllingUI() );
+		contentPane.add(closeBtn, c);
 	}
 
 	/**
