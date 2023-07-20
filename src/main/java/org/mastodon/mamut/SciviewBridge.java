@@ -499,16 +499,27 @@ public class SciviewBridge {
 	// --------------------------------------------------------------------------
 	private void keyboardHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
 		//handlers
-		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
-		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
-		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> updateSciviewColoringNow(forThisBdv);
+		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> {
+			sphereNodes.decreaseSphereScale();
+			updateUI();
+		};
+		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> {
+			sphereNodes.increaseSphereScale();
+			updateUI();
+		};
+		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> {
+			updateSciviewColoringNow(forThisBdv);
+			updateUI();
+		};
 		final Behaviour clk_CLRNG_AUTO = (ClickBehaviour) (x, y) -> {
 			UPDATE_VOLUME_AUTOMATICALLY = !UPDATE_VOLUME_AUTOMATICALLY;
 			System.out.println("Volume updating auto mode: "+UPDATE_VOLUME_AUTOMATICALLY);
+			updateUI();
 		};
 		final Behaviour clk_CLRNG_ONOFF = (ClickBehaviour) (x, y) -> {
 			INTENSITY_OF_COLORS_APPLY = !INTENSITY_OF_COLORS_APPLY;
 			System.out.println("Volume spots imprinting enabled: "+INTENSITY_OF_COLORS_APPLY);
+			updateUI();
 		};
 
 		//register them
@@ -562,6 +573,12 @@ public class SciviewBridge {
 			uiFrame.dispose();
 		}
 	}
+
+	void updateUI() {
+		if (associatedUI == null) return;
+		associatedUI.updatePaneValues();
+	}
+
 	// --------------------------------------------------------------------------
 	private static WindowManager giveMeSomeMastodon(final Context scijavaCtx)
 	throws IOException, SpimDataException {
