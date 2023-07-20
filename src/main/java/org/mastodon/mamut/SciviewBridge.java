@@ -194,6 +194,7 @@ public class SciviewBridge {
 
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
+		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), 0, noTScolorizer);
 	}
 
 	private void adjustAndPlaceVolumeIntoTheScene(final Volume v,
