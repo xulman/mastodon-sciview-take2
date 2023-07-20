@@ -106,6 +106,8 @@ public class SciviewBridge {
 		this.sciviewWin = targetSciviewWindow;
 
 		//adjust the default scene's settings
+		sciviewWin.setApplicationName("sciview for Mastodon: "
+				+ mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
 		sciviewWin.getFloor().setVisible(false);
 		sciviewWin.getLights().forEach(l -> {
 			if (l.getName().startsWith("headli"))
@@ -382,7 +384,7 @@ public class SciviewBridge {
 	// --------------------------------------------------------------------------
 	public MamutViewBdv openSyncedBDV() {
 		final MamutViewBdv bdvWin = mastodonWin.createBigDataViewer();
-		bdvWin.getFrame().setTitle("BDV linked to Sciview");
+		bdvWin.getFrame().setTitle("BDV linked to "+sciviewWin.getName());
 
 		//initial spots content:
 		updateSciviewContent(bdvWin);
