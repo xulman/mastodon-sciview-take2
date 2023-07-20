@@ -61,6 +61,24 @@ public class SciviewBridge {
 	boolean UPDATE_VOLUME_AUTOMATICALLY = true;
 	boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
 
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder("Mastodon-sciview bridge internal settings:\n");
+		sb.append("   SOURCE_ID = "+ SOURCE_ID +"\n");
+		sb.append("   SOURCE_USED_RES_LEVEL = "+ SOURCE_USED_RES_LEVEL +"\n");
+		sb.append("   INTENSITY_CONTRAST = "+ INTENSITY_CONTRAST +"\n");
+		sb.append("   INTENSITY_CLAMP_AT_TOP = "+ INTENSITY_CLAMP_AT_TOP +"\n");
+		sb.append("   INTENSITY_GAMMA = "+ INTENSITY_GAMMA +"\n");
+		sb.append("   INTENSITY_OF_COLORS_APPLY = "+ INTENSITY_OF_COLORS_APPLY +"\n");
+		sb.append("   SPOT_RADIUS_SCALE = "+ SPOT_RADIUS_SCALE +"\n");
+		sb.append("   INTENSITY_OF_COLORS = "+ INTENSITY_OF_COLORS +"\n");
+		sb.append("   INTENSITY_RANGE_MAX = "+ INTENSITY_RANGE_MAX +"\n");
+		sb.append("   INTENSITY_RANGE_MIN = "+ INTENSITY_RANGE_MIN +"\n");
+		sb.append("   UPDATE_VOLUME_AUTOMATICALLY = "+ UPDATE_VOLUME_AUTOMATICALLY +"\n");
+		sb.append("   UPDATE_VOLUME_VERBOSE_REPORTS = "+ UPDATE_VOLUME_VERBOSE_REPORTS);
+		return sb.toString();
+	}
+
 	//data sink stuff
 	final SciView sciviewWin;
 	final SphereNodes sphereNodes;
