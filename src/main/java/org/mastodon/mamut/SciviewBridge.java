@@ -81,6 +81,24 @@ public class SciviewBridge {
 
 	public SciviewBridgeUI associatedUI = null;
 	public JFrame uiFrame = null;
+
+	/** exists here only for the demo (in tests folder), don't ever use in normal scenarios */
+	SciviewBridge() {
+		this.mastodonWin = null;
+		this.sciviewWin = null;
+		this.sphereNodes = null;
+		this.axesParent = null;
+		this.sphereParent = null;
+		this.volumeParent = null;
+		this.greenVolChannelNode = null;
+		this.blueVolChannelNode = null;
+		this.redVolChannelNode = null;
+		this.greenVolChannelImg = null;
+		this.blueVolChannelImg = null;
+		this.redVolChannelImg = null;
+		this.mastodonToImgCoordsTransfer = null;
+	}
+
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
