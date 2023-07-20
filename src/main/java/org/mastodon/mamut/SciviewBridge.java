@@ -48,9 +48,10 @@ public class SciviewBridge {
 	final WindowManager mastodonWin;
 	int SOURCE_ID = 0;
 	int SOURCE_USED_RES_LEVEL = 0;
-	float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
-	float INTENSITY_CLAMP_AT_TOP = 700;//...then clamped not to be above this value and...
-	float INTENSITY_GAMMA = 1.0f;      //...then gamma-corrected;
+	float INTENSITY_CONTRAST = 1;      //raw data multiplied with this value and...
+	float INTENSITY_SHIFT = 0;         //...then added with this value and...
+	float INTENSITY_CLAMP_AT_TOP = 700;//...then assured/clamped not to be above this value and...
+	float INTENSITY_GAMMA = 1.0f;      //...then, finally, gamma-corrected (squeezed through exp());
 
 	boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
 	float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
@@ -67,6 +68,7 @@ public class SciviewBridge {
 		sb.append("   SOURCE_ID = "+ SOURCE_ID +"\n");
 		sb.append("   SOURCE_USED_RES_LEVEL = "+ SOURCE_USED_RES_LEVEL +"\n");
 		sb.append("   INTENSITY_CONTRAST = "+ INTENSITY_CONTRAST +"\n");
+		sb.append("   INTENSITY_SHIFT = "+ INTENSITY_SHIFT +"\n");
 		sb.append("   INTENSITY_CLAMP_AT_TOP = "+ INTENSITY_CLAMP_AT_TOP +"\n");
 		sb.append("   INTENSITY_GAMMA = "+ INTENSITY_GAMMA +"\n");
 		sb.append("   INTENSITY_OF_COLORS_APPLY = "+ INTENSITY_OF_COLORS_APPLY +"\n");
@@ -276,8 +278,8 @@ public class SciviewBridge {
 	                          final RandomAccessibleInterval<T> srcImg) {
 		final BiConsumer<T,T> intensityProcessor =
 				(src, tgt) -> tgt.setReal( INTENSITY_CLAMP_AT_TOP * Math.pow( //TODO, replace pow() with LUT for several gammas
-						Math.min(INTENSITY_CONTRAST * src.getRealFloat(), INTENSITY_CLAMP_AT_TOP) / INTENSITY_CLAMP_AT_TOP,
-						INTENSITY_GAMMA) );
+						Math.min(INTENSITY_CONTRAST*src.getRealFloat() +INTENSITY_SHIFT, INTENSITY_CLAMP_AT_TOP) / INTENSITY_CLAMP_AT_TOP
+						, INTENSITY_GAMMA) );
 		//massage input data into the red channel
 		LoopBuilder.setImages(srcImg,redCh)
 				.flatIterationOrder()

@@ -42,7 +42,8 @@ public class SciviewBridgeUI {
 		c.anchor = GridBagConstraints.LINE_START;
 
 		c.gridy = 0;
-		insertNote("Volume pixel values 'v' are processed:   min( exp( contrast*v, gamma ), not_above )", c);
+		insertNote("Volume pixel values 'v' are processed linearly, normalized, gamma, scaled back:", c);
+		insertNote("   exp( min(contrast*v +shift, not_above)/not_above, gamma ) *not_above", c);
 
 		c.gridy++;
 		c.gridx = 0;
@@ -51,6 +52,14 @@ public class SciviewBridgeUI {
 		c.gridx = 1;
 		INTENSITY_CONTRAST = new SpinnerNumberModel(1.0, 0.0, 100.0, 0.5);
 		insertSpinner(INTENSITY_CONTRAST, (f) -> controlledBridge.INTENSITY_CONTRAST = f, c);
+
+		c.gridy++;
+		c.gridx = 0;
+		insertLabel("Apply on Volume this shifting bias:", c);
+		//
+		c.gridx = 1;
+		INTENSITY_SHIFT = new SpinnerNumberModel(0.0, -65535.0, 65535.0, 50);
+		insertSpinner(INTENSITY_SHIFT, (f) -> controlledBridge.INTENSITY_SHIFT = f, c);
 
 		c.gridy++;
 		c.gridx = 0;
@@ -268,6 +277,7 @@ public class SciviewBridgeUI {
 
 	public void updatePaneValues() {
 		INTENSITY_CONTRAST.setValue( controlledBridge.INTENSITY_CONTRAST );
+		INTENSITY_SHIFT.setValue( controlledBridge.INTENSITY_SHIFT );
 		INTENSITY_CLAMP_AT_TOP.setValue( controlledBridge.INTENSITY_CLAMP_AT_TOP );
 		INTENSITY_GAMMA.setValue( controlledBridge.INTENSITY_GAMMA );
 
@@ -287,7 +297,9 @@ public class SciviewBridgeUI {
 
 	//int SOURCE_ID = 0;
 	//int SOURCE_USED_RES_LEVEL = 0;
+
 	SpinnerModel INTENSITY_CONTRAST;
+	SpinnerModel INTENSITY_SHIFT;
 	SpinnerModel INTENSITY_CLAMP_AT_TOP;
 	SpinnerModel INTENSITY_GAMMA;
 
