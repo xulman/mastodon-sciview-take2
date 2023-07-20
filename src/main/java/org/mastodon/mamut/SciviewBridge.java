@@ -364,8 +364,6 @@ public class SciviewBridge {
 		bdvWin.getFrame().setTitle("BDV linked to Sciview");
 
 		//initial spots content:
-		final int tp = bdvWin.getViewerPanelMamut().state().getCurrentTimepoint();
-		//sphereNodes.setDataCentre( getSpotsAveragePos(tp) );
 		updateSciviewContent(bdvWin);
 
 		new BdvNotifier(
