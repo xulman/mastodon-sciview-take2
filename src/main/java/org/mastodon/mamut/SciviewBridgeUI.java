@@ -2,7 +2,15 @@
 package org.mastodon.mamut;
 
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.util.ArrayList;
+import java.util.function.Consumer;
 
 public class SciviewBridgeUI {
 	SciviewBridge controlledBridge;
@@ -42,7 +50,7 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		INTENSITY_CONTRAST = new SpinnerNumberModel(1.0, 0.0, 100.0, 0.5);
-		insertSpinner(INTENSITY_CONTRAST, c);
+		insertSpinner(INTENSITY_CONTRAST, (f) -> controlledBridge.INTENSITY_CONTRAST = f, c);
 
 		c.gridy++;
 		c.gridx = 0;
@@ -50,7 +58,7 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		INTENSITY_GAMMA = new SpinnerNumberModel(1.0, 0.1, 3.0, 0.1);
-		insertSpinner(INTENSITY_GAMMA, c);
+		insertSpinner(INTENSITY_GAMMA, (f) -> controlledBridge.INTENSITY_GAMMA = f, c);
 
 		c.gridy++;
 		c.gridx = 0;
@@ -58,7 +66,7 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		INTENSITY_CLAMP_AT_TOP = new SpinnerNumberModel(700.0, 0.0, 65535.0, 50.0);
-		insertSpinner(INTENSITY_CLAMP_AT_TOP, c);
+		insertSpinner(INTENSITY_CLAMP_AT_TOP, (f) -> controlledBridge.INTENSITY_CLAMP_AT_TOP = f, c);
 
 		// -------------- separator --------------
 		c.gridy++;
@@ -73,7 +81,7 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		INTENSITY_RANGE_MIN = new SpinnerNumberModel(0.0, 0.0, 65535.0, 50.0);
-		insertSpinner(INTENSITY_RANGE_MIN, c);
+		insertSpinner(INTENSITY_RANGE_MIN, (f) -> controlledBridge.INTENSITY_RANGE_MIN = f, c);
 
 		c.gridy++;
 		c.gridx = 0;
@@ -81,7 +89,7 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		INTENSITY_RANGE_MAX = new SpinnerNumberModel(2500.0, 0.0, 65535.0, 50.0);
-		insertSpinner(INTENSITY_RANGE_MAX, c);
+		insertSpinner(INTENSITY_RANGE_MAX, (f) -> controlledBridge.INTENSITY_RANGE_MAX = f, c);
 
 		// -------------- separator --------------
 		c.gridy++;
@@ -100,6 +108,7 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		UPDATE_VOLUME_AUTOMATICALLY = new JComboBox<>(new String[] {updVolMsgA, updVolMsgM});
+		UPDATE_VOLUME_AUTOMATICALLY.addActionListener( updVolAutoListener );
 		insertRColumnItem(UPDATE_VOLUME_AUTOMATICALLY, c);
 
 		c.gridy++;
@@ -108,7 +117,7 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		INTENSITY_OF_COLORS = new SpinnerNumberModel(2400.0, 0.0, 65535.0, 50.0);
-		insertSpinner(INTENSITY_OF_COLORS, c);
+		insertSpinner(INTENSITY_OF_COLORS, (f) -> controlledBridge.INTENSITY_OF_COLORS = f, c);
 
 		c.gridy++;
 		c.gridx = 0;
@@ -116,7 +125,7 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		SPOT_RADIUS_SCALE = new SpinnerNumberModel(3.0, 0.0, 50.0, 1.0);
-		insertSpinner(SPOT_RADIUS_SCALE, c);
+		insertSpinner(SPOT_RADIUS_SCALE, (f) -> controlledBridge.SPOT_RADIUS_SCALE = f, c);
 
 		c.gridy++;
 		UPDATE_VOLUME_VERBOSE_REPORTS = new JCheckBox("Verbose/debug reporting during Volume repainting");
@@ -153,8 +162,14 @@ public class SciviewBridgeUI {
 	}
 
 	final Dimension spinnerMinDim = new Dimension(200,20);
-	void insertSpinner(final SpinnerModel model, final GridBagConstraints c) {
+	void insertSpinner(final SpinnerModel model,
+	                   final Consumer<Float> updaterOnEvents,
+	                   final GridBagConstraints c) {
 		insertRColumnItem(new JSpinner(model), c);
+
+		OwnerAwareSpinnerChangeListener l = new OwnerAwareSpinnerChangeListener(updaterOnEvents, model);
+		model.addChangeListener(l);
+		spinnerModelsWithListeners.add(l);
 	}
 	void insertRColumnItem(final JComponent item, final GridBagConstraints c) {
 		item.setMinimumSize(spinnerMinDim);
@@ -166,6 +181,9 @@ public class SciviewBridgeUI {
 	void insertCheckBox(final JCheckBox cbox, final GridBagConstraints c) {
 		final int prevFill = c.fill;
 		final int prevGridW = c.gridwidth;
+
+		cbox.addItemListener( checkboxChangeListener );
+		checkBoxesWithListeners.add(cbox);
 
 		c.fill = GridBagConstraints.HORIZONTAL;
 		c.gridwidth = 2;
@@ -197,6 +215,44 @@ public class SciviewBridgeUI {
 		c.insets = prevInsets;
 	}
 
+	class OwnerAwareSpinnerChangeListener implements ChangeListener {
+		final Consumer<Float> pushChangeToHere;
+		final SpinnerModel observedSource;
+		//
+		OwnerAwareSpinnerChangeListener(Consumer<Float> pushChangeToHere,
+		                                SpinnerModel fromThisItem) {
+			this.pushChangeToHere = pushChangeToHere;
+			this.observedSource = fromThisItem;
+		}
+		//
+		@Override
+		public void stateChanged(ChangeEvent changeEvent) {
+			SpinnerNumberModel s = (SpinnerNumberModel)changeEvent.getSource();
+			pushChangeToHere.accept( s.getNumber().floatValue() );
+		}
+	}
+	ItemListener checkboxChangeListener = new ItemListener() {
+		@Override
+		public void itemStateChanged(ItemEvent itemEvent) {
+			JCheckBox cb = (JCheckBox) itemEvent.getSource();
+			if (cb == INTENSITY_OF_COLORS_APPLY) {
+				controlledBridge.INTENSITY_OF_COLORS_APPLY = cb.isSelected();
+			} else if (cb == UPDATE_VOLUME_VERBOSE_REPORTS) {
+				controlledBridge.UPDATE_VOLUME_VERBOSE_REPORTS = cb.isSelected();
+			}
+		}
+	};
+	final java.util.List<OwnerAwareSpinnerChangeListener> spinnerModelsWithListeners = new ArrayList<>(10);
+	final java.util.List<JCheckBox> checkBoxesWithListeners = new ArrayList<>(10);
+	//
+	final ActionListener updVolAutoListener = new ActionListener() {
+		@Override
+		public void actionPerformed(ActionEvent actionEvent) {
+			controlledBridge.UPDATE_VOLUME_AUTOMATICALLY
+					= UPDATE_VOLUME_AUTOMATICALLY.getSelectedIndex() == 0;
+		}
+	};
+
 	/**
 	 * Disable all listeners to make sure that, even if this UI window would ever
 	 * be re-displayed, its controls could not control anything (and would throw
@@ -204,6 +260,9 @@ public class SciviewBridgeUI {
 	 */
 	public void deactivateAndForget() {
 		//listeners tear-down here
+		spinnerModelsWithListeners.forEach(c -> c.observedSource.removeChangeListener(c));
+		checkBoxesWithListeners.forEach(c -> c.removeItemListener( checkboxChangeListener ));
+		UPDATE_VOLUME_AUTOMATICALLY.removeActionListener( updVolAutoListener );
 		this.controlledBridge = null;
 	}
 
