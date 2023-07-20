@@ -90,7 +90,10 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		INTENSITY_RANGE_MIN = new SpinnerNumberModel(0.0, 0.0, 65535.0, 50.0);
-		insertSpinner(INTENSITY_RANGE_MIN, (f) -> controlledBridge.INTENSITY_RANGE_MIN = f, c);
+		insertSpinner(INTENSITY_RANGE_MIN, (f) -> {
+			controlledBridge.INTENSITY_RANGE_MIN = f;
+			controlledBridge.redVolChannelNode.setMinDisplayRange(f);
+		}, c);
 
 		c.gridy++;
 		c.gridx = 0;
@@ -98,7 +101,10 @@ public class SciviewBridgeUI {
 		//
 		c.gridx = 1;
 		INTENSITY_RANGE_MAX = new SpinnerNumberModel(2500.0, 0.0, 65535.0, 50.0);
-		insertSpinner(INTENSITY_RANGE_MAX, (f) -> controlledBridge.INTENSITY_RANGE_MAX = f, c);
+		insertSpinner(INTENSITY_RANGE_MAX, (f) -> {
+			controlledBridge.INTENSITY_RANGE_MAX = f;
+			controlledBridge.redVolChannelNode.setMaxDisplayRange(f);
+		}, c);
 
 		// -------------- separator --------------
 		c.gridy++;
