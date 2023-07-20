@@ -38,6 +38,7 @@ import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
 import javax.swing.WindowConstants;
+import javax.swing.JFrame;
 import java.io.IOException;
 import java.util.function.BiConsumer;
 
@@ -78,6 +79,8 @@ public class SciviewBridge {
 
 	final Vector3f mastodonToImgCoordsTransfer;
 
+	public SciviewBridgeUI associatedUI = null;
+	public JFrame uiFrame = null;
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
@@ -536,6 +539,29 @@ public class SciviewBridge {
 		});
 	}
 
+	public JFrame createAndShowControllingUI() {
+		return createAndShowControllingUI("Controls for "+sciviewWin.getName());
+	}
+
+	public JFrame createAndShowControllingUI(final String windowTitle) {
+		uiFrame = new JFrame(windowTitle);
+		uiFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		associatedUI = new SciviewBridgeUI(this, uiFrame.getContentPane());
+		uiFrame.pack();
+		uiFrame.setVisible(true);
+		return uiFrame;
+	}
+
+	public void detachControllingUI() {
+		if (associatedUI != null) {
+			associatedUI.deactivateAndForget();
+			associatedUI = null;
+		}
+		if (uiFrame != null) {
+			uiFrame.setVisible(false);
+			uiFrame.dispose();
+		}
+	}
 	// --------------------------------------------------------------------------
 	private static WindowManager giveMeSomeMastodon(final Context scijavaCtx)
 	throws IOException, SpimDataException {
