@@ -37,12 +37,18 @@ public class SciviewBridgeUI {
 		contentPane.setLayout( gridBagLayout );
 
 		final GridBagConstraints c = new GridBagConstraints();
-		final Insets defSpace = new Insets(2,10,2,10);
-		c.insets = defSpace;
 		c.anchor = GridBagConstraints.LINE_START;
+		c.fill = GridBagConstraints.HORIZONTAL;
 
 		c.gridy = 0;
-		insertNote("Volume pixel values 'v' are processed linearly, normalized, gamma, scaled back:", c);
+		c.gridwidth = 2;
+		c.weightx = 0.1;
+		c.insets = new Insets(sideSpace,sideSpace,2,sideSpace);
+		contentPane.add( new JLabel("Volume pixel values 'v' are processed linearly, normalized, gamma, scaled back:"), c);
+		c.insets = new Insets(2,sideSpace,2,sideSpace);
+		c.gridwidth = 1;
+
+		c.gridy++;
 		insertNote("   exp( min(contrast*v +shift, not_above)/not_above, gamma ) *not_above", c);
 
 		c.gridy++;
@@ -124,7 +130,9 @@ public class SciviewBridgeUI {
 		c.gridx = 1;
 		UPDATE_VOLUME_AUTOMATICALLY = new JComboBox<>(new String[] {updVolMsgA, updVolMsgM});
 		UPDATE_VOLUME_AUTOMATICALLY.addActionListener( updVolAutoListener );
+		c.anchor = GridBagConstraints.LINE_END;
 		insertRColumnItem(UPDATE_VOLUME_AUTOMATICALLY, c);
+		c.anchor = GridBagConstraints.LINE_START;
 
 		c.gridy++;
 		c.gridx = 0;
@@ -155,13 +163,14 @@ public class SciviewBridgeUI {
 		insertRColumnItem(redrawBtn, c);
 
 		c.gridx = 1;
-		c.fill = GridBagConstraints.HORIZONTAL;
+		c.anchor = GridBagConstraints.LINE_END;
 		JButton closeBtn = new JButton("Close");
 		closeBtn.addActionListener( (e) -> controlledBridge.detachControllingUI() );
 		insertRColumnItem(closeBtn, c);
 	}
 
-	final Insets noteSpace = new Insets(2,10,8,20);
+	final int sideSpace = 15;
+	final Insets noteSpace = new Insets(2,sideSpace,8,2*sideSpace);
 	void insertNote(final String noteText, final GridBagConstraints c) {
 		final int prevGridW = c.gridwidth;
 		final Insets prevInsets = c.insets;
@@ -183,10 +192,13 @@ public class SciviewBridgeUI {
 	}
 
 	final Dimension spinnerMinDim = new Dimension(200,20);
+	final Dimension spinnerMaxDim = new Dimension(1000,20);
 	void insertSpinner(final SpinnerModel model,
 	                   final Consumer<Float> updaterOnEvents,
 	                   final GridBagConstraints c) {
+		c.anchor = GridBagConstraints.LINE_END;
 		insertRColumnItem(new JSpinner(model), c);
+		c.anchor = GridBagConstraints.LINE_START;
 
 		OwnerAwareSpinnerChangeListener l = new OwnerAwareSpinnerChangeListener(updaterOnEvents, model);
 		model.addChangeListener(l);
@@ -195,6 +207,7 @@ public class SciviewBridgeUI {
 	void insertRColumnItem(final JComponent item, final GridBagConstraints c) {
 		item.setMinimumSize(spinnerMinDim);
 		item.setPreferredSize(spinnerMinDim);
+		item.setMaximumSize(spinnerMaxDim);
 		c.weightx = 0.3;
 		contentPane.add(item, c);
 	}
@@ -217,7 +230,7 @@ public class SciviewBridgeUI {
 		c.gridwidth = prevGridW;
 	}
 
-	final Insets sepSpace = new Insets(8,10,8,10);
+	final Insets sepSpace = new Insets(8,sideSpace,8,sideSpace);
 	void insertSeparator(final GridBagConstraints c) {
 		final int prevFill = c.fill;
 		final int prevGridW = c.gridwidth;
