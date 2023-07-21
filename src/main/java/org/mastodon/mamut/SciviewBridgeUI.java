@@ -148,6 +148,12 @@ public class SciviewBridgeUI {
 
 		// -------------- button row --------------
 		c.gridy++;
+		c.gridx = 0;
+		c.insets = new Insets(10,sideSpace,sideSpace,sideSpace);
+		JButton redrawBtn = new JButton("  Repaint now  ");
+		redrawBtn.addActionListener( (e) -> controlledBridge.updateSciviewColoringNow() );
+		insertRColumnItem(redrawBtn, c);
+
 		c.gridx = 1;
 		c.fill = GridBagConstraints.HORIZONTAL;
 		JButton closeBtn = new JButton("Close");
