@@ -263,6 +263,8 @@ public class SciviewBridgeUI {
 		public void stateChanged(ChangeEvent changeEvent) {
 			SpinnerNumberModel s = (SpinnerNumberModel)changeEvent.getSource();
 			pushChangeToHere.accept( s.getNumber().floatValue() );
+			if (s != INTENSITY_RANGE_MIN && s != INTENSITY_RANGE_MAX && controlledBridge.UPDATE_VOLUME_AUTOMATICALLY)
+				controlledBridge.updateSciviewColoringNow();
 		}
 	}
 	ItemListener checkboxChangeListener = new ItemListener() {
@@ -271,6 +273,7 @@ public class SciviewBridgeUI {
 			JCheckBox cb = (JCheckBox) itemEvent.getSource();
 			if (cb == INTENSITY_OF_COLORS_APPLY) {
 				controlledBridge.INTENSITY_OF_COLORS_APPLY = cb.isSelected();
+				if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSciviewColoringNow();
 			} else if (cb == UPDATE_VOLUME_VERBOSE_REPORTS) {
 				controlledBridge.UPDATE_VOLUME_VERBOSE_REPORTS = cb.isSelected();
 			}
