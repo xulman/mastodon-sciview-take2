@@ -441,6 +441,39 @@ public class SciviewBridge {
 		return colorizer;
 	}
 
+	//------------------------------
+	interface DisplayParamsProvider {
+		int getTimepoint();
+		GraphColorGenerator<Spot,Link> getColorizer();
+	}
+
+	class DPP_BdvAdapter implements DisplayParamsProvider {
+		final MamutViewBdv ofThisBdv;
+		DPP_BdvAdapter(final MamutViewBdv forThisBdv) {
+			ofThisBdv = forThisBdv;
+		}
+		@Override
+		public int getTimepoint() {
+			return ofThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		}
+		@Override
+		public GraphColorGenerator<Spot, Link> getColorizer() {
+			return getCurrentColorizer(ofThisBdv);
+		}
+	}
+
+	class DPP_Detached implements DisplayParamsProvider {
+		@Override
+		public int getTimepoint() {
+			return lastTpWhenVolumeWasUpdated;
+		}
+		@Override
+		public GraphColorGenerator<Spot, Link> getColorizer() {
+			return recentColorizer != null ? recentColorizer : noTScolorizer;
+		}
+	}
+	//------------------------------
+
 	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
 		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
 		updateSciviewColoring(forThisBdv);
