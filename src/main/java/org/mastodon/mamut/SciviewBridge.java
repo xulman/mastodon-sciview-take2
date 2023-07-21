@@ -407,16 +407,17 @@ public class SciviewBridge {
 		bdvWin.getFrame().setTitle("BDV linked to "+sciviewWin.getName());
 
 		//initial spots content:
-		updateSciviewContent(bdvWin);
+		final DPP_BdvAdapter bdvWinParamsProvider = new DPP_BdvAdapter(bdvWin);
+		updateSciviewContent(bdvWinParamsProvider);
 
 		new BdvNotifier(
-				() -> updateSciviewContent(bdvWin),
+				() -> updateSciviewContent(bdvWinParamsProvider),
 				() -> updateSciviewCamera(bdvWin),
 				mastodonWin.getAppModel(),
 				bdvWin);
 
 		//temporary handlers mostly for testing
-		keyboardHandlersForTestingForNow(bdvWin);
+		keyboardHandlersForTestingForNow(bdvWinParamsProvider);
 		return bdvWin;
 	}
 
@@ -474,20 +475,19 @@ public class SciviewBridge {
 	}
 	//------------------------------
 
-	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
-		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+	void updateSciviewContent(final DisplayParamsProvider forThisBdv) {
 		updateSciviewColoring(forThisBdv);
-		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp,
-				getCurrentColorizer(forThisBdv));
+		sphereNodes.showTheseSpots(mastodonWin.getAppModel(),
+				forThisBdv.getTimepoint(), forThisBdv.getColorizer());
 	}
 
 	private int lastTpWhenVolumeWasUpdated = -1;
-	private void updateSciviewColoring(final MamutViewBdv forThisBdv) {
+	void updateSciviewColoring(final DisplayParamsProvider forThisBdv) {
 		//only a wrapper that conditionally calls the workhorse method
 		if (UPDATE_VOLUME_AUTOMATICALLY) {
 			//HACK FOR NOW to prevent from redrawing of the same volumes
 			//would be better if the BdvNotifier could tell us, instead of us detecting it here
-			int currTP = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+			int currTP = forThisBdv.getTimepoint();
 			if (currTP != lastTpWhenVolumeWasUpdated) {
 				lastTpWhenVolumeWasUpdated = currTP;
 				updateSciviewColoringNow(forThisBdv);
@@ -495,13 +495,18 @@ public class SciviewBridge {
 		}
 	}
 
-	private void updateSciviewColoringNow(final MamutViewBdv forThisBdv) {
+	final DisplayParamsProvider sharedDPP_Detached = new DPP_Detached();
+	void updateSciviewColoringNow() {
+		updateSciviewColoringNow( sharedDPP_Detached );
+	}
+
+	void updateSciviewColoringNow(final DisplayParamsProvider forThisBdv) {
 		long[] pxCoord = new long[3];
 		float[] spotCoord = new float[3];
 		float[] color = new float[3];
 
 		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: started");
-		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		final int tp = forThisBdv.getTimepoint();
 		RandomAccessibleInterval<?> srcRAI = mastodonWin.getAppModel()
 				.getSharedBdvData().getSources().get(SOURCE_ID)
 				.getSpimSource().getSource(tp, SOURCE_USED_RES_LEVEL);
@@ -511,7 +516,7 @@ public class SciviewBridge {
 				(RandomAccessibleInterval)srcRAI);
 
 		if (INTENSITY_OF_COLORS_APPLY) {
-			GraphColorGenerator<Spot, Link> colorizer = getCurrentColorizer(forThisBdv);
+			GraphColorGenerator<Spot, Link> colorizer = forThisBdv.getColorizer();
 			for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
 				final int col = colorizer.color(s);
 				if (col == 0) continue; //don't imprint black spots into the volume
@@ -570,7 +575,7 @@ public class SciviewBridge {
 	private final Quaternionf viewRotation = new Quaternionf();
 
 	// --------------------------------------------------------------------------
-	private void keyboardHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
+	private void keyboardHandlersForTestingForNow(final DPP_BdvAdapter forThisBdv) {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> {
 			sphereNodes.decreaseSphereScale();
@@ -627,7 +632,7 @@ public class SciviewBridge {
 		handler.addBehaviour("controlling_info", clk_CTRL_INFO);
 
 		//deregister them when they are due
-		forThisBdv.onClose(() -> {
+		forThisBdv.ofThisBdv.onClose(() -> {
 			handler.removeKeyBinding("decrease_initial_spheres_size");
 			handler.removeBehaviour("decrease_initial_spheres_size");
 			handler.removeKeyBinding("increase_initial_spheres_size");
