@@ -138,11 +138,22 @@ public class TestingAdjustableSlider {
 		}
 
 		@Override
+		public void mouseEntered(MouseEvent mouseEvent) {
+			//during the mouse dragging, we might have gotten out of the slider area;
+			//when outside, the keyboard and mouse buttons change might have changed but
+			//this object is now aware of it (as its listeners couldn't be triggered);
+			//
+			//now, when the mouse pointer is coming back, we have to reset the statuses
+			isControlKeyPressed = (mouseEvent.getModifiersEx() & MouseEvent.CTRL_DOWN_MASK) > 0;
+			isMouseLBpressed = (mouseEvent.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) > 0;
+			isInControllingMode = isControlKeyPressed && isMouseLBpressed;
+			//System.out.println("EVERYTHING IS RESET: CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
+		}
+
+		@Override
 		public void keyTyped(KeyEvent keyEvent) { /* intentionally empty */ }
 		@Override
 		public void mouseClicked(MouseEvent mouseEvent) { /* intentionally empty */ }
-		@Override
-		public void mouseEntered(MouseEvent mouseEvent) { /* intentionally empty */ }
 		@Override
 		public void mouseExited(MouseEvent mouseEvent) { /* intentionally empty */ }
 		@Override
