@@ -167,6 +167,7 @@ public class AdjustableSliderControls {
 			int value = (int)nm.getValue();
 			value = Math.max(currentMinBound, Math.min(value, currentMaxBound));
 			slider.setValue(value);
+			nm.setValue(value); //basically, assures that the spinner is also not outside the current bounds
 		});
 
 		//listeners setup: forwarder to the associated spinner and also
@@ -270,6 +271,12 @@ public class AdjustableSliderControls {
 						highBoundInfo.setText(String.valueOf(currentMaxBound));
 					}
 				}
+				//make sure that the slider is not changing while adjusting its boundary,
+				//which may not be always possible (as the boundary is allowed to move
+				//irrespective of what the slider value was)
+				if (originalSliderValue < currentMinBound) slider.setValue(currentMinBound);
+				else if (originalSliderValue > currentMaxBound) slider.setValue(currentMaxBound);
+				else slider.setValue(originalSliderValue);
 			}
 		}
 
