@@ -46,13 +46,20 @@ public class AdjustableSliderControls {
 	}
 	public static SpinnerNumberModel createAppropriateSpinnerModel(int withThisCurrentValue,
 	                                                               int withThisStep) {
-		return new SpinnerNumberModel(withThisCurrentValue, 0,65535, withThisStep);
+		return new SpinnerNumberModel(withThisCurrentValue, minBound_lowLimit,minBound_highLimit, withThisStep);
 	}
 
 	public static AdjustableSliderControls createAndPlaceHere(final Container intoThisComponent,
 	                                                          final int initialValue,
 	                                                          final int initialMin,
 	                                                          final int initialMax) {
+		if (initialValue < initialMin || initialValue > initialMax)
+			throw new IllegalArgumentException("Refuse to create slider showing value that's outside the slider's min and max range.");
+		if (initialMin < minBound_lowLimit || initialMin > minBound_highLimit)
+			throw new IllegalArgumentException("Required MIN bound is outside the interval assumed by this governing class.");
+		if (initialMax < maxBound_lowLimit || initialMax > maxBound_highLimit)
+			throw new IllegalArgumentException("Required MAX bound is outside the interval assumed by this governing class.");
+
 		final GridBagLayout gridBagLayout = new GridBagLayout();
 		intoThisComponent.setLayout( gridBagLayout );
 
@@ -62,24 +69,33 @@ public class AdjustableSliderControls {
 
 		//set to the current wanted range
 		JSlider slider = new JSlider(JSlider.HORIZONTAL, initialMin, initialMax, initialValue);
+		JSpinner spinner = new JSpinner( AdjustableSliderControls.createAppropriateSpinnerModel(initialValue) );
+		JLabel lowBoundInformer = new JLabel(String.valueOf(initialMin));
+		JLabel highBoundInformer = new JLabel(String.valueOf(initialMax));
 
-		JSpinner minSpinner = new JSpinner(
-				AdjustableSliderControls.createAppropriateSpinnerModel( slider.getMinimum() ));
-		JSpinner maxSpinner = new JSpinner(
-				AdjustableSliderControls.createAppropriateSpinnerModel( slider.getMaximum() ));
+		//from bigdataviewer-core/src/main/java/bdv/ui/convertersetupeditor/BoundedRangePanel.java,
+		//method updateBoundLabelFonts(), L283
+		final Font labelFont = UIManager.getFont( "Label.font" );
+		final Font font = new Font( labelFont.getName(), labelFont.getStyle(), 10 );
+		lowBoundInformer.setFont( font );
+		highBoundInformer.setFont( font );
 
+		c.gridheight = 2;
 		c.gridy = 0;
 		c.weightx = 0.05;
 		c.gridx = 0;
-		intoThisComponent.add(minSpinner, c);
+		intoThisComponent.add(spinner, c);
 		c.weightx = 0.9;
 		c.gridx = 1;
 		intoThisComponent.add(slider, c);
+		c.gridheight = 1;
 		c.weightx = 0.05;
 		c.gridx = 2;
-		intoThisComponent.add(maxSpinner, c);
+		intoThisComponent.add(highBoundInformer, c);
+		c.gridy = 1;
+		intoThisComponent.add(lowBoundInformer, c);
 
-		return new AdjustableSliderControls(slider,minSpinner,maxSpinner);
+		return new AdjustableSliderControls(slider,spinner,lowBoundInformer,highBoundInformer);
 	}
 
 	public static AdjustableSliderControls createAndPlaceHere(final Container intoThisComponent,
@@ -114,7 +130,8 @@ public class AdjustableSliderControls {
 		c.gridx = 2;
 		intoThisComponent.add(maxSpinner, c);
 
-		return new AdjustableSliderControls(slider,minSpinner,maxSpinner);
+		//return new AdjustableSliderControls(slider,minSpinner,maxSpinner);
+		return null;
 	}
 
 	// ================================= stuff for the initialization =================================
@@ -129,6 +146,7 @@ public class AdjustableSliderControls {
 	private static final int minBound_highLimit = 65535;
 	private static final int maxBound_lowLimit = 0;
 	private static final int maxBound_highLimit = 65535;
+	//TODO: is there any reason to have different intervals for what min and max bounds can be?
 
 	public AdjustableSliderControls(final JSlider manageThisSlider,
 	                                final JSpinner associatedValueSpinner,
