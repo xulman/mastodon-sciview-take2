@@ -52,8 +52,6 @@ public class TestingAdjustableSlider {
 			slider.addKeyListener(this);
 			slider.addMouseListener(this);
 			slider.addMouseMotionListener(this);
-
-			slider.addChangeListener(l -> System.out.println("slider value "+slider.getValue()));
 		}
 
 		boolean isControlKeyPressed = false;
@@ -193,6 +191,15 @@ public class TestingAdjustableSlider {
 		frame.add(maxSpinner, c);
 
 		AdjustableSliderControls ctrl = new AdjustableSliderControls(slider,minSpinner,maxSpinner);
+
+		JLabel msg = new JLabel("Current slider value: "+slider.getValue());
+		c.gridx=1;
+		c.gridy=1;
+		frame.add(msg, c);
+		slider.addChangeListener(l -> {
+			msg.setText("Current slider value: "+slider.getValue());
+			System.out.print('.');
+		});
 
 		frame.pack();
 		frame.setVisible(true);
