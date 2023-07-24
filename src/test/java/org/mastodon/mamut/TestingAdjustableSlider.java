@@ -1,12 +1,15 @@
 package org.mastodon.mamut;
 
 import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.util.ArrayList;
 
 public class TestingAdjustableSlider {
 	public class AdjustableSliderControls
@@ -52,6 +55,12 @@ public class TestingAdjustableSlider {
 			slider.addKeyListener(this);
 			slider.addMouseListener(this);
 			slider.addMouseMotionListener(this);
+
+			//listeners setup: forwarder to the client listeners
+			//(triggers only on truly relevant slider changes)
+			slider.addChangeListener(event -> {
+				if (!isInControllingMode) tellListenersThatSliderHasChanged(event);
+			});
 		}
 
 		boolean isControlKeyPressed = false;
@@ -59,6 +68,7 @@ public class TestingAdjustableSlider {
 		boolean isInControllingMode = false;
 		int initialMousePosition = 0;
 		int initialBoundaryValue = 0;
+		int originalSliderValue = -1;
 		boolean isMinBoundaryControlled = false;
 
 		@Override
@@ -72,6 +82,7 @@ public class TestingAdjustableSlider {
 		public void keyReleased(KeyEvent keyEvent) {
 			if (keyEvent.getKeyCode() == CONTROL_KEY_keycode) {
 				isControlKeyPressed = false;
+				if (isInControllingMode) tellListenersThatWeEndedAdjustingMode();
 				isInControllingMode = false;
 			}
 		}
@@ -87,6 +98,7 @@ public class TestingAdjustableSlider {
 					initialMousePosition = mouseEvent.getXOnScreen();
 					isMinBoundaryControlled = ((float)mouseEvent.getX()/(float)slider.getWidth()) < 0.5f;
 					initialBoundaryValue = isMinBoundaryControlled ? (int)minModel.getValue() : (int)maxModel.getValue();
+					originalSliderValue = slider.getValue();
 				}
 			}
 		}
@@ -94,6 +106,7 @@ public class TestingAdjustableSlider {
 		public void mouseReleased(MouseEvent mouseEvent) {
 			if (mouseEvent.getButton() == MOUSE_BUTTON_code) {
 				isMouseLBpressed = false;
+				if (isInControllingMode) tellListenersThatWeEndedAdjustingMode();
 				isInControllingMode = false;
 			}
 		}
@@ -129,7 +142,9 @@ public class TestingAdjustableSlider {
 			//now, when the mouse pointer is coming back, we have to reset the statuses
 			isControlKeyPressed = (mouseEvent.getModifiersEx() & MouseEvent.CTRL_DOWN_MASK) > 0;
 			isMouseLBpressed = (mouseEvent.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) > 0;
+			boolean wasInControllingMode = isInControllingMode;
 			isInControllingMode = isControlKeyPressed && isMouseLBpressed;
+			if (wasInControllingMode && !isInControllingMode) tellListenersThatWeEndedAdjustingMode();
 		}
 
 		@Override
@@ -140,6 +155,23 @@ public class TestingAdjustableSlider {
 		public void mouseExited(MouseEvent mouseEvent) { /* intentionally empty */ }
 		@Override
 		public void mouseMoved(MouseEvent mouseEvent) { /* intentionally empty */ }
+
+		final java.util.List<ChangeListener> listeners = new ArrayList<>(10);
+		public void addChangeListener(final ChangeListener listener) {
+			listeners.add(listener);
+		}
+		public void removeChangeListener(final ChangeListener listener) {
+			listeners.remove(listener);
+		}
+		private void tellListenersThatSliderHasChanged(final ChangeEvent event) {
+			listeners.forEach(listener -> listener.stateChanged(event));
+		}
+		private void tellListenersThatWeEndedAdjustingMode() {
+			//...but only when we really have changed the value before and after the adjustment
+			if (slider.getValue() != originalSliderValue) {
+				tellListenersThatSliderHasChanged(new ChangeEvent(slider));
+			}
+		}
 	}
 
 	void demo() {
@@ -180,7 +212,7 @@ public class TestingAdjustableSlider {
 		c.gridx=1;
 		c.gridy=1;
 		frame.add(msg, c);
-		slider.addChangeListener(l -> {
+		ctrl.addChangeListener(l -> {
 			msg.setText("Current slider value: "+slider.getValue());
 			System.out.print('.');
 		});
