@@ -1,5 +1,7 @@
 package org.mastodon.mamut.util;
 
+import bdv.ui.rangeslider.RangeSlider;
+
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -80,6 +82,40 @@ public class AdjustableSliderControls {
 		return new AdjustableSliderControls(slider,minSpinner,maxSpinner);
 	}
 
+	public static AdjustableSliderControls createAndPlaceHere(final Container intoThisComponent,
+	                                                          final int initialLowValue,
+	                                                          final int initialHighValue,
+	                                                          final int initialMin,
+	                                                          final int initialMax) {
+		final GridBagLayout gridBagLayout = new GridBagLayout();
+		intoThisComponent.setLayout( gridBagLayout );
+
+		final GridBagConstraints c = new GridBagConstraints();
+		c.anchor = GridBagConstraints.LINE_START;
+		c.fill = GridBagConstraints.HORIZONTAL;
+
+		//set to the current wanted range
+		RangeSlider slider = new RangeSlider(initialMin, initialMax);
+		slider.setRange(initialLowValue, initialHighValue);
+
+		JSpinner minSpinner = new JSpinner(
+				AdjustableSliderControls.createAppropriateSpinnerModel( slider.getMinimum() ));
+		JSpinner maxSpinner = new JSpinner(
+				AdjustableSliderControls.createAppropriateSpinnerModel( slider.getMaximum() ));
+
+		c.gridy = 0;
+		c.weightx = 0.05;
+		c.gridx = 0;
+		intoThisComponent.add(minSpinner, c);
+		c.weightx = 0.9;
+		c.gridx = 1;
+		intoThisComponent.add(slider, c);
+		c.weightx = 0.05;
+		c.gridx = 2;
+		intoThisComponent.add(maxSpinner, c);
+
+		return new AdjustableSliderControls(slider,minSpinner,maxSpinner);
+	}
 
 	// ================================= stuff for the initialization =================================
 	private final JSlider slider;
