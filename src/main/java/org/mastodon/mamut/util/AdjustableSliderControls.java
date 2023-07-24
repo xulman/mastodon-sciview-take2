@@ -15,20 +15,21 @@ import java.util.ArrayList;
 
 public class AdjustableSliderControls {
 
-	/** represents the Control key, changeable, shared among all such controls */
+	/** represents the Control key, which is changeable and shared among all such controls
+	 * (to warrant all are controlled the same way) */
 	public static int CONTROL_KEY_keycode = 17;
-	/** represents the left mouse button, changeable, shared among all such controls */
+	/** represents the left mouse button, which is changeable and shared among all such controls
+	 * (to warrant all are controlled the same way) */
 	public static int MOUSE_BUTTON_code = 1;
-
-	public interface BoundaryValuesProvider {
-		int boundaryDeltaOnThisMouseMove(final int mouseDeltaInPx);
-	}
 
 	/** provide here own mouse movement to boundary change "scaler",
 	 * this is intentionally available as of per-slider basis  */
 	public BoundaryValuesProvider boundarySetter = BOUNDARY_SETTER_CUBE_FUN;
 
 	// ================================= helper builders =================================
+	public interface BoundaryValuesProvider {
+		int boundaryDeltaOnThisMouseMove(final int mouseDeltaInPx);
+	}
 	public final static BoundaryValuesProvider BOUNDARY_SETTER_IDENTITY_FUN = mouseDeltaInPx -> mouseDeltaInPx;
 	public final static BoundaryValuesProvider BOUNDARY_SETTER_SQUARE_FUN = mouseDeltaInPx -> {
 		float d = (float)mouseDeltaInPx/4.f;
