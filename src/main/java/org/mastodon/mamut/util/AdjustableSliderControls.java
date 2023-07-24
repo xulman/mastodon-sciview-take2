@@ -3,6 +3,7 @@ package org.mastodon.mamut.util;
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -10,17 +11,58 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
 
-public class AdjustableSliderControls
-		implements KeyListener, MouseListener, MouseMotionListener {
+public class AdjustableSliderControls {
 
-	/** represents the Control key */
-	public int CONTROL_KEY_keycode = 17;
-	/** represents the left mouse button */
-	public int MOUSE_BUTTON_code = 1;
+	/** represents the Control key, changeable, shared among all such controls */
+	public static int CONTROL_KEY_keycode = 17;
+	/** represents the left mouse button, changeable, shared among all such controls */
+	public static int MOUSE_BUTTON_code = 1;
 
-	private final JSpinner minSpinner;
+	// ================================= helper buildes =================================
+	public static SpinnerNumberModel createAppropriateSpinnerModel(int withThisCurrentValue) {
+		return createAppropriateSpinnerModel(withThisCurrentValue, 50);
+	}
+	public static SpinnerNumberModel createAppropriateSpinnerModel(int withThisCurrentValue,
+	                                                               int withThisStep) {
+		return new SpinnerNumberModel(withThisCurrentValue, 0,65535, withThisStep);
+	}
+
+	public static AdjustableSliderControls createAndPlaceHere(final Container intoThisComponent,
+	                                                          final int initialValue,
+	                                                          final int initialMin,
+	                                                          final int initialMax) {
+		final GridBagLayout gridBagLayout = new GridBagLayout();
+		intoThisComponent.setLayout( gridBagLayout );
+
+		final GridBagConstraints c = new GridBagConstraints();
+		c.anchor = GridBagConstraints.LINE_START;
+		c.fill = GridBagConstraints.HORIZONTAL;
+
+		//set to the current wanted range
+		JSlider slider = new JSlider(JSlider.HORIZONTAL, initialMin, initialMax, initialValue);
+
+		JSpinner minSpinner = new JSpinner(
+				AdjustableSliderControls.createAppropriateSpinnerModel( slider.getMinimum() ));
+		JSpinner maxSpinner = new JSpinner(
+				AdjustableSliderControls.createAppropriateSpinnerModel( slider.getMaximum() ));
+
+		c.gridy = 0;
+		c.weightx = 0.05;
+		c.gridx = 0;
+		intoThisComponent.add(minSpinner, c);
+		c.weightx = 0.9;
+		c.gridx = 1;
+		intoThisComponent.add(slider, c);
+		c.weightx = 0.05;
+		c.gridx = 2;
+		intoThisComponent.add(maxSpinner, c);
+
+		return new AdjustableSliderControls(slider,minSpinner,maxSpinner);
+	}
+
+
+	// ================================= stuff for the initialization =================================
 	private final JSlider slider;
-	private final JSpinner maxSpinner;
 
 	//internal shortcuts
 	private final SpinnerNumberModel minModel;
@@ -34,12 +76,18 @@ public class AdjustableSliderControls
 	                                final JSpinner associatedMinSpinner,
 	                                final JSpinner associatedMaxSpinner) {
 		slider = manageThisSlider;
-		minSpinner = associatedMinSpinner;
-		maxSpinner = associatedMaxSpinner;
+
+		SpinnerModel m = associatedMinSpinner.getModel();
+		if (! (m instanceof SpinnerNumberModel))
+			throw new IllegalArgumentException("The min-boundary spinner is expected to be SpinnerNumberModel.");
+		minModel = (SpinnerNumberModel)m;
+
+		m = associatedMaxSpinner.getModel();
+		if (! (m instanceof SpinnerNumberModel))
+			throw new IllegalArgumentException("The max-boundary spinner is expected to be SpinnerNumberModel.");
+		maxModel = (SpinnerNumberModel) associatedMaxSpinner.getModel();
 
 		//shortcuts
-		minModel = (SpinnerNumberModel) minSpinner.getModel();
-		maxModel = (SpinnerNumberModel) maxSpinner.getModel();
 		minModel_MinBound = (Comparable<Integer>) minModel.getMinimum();
 		minModel_MaxBound = (Comparable<Integer>) minModel.getMaximum();
 		maxModel_MinBound = (Comparable<Integer>) maxModel.getMinimum();
@@ -52,9 +100,10 @@ public class AdjustableSliderControls
 		//they correspond to the displayed data type, whose value range is firm)
 
 		//listeners setup: managing slider's limits
-		slider.addKeyListener(this);
-		slider.addMouseListener(this);
-		slider.addMouseMotionListener(this);
+		final EventHandler handler = new EventHandler();
+		slider.addKeyListener(handler);
+		slider.addMouseListener(handler);
+		slider.addMouseMotionListener(handler);
 
 		//listeners setup: forwarder to the client listeners
 		//(triggers only on truly relevant slider changes)
@@ -63,105 +112,119 @@ public class AdjustableSliderControls
 		});
 	}
 
-	boolean isControlKeyPressed = false;
-	boolean isMouseLBpressed = false;
-	boolean isInControllingMode = false;
-	int initialMousePosition = 0;
-	int initialBoundaryValue = 0;
-	int originalSliderValue = -1;
-	boolean isMinBoundaryControlled = false;
-
-	@Override
-	public void keyPressed(KeyEvent keyEvent) {
-		if (keyEvent.getKeyCode() == CONTROL_KEY_keycode) {
-			isControlKeyPressed = true;
-			if (isMouseLBpressed) isInControllingMode = true;
-		}
+	public JSlider getSlider() {
+		return slider;
 	}
 
-	@Override
-	public void keyReleased(KeyEvent keyEvent) {
-		if (keyEvent.getKeyCode() == CONTROL_KEY_keycode) {
-			isControlKeyPressed = false;
-			if (isInControllingMode) tellListenersThatWeEndedAdjustingMode();
-			isInControllingMode = false;
-		}
+	/** only a shortcut to getSlider().getValue() */
+	public int getValue() {
+		return slider.getValue();
 	}
 
-	@Override
-	public void mousePressed(MouseEvent mouseEvent) {
-		if (mouseEvent.getButton() == MOUSE_BUTTON_code) {
-			isMouseLBpressed = true;
-			if (isControlKeyPressed) {
-				isInControllingMode = true;
+	// ================================= stuff for the execution =================================
+	private boolean isControlKeyPressed = false;
+	private boolean isMouseLBpressed = false;
+	private boolean isInControllingMode = false;
+	private int initialMousePosition = 0;
+	private int initialBoundaryValue = 0;
+	private int originalSliderValue = -1;
+	private boolean isMinBoundaryControlled = false;
 
-				//store the initial state now--at the beginning of the dragging
-				initialMousePosition = mouseEvent.getXOnScreen();
-				isMinBoundaryControlled = ((float) mouseEvent.getX() / (float) slider.getWidth()) < 0.5f;
-				initialBoundaryValue = isMinBoundaryControlled ? (int) minModel.getValue() : (int) maxModel.getValue();
-				originalSliderValue = slider.getValue();
+	// ================================= execution: events handling =================================
+	private class EventHandler implements KeyListener, MouseListener, MouseMotionListener {
+		@Override
+		public void keyPressed(KeyEvent keyEvent) {
+			if (keyEvent.getKeyCode() == CONTROL_KEY_keycode) {
+				isControlKeyPressed = true;
+				if (isMouseLBpressed) isInControllingMode = true;
 			}
 		}
-	}
 
-	@Override
-	public void mouseReleased(MouseEvent mouseEvent) {
-		if (mouseEvent.getButton() == MOUSE_BUTTON_code) {
-			isMouseLBpressed = false;
-			if (isInControllingMode) tellListenersThatWeEndedAdjustingMode();
-			isInControllingMode = false;
-		}
-	}
-
-	@Override
-	public void mouseDragged(MouseEvent mouseEvent) {
-		if (isInControllingMode) {
-			int deltaMove = mouseEvent.getXOnScreen() - initialMousePosition;
-			int newSliderValue = initialBoundaryValue + deltaMove;
-			if (isMinBoundaryControlled) {
-				//set value only if it is within the min model limits, and
-				//set min only if it is not beyond (greater than) the max boundary
-				if (minModel_MinBound.compareTo(newSliderValue) <= 0
-						&& minModel_MaxBound.compareTo(newSliderValue) >= 0
-						&& newSliderValue < (int) maxModel.getValue()) minModel.setValue(newSliderValue);
-			} else {
-				//right part
-				//set value only if it is within the max model limits, and
-				//set max only if it is not beyond (lesser than) the min boundary
-				if (maxModel_MinBound.compareTo(newSliderValue) <= 0
-						&& maxModel_MaxBound.compareTo(newSliderValue) >= 0
-						&& newSliderValue > (int) minModel.getValue()) maxModel.setValue(newSliderValue);
+		@Override
+		public void keyReleased(KeyEvent keyEvent) {
+			if (keyEvent.getKeyCode() == CONTROL_KEY_keycode) {
+				isControlKeyPressed = false;
+				if (isInControllingMode) tellListenersThatWeEndedAdjustingMode();
+				isInControllingMode = false;
 			}
 		}
+
+		@Override
+		public void mousePressed(MouseEvent mouseEvent) {
+			if (mouseEvent.getButton() == MOUSE_BUTTON_code) {
+				isMouseLBpressed = true;
+				if (isControlKeyPressed) {
+					isInControllingMode = true;
+
+					//store the initial state now--at the beginning of the dragging
+					initialMousePosition = mouseEvent.getXOnScreen();
+					isMinBoundaryControlled = ((float) mouseEvent.getX() / (float) slider.getWidth()) < 0.5f;
+					initialBoundaryValue = isMinBoundaryControlled ? (int) minModel.getValue() : (int) maxModel.getValue();
+					originalSliderValue = slider.getValue();
+				}
+			}
+		}
+
+		@Override
+		public void mouseReleased(MouseEvent mouseEvent) {
+			if (mouseEvent.getButton() == MOUSE_BUTTON_code) {
+				isMouseLBpressed = false;
+				if (isInControllingMode) tellListenersThatWeEndedAdjustingMode();
+				isInControllingMode = false;
+			}
+		}
+
+		@Override
+		public void mouseDragged(MouseEvent mouseEvent) {
+			if (isInControllingMode) {
+				int deltaMove = mouseEvent.getXOnScreen() - initialMousePosition;
+				int newSliderValue = initialBoundaryValue + deltaMove;
+				if (isMinBoundaryControlled) {
+					//set value only if it is within the min model limits, and
+					//set min only if it is not beyond (greater than) the max boundary
+					if (minModel_MinBound.compareTo(newSliderValue) <= 0
+							&& minModel_MaxBound.compareTo(newSliderValue) >= 0
+							&& newSliderValue < (int) maxModel.getValue()) minModel.setValue(newSliderValue);
+				} else {
+					//right part
+					//set value only if it is within the max model limits, and
+					//set max only if it is not beyond (lesser than) the min boundary
+					if (maxModel_MinBound.compareTo(newSliderValue) <= 0
+							&& maxModel_MaxBound.compareTo(newSliderValue) >= 0
+							&& newSliderValue > (int) minModel.getValue()) maxModel.setValue(newSliderValue);
+				}
+			}
+		}
+
+		@Override
+		public void mouseEntered(MouseEvent mouseEvent) {
+			//during the mouse dragging, we might have gotten out of the slider area;
+			//when outside, the keyboard and mouse buttons change might have changed but
+			//this object is now aware of it (as its listeners couldn't be triggered);
+			//
+			//now, when the mouse pointer is coming back, we have to reset the statuses
+			isControlKeyPressed = (mouseEvent.getModifiersEx() & MouseEvent.CTRL_DOWN_MASK) > 0;
+			isMouseLBpressed = (mouseEvent.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) > 0;
+			boolean wasInControllingMode = isInControllingMode;
+			isInControllingMode = isControlKeyPressed && isMouseLBpressed;
+			if (wasInControllingMode && !isInControllingMode) tellListenersThatWeEndedAdjustingMode();
+		}
+
+		@Override
+		public void keyTyped(KeyEvent keyEvent) { /* intentionally empty */ }
+
+		@Override
+		public void mouseClicked(MouseEvent mouseEvent) { /* intentionally empty */ }
+
+		@Override
+		public void mouseExited(MouseEvent mouseEvent) { /* intentionally empty */ }
+
+		@Override
+		public void mouseMoved(MouseEvent mouseEvent) { /* intentionally empty */ }
 	}
 
-	@Override
-	public void mouseEntered(MouseEvent mouseEvent) {
-		//during the mouse dragging, we might have gotten out of the slider area;
-		//when outside, the keyboard and mouse buttons change might have changed but
-		//this object is now aware of it (as its listeners couldn't be triggered);
-		//
-		//now, when the mouse pointer is coming back, we have to reset the statuses
-		isControlKeyPressed = (mouseEvent.getModifiersEx() & MouseEvent.CTRL_DOWN_MASK) > 0;
-		isMouseLBpressed = (mouseEvent.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) > 0;
-		boolean wasInControllingMode = isInControllingMode;
-		isInControllingMode = isControlKeyPressed && isMouseLBpressed;
-		if (wasInControllingMode && !isInControllingMode) tellListenersThatWeEndedAdjustingMode();
-	}
-
-	@Override
-	public void keyTyped(KeyEvent keyEvent) { /* intentionally empty */ }
-
-	@Override
-	public void mouseClicked(MouseEvent mouseEvent) { /* intentionally empty */ }
-
-	@Override
-	public void mouseExited(MouseEvent mouseEvent) { /* intentionally empty */ }
-
-	@Override
-	public void mouseMoved(MouseEvent mouseEvent) { /* intentionally empty */ }
-
-	final java.util.List<ChangeListener> listeners = new ArrayList<>(10);
+	// ================================= execution: listeners =================================
+	private final java.util.List<ChangeListener> listeners = new ArrayList<>(10);
 
 	public void addChangeListener(final ChangeListener listener) {
 		listeners.add(listener);
