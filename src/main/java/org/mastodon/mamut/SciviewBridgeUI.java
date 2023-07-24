@@ -1,6 +1,9 @@
 //TODO add license text
 package org.mastodon.mamut;
 
+import bdv.ui.rangeslider.RangeSlider;
+import org.mastodon.mamut.util.AdjustableBoundsRangeSlider;
+
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -91,26 +94,16 @@ public class SciviewBridgeUI {
 		insertNote("Shortcuts to the standard sciview view intensity scaling", c);
 
 		c.gridy++;
+		JPanel sliderBarPlaceHolder = new JPanel();
 		c.gridx = 0;
-		insertLabel("Volume intensity bottom clamp:", c);
+		c.gridwidth = 2;
+		contentPane.add(sliderBarPlaceHolder, c);
 		//
-		c.gridx = 1;
-		INTENSITY_RANGE_MIN = new SpinnerNumberModel(0.0, 0.0, 65535.0, 50.0);
-		insertSpinner(INTENSITY_RANGE_MIN, (f) -> {
-			controlledBridge.INTENSITY_RANGE_MIN = f;
-			controlledBridge.redVolChannelNode.setMinDisplayRange(f);
-		}, c);
-
-		c.gridy++;
-		c.gridx = 0;
-		insertLabel("Volume intensity upper clamp:", c);
-		//
-		c.gridx = 1;
-		INTENSITY_RANGE_MAX = new SpinnerNumberModel(2500.0, 0.0, 65535.0, 50.0);
-		insertSpinner(INTENSITY_RANGE_MAX, (f) -> {
-			controlledBridge.INTENSITY_RANGE_MAX = f;
-			controlledBridge.redVolChannelNode.setMaxDisplayRange(f);
-		}, c);
+		INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM = AdjustableBoundsRangeSlider.createAndPlaceHere(
+				sliderBarPlaceHolder,
+				(int)controlledBridge.INTENSITY_RANGE_MIN, (int)controlledBridge.INTENSITY_RANGE_MAX,
+				0, 10000);
+		INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener);
 
 		// -------------- separator --------------
 		c.gridy++;
@@ -263,8 +256,7 @@ public class SciviewBridgeUI {
 		public void stateChanged(ChangeEvent changeEvent) {
 			SpinnerNumberModel s = (SpinnerNumberModel)changeEvent.getSource();
 			pushChangeToHere.accept( s.getNumber().floatValue() );
-			if (s != INTENSITY_RANGE_MIN && s != INTENSITY_RANGE_MAX && controlledBridge.UPDATE_VOLUME_AUTOMATICALLY)
-				controlledBridge.updateSciviewColoringNow();
+			if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSciviewColoringNow();
 		}
 	}
 	ItemListener checkboxChangeListener = new ItemListener() {
@@ -281,6 +273,7 @@ public class SciviewBridgeUI {
 	};
 	final java.util.List<OwnerAwareSpinnerChangeListener> spinnerModelsWithListeners = new ArrayList<>(10);
 	final java.util.List<JCheckBox> checkBoxesWithListeners = new ArrayList<>(10);
+	//below is defined: rangeSliderListener
 	//
 	final ActionListener updVolAutoListener = new ActionListener() {
 		@Override
@@ -299,6 +292,7 @@ public class SciviewBridgeUI {
 		//listeners tear-down here
 		spinnerModelsWithListeners.forEach(c -> c.observedSource.removeChangeListener(c));
 		checkBoxesWithListeners.forEach(c -> c.removeItemListener( checkboxChangeListener ));
+		INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.removeChangeListener(rangeSliderListener);
 		UPDATE_VOLUME_AUTOMATICALLY.removeActionListener( updVolAutoListener );
 		this.controlledBridge = null;
 	}
@@ -311,8 +305,12 @@ public class SciviewBridgeUI {
 
 		INTENSITY_OF_COLORS.setValue( controlledBridge.INTENSITY_OF_COLORS );
 
-		INTENSITY_RANGE_MIN.setValue( controlledBridge.INTENSITY_RANGE_MIN );
-		INTENSITY_RANGE_MAX.setValue( controlledBridge.INTENSITY_RANGE_MAX );
+		INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
+				.getSlider()
+				.setValue( (int)controlledBridge.INTENSITY_RANGE_MIN );
+		INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
+				.getRangeSlider()
+				.setUpperValue( (int)controlledBridge.INTENSITY_RANGE_MAX );
 
 		INTENSITY_OF_COLORS_APPLY.setSelected( controlledBridge.INTENSITY_OF_COLORS_APPLY );
 		SPOT_RADIUS_SCALE.setValue( controlledBridge.SPOT_RADIUS_SCALE );
@@ -333,8 +331,13 @@ public class SciviewBridgeUI {
 
 	SpinnerModel INTENSITY_OF_COLORS;
 
-	SpinnerModel INTENSITY_RANGE_MAX;
-	SpinnerModel INTENSITY_RANGE_MIN;
+	AdjustableBoundsRangeSlider INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM;
+	final ChangeListener rangeSliderListener = (l) -> {
+		controlledBridge.INTENSITY_RANGE_MIN = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.getValue();
+		controlledBridge.INTENSITY_RANGE_MAX = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.getUpperValue();
+		controlledBridge.redVolChannelNode.setMinDisplayRange( controlledBridge.INTENSITY_RANGE_MIN );
+		controlledBridge.redVolChannelNode.setMaxDisplayRange( controlledBridge.INTENSITY_RANGE_MAX );
+	};
 
 	JCheckBox INTENSITY_OF_COLORS_APPLY;
 	SpinnerModel SPOT_RADIUS_SCALE;
