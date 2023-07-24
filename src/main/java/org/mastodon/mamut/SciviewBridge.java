@@ -38,6 +38,7 @@ import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
 import javax.swing.WindowConstants;
+import javax.swing.JFrame;
 import java.io.IOException;
 import java.util.function.BiConsumer;
 
@@ -47,18 +48,38 @@ public class SciviewBridge {
 	final WindowManager mastodonWin;
 	int SOURCE_ID = 0;
 	int SOURCE_USED_RES_LEVEL = 0;
-	final float INTENSITY_CONTRAST = 2;      //raw data multiplied with this value and...
-	final float INTENSITY_NOT_ABOVE = 700;   //...then clamped not to be above this value and...
-	final float INTENSITY_GAMMA = 1.0f;      //...then gamma-corrected;
+	float INTENSITY_CONTRAST = 1;      //raw data multiplied with this value and...
+	float INTENSITY_SHIFT = 0;         //...then added with this value and...
+	float INTENSITY_CLAMP_AT_TOP = 700;//...then assured/clamped not to be above this value and...
+	float INTENSITY_GAMMA = 1.0f;      //...then, finally, gamma-corrected (squeezed through exp());
 
 	boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
-	final float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
-	final float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
+	float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
+	float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
 
-	final float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
-	final float INTENSITY_RANGE_MIN = 0;
+	float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
+	float INTENSITY_RANGE_MIN = 0;
 	boolean UPDATE_VOLUME_AUTOMATICALLY = true;
 	boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
+
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder("Mastodon-sciview bridge internal settings:\n");
+		sb.append("   SOURCE_ID = "+ SOURCE_ID +"\n");
+		sb.append("   SOURCE_USED_RES_LEVEL = "+ SOURCE_USED_RES_LEVEL +"\n");
+		sb.append("   INTENSITY_CONTRAST = "+ INTENSITY_CONTRAST +"\n");
+		sb.append("   INTENSITY_SHIFT = "+ INTENSITY_SHIFT +"\n");
+		sb.append("   INTENSITY_CLAMP_AT_TOP = "+ INTENSITY_CLAMP_AT_TOP +"\n");
+		sb.append("   INTENSITY_GAMMA = "+ INTENSITY_GAMMA +"\n");
+		sb.append("   INTENSITY_OF_COLORS_APPLY = "+ INTENSITY_OF_COLORS_APPLY +"\n");
+		sb.append("   SPOT_RADIUS_SCALE = "+ SPOT_RADIUS_SCALE +"\n");
+		sb.append("   INTENSITY_OF_COLORS = "+ INTENSITY_OF_COLORS +"\n");
+		sb.append("   INTENSITY_RANGE_MAX = "+ INTENSITY_RANGE_MAX +"\n");
+		sb.append("   INTENSITY_RANGE_MIN = "+ INTENSITY_RANGE_MIN +"\n");
+		sb.append("   UPDATE_VOLUME_AUTOMATICALLY = "+ UPDATE_VOLUME_AUTOMATICALLY +"\n");
+		sb.append("   UPDATE_VOLUME_VERBOSE_REPORTS = "+ UPDATE_VOLUME_VERBOSE_REPORTS);
+		return sb.toString();
+	}
 
 	//data sink stuff
 	final SciView sciviewWin;
@@ -78,6 +99,26 @@ public class SciviewBridge {
 
 	final Vector3f mastodonToImgCoordsTransfer;
 
+	public SciviewBridgeUI associatedUI = null;
+	public JFrame uiFrame = null;
+
+	/** exists here only for the demo (in tests folder), don't ever use in normal scenarios */
+	SciviewBridge() {
+		this.mastodonWin = null;
+		this.sciviewWin = null;
+		this.sphereNodes = null;
+		this.axesParent = null;
+		this.sphereParent = null;
+		this.volumeParent = null;
+		this.greenVolChannelNode = null;
+		this.blueVolChannelNode = null;
+		this.redVolChannelNode = null;
+		this.greenVolChannelImg = null;
+		this.blueVolChannelImg = null;
+		this.redVolChannelImg = null;
+		this.mastodonToImgCoordsTransfer = null;
+	}
+
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
@@ -85,6 +126,8 @@ public class SciviewBridge {
 		this.sciviewWin = targetSciviewWindow;
 
 		//adjust the default scene's settings
+		sciviewWin.setApplicationName("sciview for Mastodon: "
+				+ mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
 		sciviewWin.getFloor().setVisible(false);
 		sciviewWin.getLights().forEach(l -> {
 			if (l.getName().startsWith("headli"))
@@ -234,9 +277,9 @@ public class SciviewBridge {
 	                          final RandomAccessibleInterval<T> blueCh,
 	                          final RandomAccessibleInterval<T> srcImg) {
 		final BiConsumer<T,T> intensityProcessor =
-				(src, tgt) -> tgt.setReal( INTENSITY_NOT_ABOVE * Math.pow( //TODO, replace pow() with LUT for several gammas
-						Math.min(INTENSITY_CONTRAST * src.getRealFloat(), INTENSITY_NOT_ABOVE) / INTENSITY_NOT_ABOVE,
-						INTENSITY_GAMMA) );
+				(src, tgt) -> tgt.setReal( INTENSITY_CLAMP_AT_TOP * Math.pow( //TODO, replace pow() with LUT for several gammas
+						Math.min(INTENSITY_CONTRAST*src.getRealFloat() +INTENSITY_SHIFT, INTENSITY_CLAMP_AT_TOP) / INTENSITY_CLAMP_AT_TOP
+						, INTENSITY_GAMMA) );
 		//massage input data into the red channel
 		LoopBuilder.setImages(srcImg,redCh)
 				.flatIterationOrder()
@@ -283,7 +326,7 @@ public class SciviewBridge {
 		//to preserve a color, the r,g,b ratio must be kept (only mul()s, not add()s);
 		//since data values are clamped to INTENSITY_NOT_ABOVE, we can stretch all
 		//the way to INTENSITY_OF_COLORS (the brightest color displayed)
-		final float intensityScale = INTENSITY_OF_COLORS / INTENSITY_NOT_ABOVE;
+		final float intensityScale = INTENSITY_OF_COLORS / INTENSITY_CLAMP_AT_TOP;
 
 		int cnt = 0;
 		while (si.hasNext()) {
@@ -361,19 +404,20 @@ public class SciviewBridge {
 	// --------------------------------------------------------------------------
 	public MamutViewBdv openSyncedBDV() {
 		final MamutViewBdv bdvWin = mastodonWin.createBigDataViewer();
-		bdvWin.getFrame().setTitle("BDV linked to Sciview");
+		bdvWin.getFrame().setTitle("BDV linked to "+sciviewWin.getName());
 
 		//initial spots content:
-		updateSciviewContent(bdvWin);
+		final DPP_BdvAdapter bdvWinParamsProvider = new DPP_BdvAdapter(bdvWin);
+		updateSciviewContent(bdvWinParamsProvider);
 
 		new BdvNotifier(
-				() -> updateSciviewContent(bdvWin),
+				() -> updateSciviewContent(bdvWinParamsProvider),
 				() -> updateSciviewCamera(bdvWin),
 				mastodonWin.getAppModel(),
 				bdvWin);
 
 		//temporary handlers mostly for testing
-		keyboardHandlersForTestingForNow(bdvWin);
+		keyboardHandlersForTestingForNow(bdvWinParamsProvider);
 		return bdvWin;
 	}
 
@@ -398,20 +442,52 @@ public class SciviewBridge {
 		return colorizer;
 	}
 
-	private void updateSciviewContent(final MamutViewBdv forThisBdv) {
-		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+	//------------------------------
+	interface DisplayParamsProvider {
+		int getTimepoint();
+		GraphColorGenerator<Spot,Link> getColorizer();
+	}
+
+	class DPP_BdvAdapter implements DisplayParamsProvider {
+		final MamutViewBdv ofThisBdv;
+		DPP_BdvAdapter(final MamutViewBdv forThisBdv) {
+			ofThisBdv = forThisBdv;
+		}
+		@Override
+		public int getTimepoint() {
+			return ofThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		}
+		@Override
+		public GraphColorGenerator<Spot, Link> getColorizer() {
+			return getCurrentColorizer(ofThisBdv);
+		}
+	}
+
+	class DPP_Detached implements DisplayParamsProvider {
+		@Override
+		public int getTimepoint() {
+			return lastTpWhenVolumeWasUpdated;
+		}
+		@Override
+		public GraphColorGenerator<Spot, Link> getColorizer() {
+			return recentColorizer != null ? recentColorizer : noTScolorizer;
+		}
+	}
+	//------------------------------
+
+	void updateSciviewContent(final DisplayParamsProvider forThisBdv) {
 		updateSciviewColoring(forThisBdv);
-		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), tp,
-				getCurrentColorizer(forThisBdv));
+		sphereNodes.showTheseSpots(mastodonWin.getAppModel(),
+				forThisBdv.getTimepoint(), forThisBdv.getColorizer());
 	}
 
 	private int lastTpWhenVolumeWasUpdated = -1;
-	private void updateSciviewColoring(final MamutViewBdv forThisBdv) {
+	void updateSciviewColoring(final DisplayParamsProvider forThisBdv) {
 		//only a wrapper that conditionally calls the workhorse method
 		if (UPDATE_VOLUME_AUTOMATICALLY) {
 			//HACK FOR NOW to prevent from redrawing of the same volumes
 			//would be better if the BdvNotifier could tell us, instead of us detecting it here
-			int currTP = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+			int currTP = forThisBdv.getTimepoint();
 			if (currTP != lastTpWhenVolumeWasUpdated) {
 				lastTpWhenVolumeWasUpdated = currTP;
 				updateSciviewColoringNow(forThisBdv);
@@ -419,13 +495,18 @@ public class SciviewBridge {
 		}
 	}
 
-	private void updateSciviewColoringNow(final MamutViewBdv forThisBdv) {
+	final DisplayParamsProvider sharedDPP_Detached = new DPP_Detached();
+	void updateSciviewColoringNow() {
+		updateSciviewColoringNow( sharedDPP_Detached );
+	}
+
+	void updateSciviewColoringNow(final DisplayParamsProvider forThisBdv) {
 		long[] pxCoord = new long[3];
 		float[] spotCoord = new float[3];
 		float[] color = new float[3];
 
 		if (UPDATE_VOLUME_VERBOSE_REPORTS) System.out.println("COLORING: started");
-		final int tp = forThisBdv.getViewerPanelMamut().state().getCurrentTimepoint();
+		final int tp = forThisBdv.getTimepoint();
 		RandomAccessibleInterval<?> srcRAI = mastodonWin.getAppModel()
 				.getSharedBdvData().getSources().get(SOURCE_ID)
 				.getSpimSource().getSource(tp, SOURCE_USED_RES_LEVEL);
@@ -435,7 +516,7 @@ public class SciviewBridge {
 				(RandomAccessibleInterval)srcRAI);
 
 		if (INTENSITY_OF_COLORS_APPLY) {
-			GraphColorGenerator<Spot, Link> colorizer = getCurrentColorizer(forThisBdv);
+			GraphColorGenerator<Spot, Link> colorizer = forThisBdv.getColorizer();
 			for (Spot s : mastodonWin.getAppModel().getModel().getSpatioTemporalIndex().getSpatialIndex(tp)) {
 				final int col = colorizer.color(s);
 				if (col == 0) continue; //don't imprint black spots into the volume
@@ -494,18 +575,42 @@ public class SciviewBridge {
 	private final Quaternionf viewRotation = new Quaternionf();
 
 	// --------------------------------------------------------------------------
-	private void keyboardHandlersForTestingForNow(final MamutViewBdv forThisBdv) {
+	private void keyboardHandlersForTestingForNow(final DPP_BdvAdapter forThisBdv) {
 		//handlers
-		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.decreaseSphereScale();
-		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> sphereNodes.increaseSphereScale();
-		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> updateSciviewColoringNow(forThisBdv);
+		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> {
+			sphereNodes.decreaseSphereScale();
+			updateUI();
+		};
+		final Behaviour clk_INC_SPH = (ClickBehaviour) (x, y) -> {
+			sphereNodes.increaseSphereScale();
+			updateUI();
+		};
+		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> {
+			updateSciviewColoringNow(forThisBdv);
+			updateUI();
+		};
 		final Behaviour clk_CLRNG_AUTO = (ClickBehaviour) (x, y) -> {
 			UPDATE_VOLUME_AUTOMATICALLY = !UPDATE_VOLUME_AUTOMATICALLY;
 			System.out.println("Volume updating auto mode: "+UPDATE_VOLUME_AUTOMATICALLY);
+			updateUI();
 		};
 		final Behaviour clk_CLRNG_ONOFF = (ClickBehaviour) (x, y) -> {
 			INTENSITY_OF_COLORS_APPLY = !INTENSITY_OF_COLORS_APPLY;
 			System.out.println("Volume spots imprinting enabled: "+INTENSITY_OF_COLORS_APPLY);
+			updateUI();
+		};
+
+		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x,y) -> this.createAndShowControllingUI();
+		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x,y) -> {
+			/*
+			this.sciviewWin.getSceneryInputHandler()
+				.getAllBindings().forEach((t,a) ->
+						System.out.println("registered keys >>"
+								+ t.toString()
+								+ "<< do actions: "
+								+ a.stream().reduce("",(s1,s2)->s1+","+s2)) );
+			*/
+			System.out.println(this);
 		};
 
 		//register them
@@ -521,8 +626,13 @@ public class SciviewBridge {
 		handler.addKeyBinding("recolor_enabled", "ctrl G");
 		handler.addBehaviour("recolor_enabled", clk_CLRNG_ONOFF);
 
+		handler.addKeyBinding("controlling_window", "ctrl I");
+		handler.addBehaviour("controlling_window", clk_CTRL_WIN);
+		handler.addKeyBinding("controlling_info", "shift I");
+		handler.addBehaviour("controlling_info", clk_CTRL_INFO);
+
 		//deregister them when they are due
-		forThisBdv.onClose(() -> {
+		forThisBdv.ofThisBdv.onClose(() -> {
 			handler.removeKeyBinding("decrease_initial_spheres_size");
 			handler.removeBehaviour("decrease_initial_spheres_size");
 			handler.removeKeyBinding("increase_initial_spheres_size");
@@ -533,7 +643,41 @@ public class SciviewBridge {
 			handler.removeBehaviour("recolor_automatically");
 			handler.removeKeyBinding("recolor_enabled");
 			handler.removeBehaviour("recolor_enabled");
+
+			handler.removeKeyBinding("controlling_window");
+			handler.removeBehaviour("controlling_window");
+			handler.removeKeyBinding("controlling_info");
+			handler.removeBehaviour("controlling_info");
 		});
+	}
+
+	public JFrame createAndShowControllingUI() {
+		return createAndShowControllingUI("Controls for "+sciviewWin.getName());
+	}
+
+	public JFrame createAndShowControllingUI(final String windowTitle) {
+		uiFrame = new JFrame(windowTitle);
+		uiFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		associatedUI = new SciviewBridgeUI(this, uiFrame.getContentPane());
+		uiFrame.pack();
+		uiFrame.setVisible(true);
+		return uiFrame;
+	}
+
+	public void detachControllingUI() {
+		if (associatedUI != null) {
+			associatedUI.deactivateAndForget();
+			associatedUI = null;
+		}
+		if (uiFrame != null) {
+			uiFrame.setVisible(false);
+			uiFrame.dispose();
+		}
+	}
+
+	void updateUI() {
+		if (associatedUI == null) return;
+		associatedUI.updatePaneValues();
 	}
 
 	// --------------------------------------------------------------------------
