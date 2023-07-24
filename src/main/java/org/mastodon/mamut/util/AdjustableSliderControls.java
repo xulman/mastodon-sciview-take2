@@ -18,7 +18,27 @@ public class AdjustableSliderControls {
 	/** represents the left mouse button, changeable, shared among all such controls */
 	public static int MOUSE_BUTTON_code = 1;
 
-	// ================================= helper buildes =================================
+	public interface BoundaryValuesProvider {
+		int boundaryDeltaOnThisMouseMove(final int mouseDeltaInPx);
+	}
+
+	/** provide here own mouse movement to boundary change "scaler",
+	 * this is intentionally available as of per-slider basis  */
+	public BoundaryValuesProvider boundarySetter = BOUNDARY_SETTER_CUBE_FUN;
+
+	// ================================= helper builders =================================
+	public final static BoundaryValuesProvider BOUNDARY_SETTER_IDENTITY_FUN = mouseDeltaInPx -> mouseDeltaInPx;
+	public final static BoundaryValuesProvider BOUNDARY_SETTER_SQUARE_FUN = mouseDeltaInPx -> {
+		float d = (float)mouseDeltaInPx/4.f;
+		d *= d;
+		return mouseDeltaInPx > 0 ? (int)d : (int)-d;
+	};
+	public final static BoundaryValuesProvider BOUNDARY_SETTER_CUBE_FUN = mouseDeltaInPx -> {
+		float d = (float)mouseDeltaInPx/15.f;
+		d *= d*d;
+		return (int)d;
+	};
+
 	public static SpinnerNumberModel createAppropriateSpinnerModel(int withThisCurrentValue) {
 		return createAppropriateSpinnerModel(withThisCurrentValue, 50);
 	}
@@ -178,7 +198,7 @@ public class AdjustableSliderControls {
 		public void mouseDragged(MouseEvent mouseEvent) {
 			if (isInControllingMode) {
 				int deltaMove = mouseEvent.getXOnScreen() - initialMousePosition;
-				int newSliderValue = initialBoundaryValue + deltaMove;
+				int newSliderValue = initialBoundaryValue + boundarySetter.boundaryDeltaOnThisMouseMove(deltaMove);
 				if (isMinBoundaryControlled) {
 					//set value only if it is within the min model limits, and
 					//set min only if it is not beyond (greater than) the max boundary
