@@ -13,7 +13,7 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
 
-public class AdjustableSliderControls {
+public class AbstractAdjustableSliderBasedControl {
 
 	/** represents the Control key, which is changeable and shared among all such controls
 	 * (to warrant all are controlled the same way) */
@@ -50,10 +50,10 @@ public class AdjustableSliderControls {
 		return new SpinnerNumberModel(withThisCurrentValue, minBound_lowLimit,minBound_highLimit, withThisStep);
 	}
 
-	public static AdjustableSliderControls createAndPlaceHere(final Container intoThisComponent,
-	                                                          final int initialValue,
-	                                                          final int initialMin,
-	                                                          final int initialMax) {
+	public static AbstractAdjustableSliderBasedControl createAndPlaceHere(final Container intoThisComponent,
+	                                                                      final int initialValue,
+	                                                                      final int initialMin,
+	                                                                      final int initialMax) {
 		if (initialValue < initialMin || initialValue > initialMax)
 			throw new IllegalArgumentException("Refuse to create slider showing value that's outside the slider's min and max range.");
 		if (initialMin < minBound_lowLimit || initialMin > minBound_highLimit)
@@ -70,7 +70,7 @@ public class AdjustableSliderControls {
 
 		//set to the current wanted range
 		JSlider slider = new JSlider(JSlider.HORIZONTAL, initialMin, initialMax, initialValue);
-		JSpinner spinner = new JSpinner( AdjustableSliderControls.createAppropriateSpinnerModel(initialValue) );
+		JSpinner spinner = new JSpinner( AbstractAdjustableSliderBasedControl.createAppropriateSpinnerModel(initialValue) );
 		JLabel lowBoundInformer = new JLabel(String.valueOf(initialMin));
 		JLabel highBoundInformer = new JLabel(String.valueOf(initialMax));
 
@@ -96,14 +96,14 @@ public class AdjustableSliderControls {
 		c.gridy = 1;
 		intoThisComponent.add(lowBoundInformer, c);
 
-		return new AdjustableSliderControls(slider,spinner,lowBoundInformer,highBoundInformer);
+		return new AbstractAdjustableSliderBasedControl(slider,spinner,lowBoundInformer,highBoundInformer);
 	}
 
-	public static AdjustableSliderControls createAndPlaceHere(final Container intoThisComponent,
-	                                                          final int initialLowValue,
-	                                                          final int initialHighValue,
-	                                                          final int initialMin,
-	                                                          final int initialMax) {
+	public static AbstractAdjustableSliderBasedControl createAndPlaceHere(final Container intoThisComponent,
+	                                                                      final int initialLowValue,
+	                                                                      final int initialHighValue,
+	                                                                      final int initialMin,
+	                                                                      final int initialMax) {
 		final GridBagLayout gridBagLayout = new GridBagLayout();
 		intoThisComponent.setLayout( gridBagLayout );
 
@@ -116,9 +116,9 @@ public class AdjustableSliderControls {
 		slider.setRange(initialLowValue, initialHighValue);
 
 		JSpinner minSpinner = new JSpinner(
-				AdjustableSliderControls.createAppropriateSpinnerModel( slider.getMinimum() ));
+				AbstractAdjustableSliderBasedControl.createAppropriateSpinnerModel( slider.getMinimum() ));
 		JSpinner maxSpinner = new JSpinner(
-				AdjustableSliderControls.createAppropriateSpinnerModel( slider.getMaximum() ));
+				AbstractAdjustableSliderBasedControl.createAppropriateSpinnerModel( slider.getMaximum() ));
 
 		c.gridy = 0;
 		c.weightx = 0.05;
@@ -131,7 +131,7 @@ public class AdjustableSliderControls {
 		c.gridx = 2;
 		intoThisComponent.add(maxSpinner, c);
 
-		//return new AdjustableSliderControls(slider,minSpinner,maxSpinner);
+		//return new AbstractAdjustableSliderBasedControl(slider,minSpinner,maxSpinner);
 		return null;
 	}
 
@@ -147,10 +147,10 @@ public class AdjustableSliderControls {
 	private static final int maxBound_highLimit = 65535;
 	//TODO: is there any reason to have different intervals for what min and max bounds can be?
 
-	public AdjustableSliderControls(final JSlider manageThisSlider,
-	                                final JSpinner associatedValueSpinner,
-	                                final JLabel associatedLowBound,
-	                                final JLabel associatedHighBound) {
+	public AbstractAdjustableSliderBasedControl(final JSlider manageThisSlider,
+	                                            final JSpinner associatedValueSpinner,
+	                                            final JLabel associatedLowBound,
+	                                            final JLabel associatedHighBound) {
 		slider = manageThisSlider;
 		lowBoundInfo = associatedLowBound;
 		highBoundInfo = associatedHighBound;
