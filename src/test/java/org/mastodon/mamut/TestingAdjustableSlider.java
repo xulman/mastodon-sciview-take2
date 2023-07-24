@@ -63,52 +63,38 @@ public class TestingAdjustableSlider {
 
 		@Override
 		public void keyPressed(KeyEvent keyEvent) {
-			//isControlKeyPressed = keyEvent.getKeyCode() == CONTROL_KEY_keycode || isControlKeyPressed;
 			if (keyEvent.getKeyCode() == CONTROL_KEY_keycode) {
 				isControlKeyPressed = true;
-				//System.out.println("CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 				if (isMouseLBpressed) isInControllingMode = true;
-				//System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
 			}
 		}
 		@Override
 		public void keyReleased(KeyEvent keyEvent) {
-			//isControlKeyPressed = keyEvent.getKeyCode() != CONTROL_KEY_keycode && isControlKeyPressed;
 			if (keyEvent.getKeyCode() == CONTROL_KEY_keycode) {
 				isControlKeyPressed = false;
-				//System.out.println("CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 				isInControllingMode = false;
-				//System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
 			}
 		}
 
 		@Override
 		public void mousePressed(MouseEvent mouseEvent) {
-			//isMouseLBpressed = mouseEvent.getButton() == 1 || isMouseLBpressed;
 			if (mouseEvent.getButton() == MOUSE_BUTTON_code) {
 				isMouseLBpressed = true;
-				//System.out.println("CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 				if (isControlKeyPressed) {
 					isInControllingMode = true;
-					//System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode+", FOR PART: "+(isLeftPartControlled ? "LEFT":"RIGHT"));
 
+					//store the initial state now--at the beginning of the dragging
 					initialMousePosition = mouseEvent.getXOnScreen();
 					isMinBoundaryControlled = ((float)mouseEvent.getX()/(float)slider.getWidth()) < 0.5f;
 					initialBoundaryValue = isMinBoundaryControlled ? (int)minModel.getValue() : (int)maxModel.getValue();
 				}
-				/* else {
-					System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
-				} */
 			}
 		}
 		@Override
 		public void mouseReleased(MouseEvent mouseEvent) {
-			//isMouseLBpressed = mouseEvent.getButton() != 1 && isMouseLBpressed;
 			if (mouseEvent.getButton() == MOUSE_BUTTON_code) {
 				isMouseLBpressed = false;
-				//System.out.println("CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 				isInControllingMode = false;
-				//System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
 			}
 		}
 
@@ -116,7 +102,6 @@ public class TestingAdjustableSlider {
 		public void mouseDragged(MouseEvent mouseEvent) {
 			if (isInControllingMode) {
 				int deltaMove = mouseEvent.getXOnScreen() - initialMousePosition;
-				//System.out.println("CONTROLLING MODE: dragged a mouse by " + deltaMove);
 				int newSliderValue = initialBoundaryValue + deltaMove;
 				if (isMinBoundaryControlled) {
 					//set value only if it is within the min model limits, and
@@ -145,7 +130,6 @@ public class TestingAdjustableSlider {
 			isControlKeyPressed = (mouseEvent.getModifiersEx() & MouseEvent.CTRL_DOWN_MASK) > 0;
 			isMouseLBpressed = (mouseEvent.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) > 0;
 			isInControllingMode = isControlKeyPressed && isMouseLBpressed;
-			//System.out.println("EVERYTHING IS RESET: CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 		}
 
 		@Override
