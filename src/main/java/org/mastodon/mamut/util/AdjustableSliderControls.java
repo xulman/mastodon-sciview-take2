@@ -119,53 +119,50 @@ public class AdjustableSliderControls {
 
 	// ================================= stuff for the initialization =================================
 	private final JSlider slider;
+	private final JLabel lowBoundInfo;
+	private final JLabel highBoundInfo;
 
 	//internal shortcuts
-	private final SpinnerNumberModel minModel;
-	private final SpinnerNumberModel maxModel;
-	private final Comparable<Integer> minModel_MinBound;
-	private final Comparable<Integer> minModel_MaxBound;
-	private final Comparable<Integer> maxModel_MinBound;
-	private final Comparable<Integer> maxModel_MaxBound;
+	private int currentMinBound;
+	private int currentMaxBound;
+	private static final int minBound_lowLimit = 0;
+	private static final int minBound_highLimit = 65535;
+	private static final int maxBound_lowLimit = 0;
+	private static final int maxBound_highLimit = 65535;
 
 	public AdjustableSliderControls(final JSlider manageThisSlider,
-	                                final JSpinner associatedMinSpinner,
-	                                final JSpinner associatedMaxSpinner) {
+	                                final JSpinner associatedValueSpinner,
+	                                final JLabel associatedLowBound,
+	                                final JLabel associatedHighBound) {
 		slider = manageThisSlider;
+		currentMinBound = slider.getMinimum();
+		currentMaxBound = slider.getMaximum();
+		lowBoundInfo = associatedLowBound;
+		highBoundInfo = associatedHighBound;
 
-		SpinnerModel m = associatedMinSpinner.getModel();
+		//listeners setup: setting the slider from the associated spinner
+		final SpinnerModel m = associatedValueSpinner.getModel();
 		if (! (m instanceof SpinnerNumberModel))
-			throw new IllegalArgumentException("The min-boundary spinner is expected to be SpinnerNumberModel.");
-		minModel = (SpinnerNumberModel)m;
+			throw new IllegalArgumentException("The provided spinner is expected to be of the type SpinnerNumberModel.");
+		final SpinnerNumberModel nm = (SpinnerNumberModel)m; //NB: safe to cast...
+		nm.addChangeListener(l -> {
+			int value = (int)nm.getValue();
+			value = Math.max(currentMinBound, Math.min(value, currentMaxBound));
+			slider.setValue(value);
+		});
 
-		m = associatedMaxSpinner.getModel();
-		if (! (m instanceof SpinnerNumberModel))
-			throw new IllegalArgumentException("The max-boundary spinner is expected to be SpinnerNumberModel.");
-		maxModel = (SpinnerNumberModel) associatedMaxSpinner.getModel();
-
-		//shortcuts
-		minModel_MinBound = (Comparable<Integer>) minModel.getMinimum();
-		minModel_MaxBound = (Comparable<Integer>) minModel.getMaximum();
-		maxModel_MinBound = (Comparable<Integer>) maxModel.getMinimum();
-		maxModel_MaxBound = (Comparable<Integer>) maxModel.getMaximum();
-
-		//listeners setup: making the trio play together
-		minModel.addChangeListener(l -> slider.setMinimum((int) minModel.getValue()));
-		maxModel.addChangeListener(l -> slider.setMaximum((int) maxModel.getValue()));
-		//note that the min/max spinners should not change their limits (as
-		//they correspond to the displayed data type, whose value range is firm)
+		//listeners setup: forwarder to the associated spinner and also
+		//to client listeners (for which it triggers only on truly relevant slider changes)
+		slider.addChangeListener(event -> {
+			nm.setValue(slider.getValue());
+			if (!isInControllingMode) tellListenersThatSliderHasChanged(event);
+		});
 
 		//listeners setup: managing slider's limits
 		final EventHandler handler = new EventHandler();
 		slider.addKeyListener(handler);
 		slider.addMouseListener(handler);
 		slider.addMouseMotionListener(handler);
-
-		//listeners setup: forwarder to the client listeners
-		//(triggers only on truly relevant slider changes)
-		slider.addChangeListener(event -> {
-			if (!isInControllingMode) tellListenersThatSliderHasChanged(event);
-		});
 	}
 
 	public JSlider getSlider() {
@@ -183,7 +180,7 @@ public class AdjustableSliderControls {
 	private boolean isInControllingMode = false;
 	private int initialMousePosition = 0;
 	private int initialBoundaryValue = 0;
-	private int originalSliderValue = -1;
+	private int originalSliderValue = -1; //aka before-dragging-value
 	private boolean isMinBoundaryControlled = false;
 
 	// ================================= execution: events handling =================================
@@ -215,7 +212,7 @@ public class AdjustableSliderControls {
 					//store the initial state now--at the beginning of the dragging
 					initialMousePosition = mouseEvent.getXOnScreen();
 					isMinBoundaryControlled = ((float) mouseEvent.getX() / (float) slider.getWidth()) < 0.5f;
-					initialBoundaryValue = isMinBoundaryControlled ? (int) minModel.getValue() : (int) maxModel.getValue();
+					initialBoundaryValue = isMinBoundaryControlled ? currentMinBound : currentMaxBound;
 					originalSliderValue = slider.getValue();
 				}
 			}
@@ -236,18 +233,24 @@ public class AdjustableSliderControls {
 				int deltaMove = mouseEvent.getXOnScreen() - initialMousePosition;
 				int newSliderValue = initialBoundaryValue + boundarySetter.boundaryDeltaOnThisMouseMove(deltaMove);
 				if (isMinBoundaryControlled) {
-					//set value only if it is within the min model limits, and
-					//set min only if it is not beyond (greater than) the max boundary
-					if (minModel_MinBound.compareTo(newSliderValue) <= 0
-							&& minModel_MaxBound.compareTo(newSliderValue) >= 0
-							&& newSliderValue < (int) maxModel.getValue()) minModel.setValue(newSliderValue);
+					//make sure the value is within the min model limits,
+					newSliderValue = Math.max(minBound_lowLimit, Math.min(newSliderValue, minBound_highLimit));
+					//and set min only if it is not beyond (greater than) the max boundary
+					if (newSliderValue < currentMaxBound) {
+						currentMinBound = newSliderValue;
+						slider.setMinimum(currentMinBound);
+						lowBoundInfo.setText(String.valueOf(currentMinBound));
+					}
 				} else {
 					//right part
-					//set value only if it is within the max model limits, and
-					//set max only if it is not beyond (lesser than) the min boundary
-					if (maxModel_MinBound.compareTo(newSliderValue) <= 0
-							&& maxModel_MaxBound.compareTo(newSliderValue) >= 0
-							&& newSliderValue > (int) minModel.getValue()) maxModel.setValue(newSliderValue);
+					//make sure the value is within the max model limits,
+					newSliderValue = Math.max(maxBound_lowLimit, Math.min(newSliderValue, maxBound_highLimit));
+					//and set max only if it is not beyond (lesser than) the min boundary
+					if (newSliderValue > currentMinBound) {
+						currentMaxBound = newSliderValue;
+						slider.setMaximum(currentMaxBound);
+						highBoundInfo.setText(String.valueOf(currentMaxBound));
+					}
 				}
 			}
 		}
