@@ -16,10 +16,16 @@ public class TestingAdjustableSlider {
 		public int MOUSE_BUTTON_code = 1;
 
 		private final JSpinner minSpinner;
-		private final SpinnerModel minModel;
 		private final JSlider slider;
 		private final JSpinner maxSpinner;
-		private final SpinnerModel maxModel;
+
+		//internal shortcuts
+		private final SpinnerNumberModel minModel;
+		private final SpinnerNumberModel maxModel;
+		private final Comparable<Integer> minModel_MinBound;
+		private final Comparable<Integer> minModel_MaxBound;
+		private final Comparable<Integer> maxModel_MinBound;
+		private final Comparable<Integer> maxModel_MaxBound;
 
 		public AdjustableSliderControls(final JSlider manageThisSlider,
 		                                final JSpinner associatedMinSpinner,
@@ -29,12 +35,18 @@ public class TestingAdjustableSlider {
 			maxSpinner = associatedMaxSpinner;
 
 			//shortcuts
-			minModel = minSpinner.getModel();
-			maxModel = maxSpinner.getModel();
+			minModel = (SpinnerNumberModel)minSpinner.getModel();
+			maxModel = (SpinnerNumberModel)maxSpinner.getModel();
+			minModel_MinBound = (Comparable<Integer>)minModel.getMinimum();
+			minModel_MaxBound = (Comparable<Integer>)minModel.getMaximum();
+			maxModel_MinBound = (Comparable<Integer>)maxModel.getMinimum();
+			maxModel_MaxBound = (Comparable<Integer>)maxModel.getMaximum();
 
 			//listeners setup: making the trio play together
 			minModel.addChangeListener(l -> slider.setMinimum( (int)minModel.getValue() ));
 			maxModel.addChangeListener(l -> slider.setMaximum( (int)maxModel.getValue() ));
+			//note that the min/max spinners should not change their limits (as
+			//they correspond to the displayed data type, whose value range is firm)
 
 			//listeners setup: managing slider's limits
 			slider.addKeyListener(this);
@@ -48,8 +60,8 @@ public class TestingAdjustableSlider {
 		boolean isMouseLBpressed = false;
 		boolean isInControllingMode = false;
 		int initialMousePosition = 0;
-		int initialSliderValue = 0;
-		boolean isLeftPartControlled = false;
+		int initialBoundaryValue = 0;
+		boolean isMinBoundaryControlled = false;
 
 		@Override
 		public void keyPressed(KeyEvent keyEvent) {
@@ -58,7 +70,7 @@ public class TestingAdjustableSlider {
 				isControlKeyPressed = true;
 				//System.out.println("CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 				if (isMouseLBpressed) isInControllingMode = true;
-				System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
+				//System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
 			}
 		}
 		@Override
@@ -68,7 +80,7 @@ public class TestingAdjustableSlider {
 				isControlKeyPressed = false;
 				//System.out.println("CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 				isInControllingMode = false;
-				System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
+				//System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
 			}
 		}
 
@@ -80,14 +92,15 @@ public class TestingAdjustableSlider {
 				//System.out.println("CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 				if (isControlKeyPressed) {
 					isInControllingMode = true;
-					System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode+", FOR PART: "+(isLeftPartControlled ? "LEFT":"RIGHT"));
+					//System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode+", FOR PART: "+(isLeftPartControlled ? "LEFT":"RIGHT"));
 
 					initialMousePosition = mouseEvent.getXOnScreen();
-					isLeftPartControlled = ((float)mouseEvent.getX()/(float)slider.getWidth()) < 0.5f;
-					initialSliderValue = isLeftPartControlled ? (int)minModel.getValue() : (int)maxModel.getValue();
-				} else {
-					System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
+					isMinBoundaryControlled = ((float)mouseEvent.getX()/(float)slider.getWidth()) < 0.5f;
+					initialBoundaryValue = isMinBoundaryControlled ? (int)minModel.getValue() : (int)maxModel.getValue();
 				}
+				/* else {
+					System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
+				} */
 			}
 		}
 		@Override
@@ -97,7 +110,7 @@ public class TestingAdjustableSlider {
 				isMouseLBpressed = false;
 				//System.out.println("CTRL status: "+isControlKeyPressed+",  MOUSE status: "+isMouseLBpressed);
 				isInControllingMode = false;
-				System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
+				//System.out.println("CONTROLLING MODE STATUS: "+isInControllingMode);
 			}
 		}
 
@@ -105,15 +118,21 @@ public class TestingAdjustableSlider {
 		public void mouseDragged(MouseEvent mouseEvent) {
 			if (isInControllingMode) {
 				int deltaMove = mouseEvent.getXOnScreen() - initialMousePosition;
-				System.out.println("CONTROLLING MODE: dragged a mouse by " + deltaMove);
-				int newSliderValue = initialSliderValue + deltaMove;
-				if (isLeftPartControlled) {
+				//System.out.println("CONTROLLING MODE: dragged a mouse by " + deltaMove);
+				int newSliderValue = initialBoundaryValue + deltaMove;
+				if (isMinBoundaryControlled) {
+					//set value only if it is within the min model limits, and
 					//set min only if it is not beyond (greater than) the max boundary
-					if (newSliderValue < (int)maxModel.getValue()) minModel.setValue( newSliderValue );
+					if (minModel_MinBound.compareTo(newSliderValue) <= 0
+						&& minModel_MaxBound.compareTo(newSliderValue) >= 0
+						&& newSliderValue < (int)maxModel.getValue()) minModel.setValue( newSliderValue );
 				} else {
 					//right part
+					//set value only if it is within the max model limits, and
 					//set max only if it is not beyond (lesser than) the min boundary
-					if (newSliderValue > (int)minModel.getValue()) maxModel.setValue( newSliderValue );
+					if (maxModel_MinBound.compareTo(newSliderValue) <= 0
+						&& maxModel_MaxBound.compareTo(newSliderValue) >= 0
+						&& newSliderValue > (int)minModel.getValue()) maxModel.setValue( newSliderValue );
 				}
 			}
 		}
@@ -142,22 +161,23 @@ public class TestingAdjustableSlider {
 		c.fill = GridBagConstraints.HORIZONTAL;
 
 
+		//set to the current wanted range
 		JSlider slider = new JSlider(JSlider.HORIZONTAL, 0, 100, 33);
-		SpinnerNumberModel minModel = new SpinnerNumberModel(
-				slider.getMinimum(), slider.getMinimum(), slider.getMaximum(), 1);
-		SpinnerNumberModel maxModel = new SpinnerNumberModel(
-				slider.getMaximum(), slider.getMinimum(), slider.getMaximum(), 1);
+
+		//set limits to the data type (here, GRAY16)
+		SpinnerNumberModel minModel = new SpinnerNumberModel(slider.getMinimum(), 0,65535, 50);
+		SpinnerNumberModel maxModel = new SpinnerNumberModel(slider.getMaximum(), 0,65535, 50);
 		JSpinner minSpinner = new JSpinner(minModel);
 		JSpinner maxSpinner = new JSpinner(maxModel);
 		//
 		c.gridy = 0;
-		c.weightx = 0.1;
+		c.weightx = 0.05;
 		c.gridx = 0;
 		frame.add(minSpinner, c);
-		c.weightx = 0.8;
+		c.weightx = 0.9;
 		c.gridx = 1;
 		frame.add(slider, c);
-		c.weightx = 0.1;
+		c.weightx = 0.05;
 		c.gridx = 2;
 		frame.add(maxSpinner, c);
 
