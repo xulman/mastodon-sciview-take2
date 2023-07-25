@@ -151,7 +151,7 @@ public class SciviewBridge {
 
 		//add "root" with data axes
 		this.axesParent = addDataAxes();
-		sciviewWin.addChild( axesParent );
+		sciviewWin.addNode( axesParent );
 
 		//get necessary metadata - from image data
 		SOURCE_ID = sourceID;
