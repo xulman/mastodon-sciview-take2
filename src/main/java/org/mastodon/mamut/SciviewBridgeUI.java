@@ -273,13 +273,20 @@ public class SciviewBridgeUI {
 	};
 	final java.util.List<OwnerAwareSpinnerChangeListener> spinnerModelsWithListeners = new ArrayList<>(10);
 	final java.util.List<JCheckBox> checkBoxesWithListeners = new ArrayList<>(10);
-	//below is defined: rangeSliderListener
+	//
+	//below is also defined: rangeSliderListener
 	//
 	final ActionListener updVolAutoListener = new ActionListener() {
 		@Override
 		public void actionPerformed(ActionEvent actionEvent) {
+			boolean prevBridgeState = controlledBridge.UPDATE_VOLUME_AUTOMATICALLY;
 			controlledBridge.UPDATE_VOLUME_AUTOMATICALLY
 					= UPDATE_VOLUME_AUTOMATICALLY.getSelectedIndex() == 0;
+			if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY && !prevBridgeState) {
+				//NB: a protection "if" here because this listener can be triggered even
+				//when one re-chooses (re-clicks) the already chosen element
+				controlledBridge.updateSciviewColoringNow();
+			}
 		}
 	};
 
