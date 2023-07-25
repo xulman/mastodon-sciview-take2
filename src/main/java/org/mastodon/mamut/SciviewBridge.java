@@ -281,10 +281,14 @@ public class SciviewBridge {
 	                          final RandomAccessibleInterval<T> greenCh,
 	                          final RandomAccessibleInterval<T> blueCh,
 	                          final RandomAccessibleInterval<T> srcImg) {
-		final BiConsumer<T,T> intensityProcessor =
+		final BiConsumer<T,T> intensityProcessor
+			= INTENSITY_GAMMA != 1.0 ?
 				(src, tgt) -> tgt.setReal( INTENSITY_CLAMP_AT_TOP * Math.pow( //TODO, replace pow() with LUT for several gammas
 						Math.min(INTENSITY_CONTRAST*src.getRealFloat() +INTENSITY_SHIFT, INTENSITY_CLAMP_AT_TOP) / INTENSITY_CLAMP_AT_TOP
-						, INTENSITY_GAMMA) );
+						, INTENSITY_GAMMA) )
+			:
+				(src, tgt) -> tgt.setReal( Math.min(INTENSITY_CONTRAST*src.getRealFloat() +INTENSITY_SHIFT, INTENSITY_CLAMP_AT_TOP) );
+		//
 		//massage input data into the red channel
 		LoopBuilder.setImages(srcImg,redCh)
 				.flatIterationOrder()
@@ -347,7 +351,7 @@ public class SciviewBridge {
 			final double distSq = pos[0]*pos[0] + pos[1]*pos[1] + pos[2]*pos[2];
 			if (distSq <= maxDistSq) {
 				//we're within the ROI (spot)
-				final float val = si.get().getInteger() * intensityScale;
+				final float val = si.get().getRealFloat() * intensityScale;
 				rc.get().setReal( val * rgbValue[0] );
 				gc.get().setReal( val * rgbValue[1] );
 				bc.get().setReal( val * rgbValue[2] );
