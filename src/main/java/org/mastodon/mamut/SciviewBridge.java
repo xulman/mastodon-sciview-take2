@@ -11,7 +11,6 @@ import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
 import graphics.scenery.primitives.Cylinder;
 import graphics.scenery.volumes.Volume;
-import mpicbg.spim.data.SpimDataException;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.FinalInterval;
@@ -27,19 +26,15 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.model.Link;
-import org.mastodon.mamut.project.MamutProjectIO;
 import org.mastodon.mamut.util.SphereNodes;
 import org.mastodon.model.tag.TagSetStructure;
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator;
 import org.mastodon.ui.coloring.DefaultGraphColorGenerator;
 import org.mastodon.ui.coloring.GraphColorGenerator;
-import org.scijava.Context;
 import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
-import javax.swing.WindowConstants;
 import javax.swing.JFrame;
-import java.io.IOException;
 import java.util.List;
 import java.util.function.BiConsumer;
 
@@ -126,12 +121,20 @@ public class SciviewBridge {
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
+		this(mastodonMainWindow,0,0,targetSciviewWindow);
+	}
+
+	public SciviewBridge(final WindowManager mastodonMainWindow,
+	                     final int sourceID, final int sourceResLevel,
+	                     final SciView targetSciviewWindow)
+	{
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
 
 		//adjust the default scene's settings
 		sciviewWin.setApplicationName("sciview for Mastodon: "
 				+ mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		sciviewWin.toggleSidebar();
 		sciviewWin.getFloor().setVisible(false);
 		sciviewWin.getLights().forEach(l -> {
 			if (l.getName().startsWith("headli"))
@@ -151,9 +154,11 @@ public class SciviewBridge {
 		sciviewWin.addChild( axesParent );
 
 		//get necessary metadata - from image data
+		SOURCE_ID = sourceID;
+		SOURCE_USED_RES_LEVEL = sourceResLevel;
 		final Source<?> spimSource = mastodonWin.getAppModel().getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource();
 		final long[] volumeDims = spimSource.getSource(0,0).dimensionsAsLongArray();
-		SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
+		//SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
 		final long[] volumeDims_usedResLevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray();
 		final float[] volumeDownscale = new float[] {
 				(float)volumeDims[0] / (float)volumeDims_usedResLevel[0],
@@ -197,24 +202,25 @@ public class SciviewBridge {
 		//
 		volNodes = List.of(redVolChannelNode,greenVolChannelNode,blueVolChannelNode);
 
+		final int converterSetupID = SOURCE_ID < redVolChannelNode.getConverterSetups().size() ? SOURCE_ID : 0;
 		//setup intensity display listeners that keep the ranges of the three volumes in sync
 		// (but the change of one triggers listeners of the others (making each volume its ranges
 		//  adjusted 3x times... luckily it doesn't start cycling/looping; perhaps switch to cascade?)
-		redVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		redVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("RED informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			greenVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			greenVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 			blueVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			blueVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 		});
-		greenVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		greenVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("GREEN informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			redVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			redVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 			blueVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			blueVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 		});
-		blueVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		blueVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("BLUE informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			redVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			redVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
@@ -277,7 +283,7 @@ public class SciviewBridge {
 		return finalRatio;
 	}
 
-	public <T extends IntegerType<T>>
+	<T extends IntegerType<T>>
 	void freshNewWhiteContent(final RandomAccessibleInterval<T> redCh,
 	                          final RandomAccessibleInterval<T> greenCh,
 	                          final RandomAccessibleInterval<T> blueCh,
@@ -727,50 +733,5 @@ public class SciviewBridge {
 	void updateUI() {
 		if (associatedUI == null) return;
 		associatedUI.updatePaneValues();
-	}
-
-	// --------------------------------------------------------------------------
-	private static WindowManager giveMeSomeMastodon(final Context scijavaCtx)
-	throws IOException, SpimDataException {
-		String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
-
-		//ImageJ ij = new ImageJ();
-		//ij.ui().showUI();
-
-		//the central hub, a container to hold all
-		final WindowManager windowManager = new WindowManager( scijavaCtx );
-		windowManager.getProjectManager().open( new MamutProjectIO().load( projectPath ) );
-
-		//a GUI element wrapping around the hub
-		final MainWindow win = new MainWindow(windowManager);
-
-		//this makes the true Mastodon window visible
-		//note: you can open project that restores/reopen e.g. TrackScheme window,
-		//      yet the main Mastodon window is not shown... but this is runs non-stop
-		win.setVisible( true );
-
-		//this makes the whole thing (incl. the central hub) go down when the GUI is closed
-		win.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE );
-
-		return windowManager;
-	}
-
-	private static SciView createSciview()
-	throws Exception {
-		return SciView.create();
-	}
-
-	public static void main(String[] args) {
-		try {
-			SciView sv = createSciview();
-			sv.toggleSidebar();
-			WindowManager mastodon = giveMeSomeMastodon(sv.getScijavaContext());
-
-			final SciviewBridge bridge = new SciviewBridge(mastodon, sv);
-			bridge.openSyncedBDV();
-
-		} catch (Exception e) {
-			System.out.println("Got this exception: "+e.getMessage());
-		}
 	}
 }
