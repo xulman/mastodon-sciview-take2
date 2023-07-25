@@ -55,6 +55,7 @@ public class SciviewBridge {
 	float INTENSITY_GAMMA = 1.0f;      //...then, finally, gamma-corrected (squeezed through exp());
 
 	boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
+	boolean INTENSITY_OF_COLORS_BOOST = true;//flag to enable/disable boosting of rgb colors to the brightest possible, yet same hue
 	float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
 	float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
 
@@ -337,6 +338,21 @@ public class SciviewBridge {
 		//the way to INTENSITY_OF_COLORS (the brightest color displayed)
 		final float intensityScale = INTENSITY_OF_COLORS / INTENSITY_CLAMP_AT_TOP;
 
+		float[] usedColor;
+		if (INTENSITY_OF_COLORS_BOOST) {
+			float boostMul = Math.max( rgbValue[0], Math.max(rgbValue[1],rgbValue[2]) );
+			boostMul = 1.f / boostMul;
+			usedColor = rgbAux;
+			usedColor[0] = boostMul * rgbValue[0];
+			usedColor[1] = boostMul * rgbValue[1];
+			usedColor[2] = boostMul * rgbValue[2];
+			//NB: this operations is very very close to what
+			//"rgb -> hsv -> set v=1.0 (highest) -> back to rgb"
+			//would do, it non-decreases all rgb components
+		} else {
+			usedColor = rgbValue;
+		}
+
 		int cnt = 0;
 		while (si.hasNext()) {
 			rc.next(); gc.next(); bc.next();
@@ -352,19 +368,23 @@ public class SciviewBridge {
 			if (distSq <= maxDistSq) {
 				//we're within the ROI (spot)
 				final float val = si.get().getRealFloat() * intensityScale;
-				rc.get().setReal( val * rgbValue[0] );
-				gc.get().setReal( val * rgbValue[1] );
-				bc.get().setReal( val * rgbValue[2] );
+				rc.get().setReal( val * usedColor[0] );
+				gc.get().setReal( val * usedColor[1] );
+				bc.get().setReal( val * usedColor[2] );
 				++cnt;
 			}
 		}
 
-		if (UPDATE_VOLUME_VERBOSE_REPORTS)
+		if (UPDATE_VOLUME_VERBOSE_REPORTS) {
 			System.out.println("  colored "+cnt+" pixels in the interval ["
 				+min[0]+","+min[1]+","+min[2]+"] -> ["
 				+max[0]+","+max[1]+","+max[2]+"] @ ["
 				+pxCentre[0]+","+pxCentre[1]+","+pxCentre[2]+"]");
+			System.out.println("  boosted ["+rgbValue[0]+","+rgbValue[1]+","+rgbValue[2]
+				+"] to ["+usedColor[0]+","+usedColor[1]+","+usedColor[2]+"]");
+		}
 	}
+	final float[] rgbAux = new float[3];
 
 	public long[] mastodonToImgCoord(final float[] mastodonCoord,
 	                                 final long[] pxCoord) {
