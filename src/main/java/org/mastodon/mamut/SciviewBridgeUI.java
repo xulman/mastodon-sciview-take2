@@ -50,7 +50,7 @@ public class SciviewBridgeUI {
 		c.gridwidth = 1;
 
 		c.gridy++;
-		insertNote("   exp( min(contrast*v +shift, not_above)/not_above, gamma ) *not_above", c);
+		insertNote("   pow( min(contrast*v +shift, not_above)/not_above, gamma ) *not_above", c);
 
 		c.gridy++;
 		c.gridx = 0;
@@ -89,7 +89,7 @@ public class SciviewBridgeUI {
 		insertSeparator(c);
 
 		c.gridy++;
-		insertNote("Shortcuts to the standard sciview view intensity scaling", c);
+		insertNote("Shortcuts to the standard sciview view controls, incl. Volume intensity mapping", c);
 
 		c.gridy++;
 		JPanel sliderBarPlaceHolder = new JPanel();
@@ -168,10 +168,11 @@ public class SciviewBridgeUI {
 		// -------------- button row --------------
 		c.gridy++;
 		c.gridx = 0;
+		c.gridwidth = 1;
 		c.insets = new Insets(10,sideSpace,sideSpace,sideSpace);
-		JButton redrawBtn = new JButton("  Repaint now  ");
+		JButton redrawBtn = new JButton("  Repaint now (the recently painted timepoint)  ");
 		redrawBtn.addActionListener( (e) -> controlledBridge.updateSciviewColoringNow() );
-		insertRColumnItem(redrawBtn, c);
+		contentPane.add(redrawBtn, c);
 
 		c.gridx = 1;
 		c.anchor = GridBagConstraints.LINE_END;
