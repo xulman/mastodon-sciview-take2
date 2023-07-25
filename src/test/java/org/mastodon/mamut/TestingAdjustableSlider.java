@@ -1,6 +1,7 @@
 package org.mastodon.mamut;
 
-import org.mastodon.mamut.util.AdjustableSliderControls;
+import org.mastodon.mamut.util.AdjustableBoundsSlider;
+
 import javax.swing.*;
 import java.awt.*;
 
@@ -50,8 +51,8 @@ public class TestingAdjustableSlider {
 		c.gridx = 1;
 		frame.add(placeHolder, c);
 		//
-		AdjustableSliderControls slider
-				= AdjustableSliderControls.createAndPlaceHere(placeHolder, 33, 0,100);
+		AdjustableBoundsSlider slider
+				= AdjustableBoundsSlider.createAndPlaceHere(placeHolder, 33, 0,100);
 
 		final JLabel msg = new JLabel("Current slider value: "+slider.getValue());
 		c.gridy = 2;
