@@ -1,0 +1,175 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.scijava</groupId>
+		<artifactId>pom-scijava</artifactId>
+		<version>36.0.0</version>
+	</parent>
+
+	<groupId>cz.it4i.ulman.mastodon.sciview</groupId>
+	<artifactId>mastodon-sciview-bridge</artifactId>
+	<version>0.9.0-SNAPSHOT</version>
+
+	<organization>
+		<name>IT4Innovations</name>
+		<url>https://www.it4i.cz/en/</url>
+	</organization>
+
+	<name>Mastodon to sciview Bridge</name>
+	<description>TBA</description>
+	<url>https://github.com/mastdon-sc/TBA</url>
+	<inceptionYear>2021</inceptionYear>
+
+	<packaging>jar</packaging>
+	<licenses>
+		<license>
+			<name>BSD-2-Clause</name>
+			<url>https://choosealicense.com/licenses/bsd-2-clause/</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<id>xulman</id>
+			<name>Vladimír Ulman</name>
+			<url>http://www.fi.muni.cz/~xulman/</url>
+			<roles>
+				<role>founder</role>
+				<role>developer</role>
+				<role>debugger</role>
+				<role>reviewer</role>
+				<role>support</role>
+				<role>maintainer</role>
+			</roles>
+		</developer>
+	</developers>
+	<contributors>
+		<contributor>
+			<name>None</name>
+		</contributor>
+	</contributors>
+
+	<mailingLists>
+		<mailingList>
+			<name>ImageJ Forum</name>
+			<archive>http://forum.imagej.net/</archive>
+		</mailingList>
+	</mailingLists>
+
+
+	<!-- NEEDS TO BE COMPLETED -->
+	<scm>
+		<connection>scm:git:https://github.com/TBA</connection>
+		<developerConnection>scm:git:localhost:9999</developerConnection>
+		<tag>HEAD</tag>
+		<url>https://github.com/xulman/TomancakLab</url>
+	</scm>
+	<issueManagement>
+		<system>GitHub Issues</system>
+		<url>http://github.com/xulman/TBA</url>
+	</issueManagement>
+	<ciManagement>
+		<system>None</system>
+	</ciManagement>
+
+	<build>
+		<extensions>
+			<extension>
+				<groupId>kr.motd.maven</groupId>
+				<artifactId>os-maven-plugin</artifactId>
+				<version>1.6.2</version>
+			</extension>
+		</extensions>
+		<plugins>
+			<plugin>
+				<groupId>pl.project13.maven</groupId>
+				<artifactId>git-commit-id-plugin</artifactId>
+				<version>4.9.10</version>
+				<executions>
+					<execution>
+						<phase>validate</phase>
+						<goals>
+							<goal>revision</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
+					<generateGitPropertiesFile>true</generateGitPropertiesFile>
+					<generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+					<includeOnlyProperties>
+						<includeOnlyProperty>^git.build.(time|version)$</includeOnlyProperty>
+						<includeOnlyProperty>^git.commit.id.(abbrev|full)$</includeOnlyProperty>
+					</includeOnlyProperties>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-antrun-plugin</artifactId>
+				<executions>
+					<execution>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>run</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<target>
+						<!-- make sure no COMMITrev tag files are floating around from some previous runs -->
+						<!-- NB: this task is redundant whenever 'mvn clean' is executed... -->
+						<delete><fileset dir="${project.build.outputDirectory}" includes="COMMITrev_*"/></delete>
+						<touch file="${project.build.outputDirectory}/COMMITrev_${git.commit.id.abbrev}_${project.artifactId}"/>
+					</target>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>11</source>
+					<target>1.8</target>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+	<properties>
+		<license.licenseName>BSD simplified (2 clause)</license.licenseName>
+		<license.copyrightOwners>Vladimír Ulman</license.copyrightOwners>
+		<license.projectName>Online Mastodon Exports</license.projectName>
+		<package-name>cz.it4i.ulman.mastodon.sciview</package-name>
+
+		<mastodon.version>1.0.0-beta-27-SNAPSHOT</mastodon.version>
+
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>scijava.public</id>
+			<url>https://maven.scijava.org/content/groups/public</url>
+		</repository>
+	</repositories>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.mastodon</groupId>
+			<artifactId>mastodon</artifactId>
+			<version>${mastodon.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>sc.iview</groupId>
+			<artifactId>sciview</artifactId>
+			<version>0.2.0-beta-9-SNAPSHOT</version>
+		</dependency>
+	</dependencies>
+</project>
