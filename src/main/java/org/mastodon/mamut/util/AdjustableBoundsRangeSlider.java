@@ -70,9 +70,9 @@ public class AdjustableBoundsRangeSlider extends AbstractAdjustableSliderBasedCo
 			throw new IllegalArgumentException("Refuse to create slider showing \"low\" value that's outside the slider's min and max range.");
 		if (initialHighValue < initialMin || initialHighValue > initialMax)
 			throw new IllegalArgumentException("Refuse to create slider showing \"high\" value that's outside the slider's min and max range.");
-		if (initialMin < minBound_lowLimit || initialMin > minBound_highLimit)
+		if (initialMin < MIN_BOUND_LIMIT || initialMin > MAX_BOUND_LIMIT)
 			throw new IllegalArgumentException("Required MIN bound is outside the interval assumed by this governing class.");
-		if (initialMax < maxBound_lowLimit || initialMax > maxBound_highLimit)
+		if (initialMax < MIN_BOUND_LIMIT || initialMax > MAX_BOUND_LIMIT)
 			throw new IllegalArgumentException("Required MAX bound is outside the interval assumed by this governing class.");
 
 		final GridBagLayout gridBagLayout = new GridBagLayout();

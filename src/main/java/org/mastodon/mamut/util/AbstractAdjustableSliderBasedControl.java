@@ -44,7 +44,7 @@ public abstract class AbstractAdjustableSliderBasedControl {
 	}
 	public static SpinnerNumberModel createAppropriateSpinnerModel(int withThisCurrentValue,
 	                                                               int withThisStep) {
-		return new SpinnerNumberModel(withThisCurrentValue, minBound_lowLimit,minBound_highLimit, withThisStep);
+		return new SpinnerNumberModel(withThisCurrentValue, MIN_BOUND_LIMIT, MAX_BOUND_LIMIT, withThisStep);
 	}
 
 	// ================================= initialization =================================
@@ -53,11 +53,8 @@ public abstract class AbstractAdjustableSliderBasedControl {
 	protected final JLabel highBoundInfo;
 
 	//internal shortcuts
-	static final int minBound_lowLimit = 0;
-	static final int minBound_highLimit = 65535;
-	static final int maxBound_lowLimit = 0;
-	static final int maxBound_highLimit = 65535;
-	//TODO: is there any reason to have different intervals for what min and max bounds can be?
+	static final int MIN_BOUND_LIMIT = 0;
+	static final int MAX_BOUND_LIMIT = 65535;
 
 	public AbstractAdjustableSliderBasedControl(final JSlider manageThisSlider,
 	                                            final JSpinner associatedValueSpinner,
@@ -186,7 +183,7 @@ public abstract class AbstractAdjustableSliderBasedControl {
 				int newSliderValue = initialBoundaryValue + boundarySetter.boundaryDeltaOnThisMouseMove(deltaMove);
 				if (isMinBoundaryControlled) {
 					//make sure the value is within the min model limits,
-					newSliderValue = Math.max(minBound_lowLimit, Math.min(newSliderValue, minBound_highLimit));
+					newSliderValue = Math.max(MIN_BOUND_LIMIT, Math.min(newSliderValue, MAX_BOUND_LIMIT));
 					//and set min only if it is not beyond (greater than) the max boundary
 					if (newSliderValue < slider.getMaximum()) {
 						slider.setMinimum(newSliderValue);
@@ -195,7 +192,7 @@ public abstract class AbstractAdjustableSliderBasedControl {
 				} else {
 					//right part
 					//make sure the value is within the max model limits,
-					newSliderValue = Math.max(maxBound_lowLimit, Math.min(newSliderValue, maxBound_highLimit));
+					newSliderValue = Math.max(MIN_BOUND_LIMIT, Math.min(newSliderValue, MAX_BOUND_LIMIT));
 					//and set max only if it is not beyond (lesser than) the min boundary
 					if (newSliderValue > slider.getMinimum()) {
 						slider.setMaximum(newSliderValue);
