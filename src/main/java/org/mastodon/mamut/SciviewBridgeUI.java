@@ -162,6 +162,10 @@ public class SciviewBridgeUI {
 		insertSpinner(SPOT_RADIUS_SCALE, (f) -> controlledBridge.SPOT_RADIUS_SCALE = f, c);
 
 		c.gridy++;
+		INTENSITY_OF_COLORS_BOOST = new JCheckBox("Enable enhancing of spot colors when repainting them into the Volume");
+		insertCheckBox(INTENSITY_OF_COLORS_BOOST, c);
+
+		c.gridy++;
 		UPDATE_VOLUME_VERBOSE_REPORTS = new JCheckBox("Verbose/debug reporting during Volume repainting");
 		insertCheckBox(UPDATE_VOLUME_VERBOSE_REPORTS, c);
 
@@ -285,6 +289,9 @@ public class SciviewBridgeUI {
 			if (cb == INTENSITY_OF_COLORS_APPLY) {
 				controlledBridge.INTENSITY_OF_COLORS_APPLY = cb.isSelected();
 				if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSciviewColoringNow();
+			} else if (cb == INTENSITY_OF_COLORS_BOOST) {
+				controlledBridge.INTENSITY_OF_COLORS_BOOST = cb.isSelected();
+				if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSciviewColoringNow();
 			} else if (cb == UPDATE_VOLUME_VERBOSE_REPORTS) {
 				controlledBridge.UPDATE_VOLUME_VERBOSE_REPORTS = cb.isSelected();
 			}
@@ -355,6 +362,7 @@ public class SciviewBridgeUI {
 				.setUpperValue( (int)controlledBridge.INTENSITY_RANGE_MAX );
 
 		INTENSITY_OF_COLORS_APPLY.setSelected( controlledBridge.INTENSITY_OF_COLORS_APPLY );
+		INTENSITY_OF_COLORS_BOOST.setSelected( controlledBridge.INTENSITY_OF_COLORS_BOOST );
 		SPOT_RADIUS_SCALE.setValue( controlledBridge.SPOT_RADIUS_SCALE );
 
 		UPDATE_VOLUME_AUTOMATICALLY.setSelectedItem(
@@ -384,6 +392,7 @@ public class SciviewBridgeUI {
 	JButton visToggleSpots, visToggleVols;
 
 	JCheckBox INTENSITY_OF_COLORS_APPLY;
+	JCheckBox INTENSITY_OF_COLORS_BOOST;
 	SpinnerModel SPOT_RADIUS_SCALE;
 
 	static final String updVolMsgA = "Automatically";
