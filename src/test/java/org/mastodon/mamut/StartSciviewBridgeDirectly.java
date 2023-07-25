@@ -43,7 +43,7 @@ public class StartSciviewBridgeDirectly {
 			SciView sv = createSciview();
 			WindowManager mastodon = giveMeSomeMastodon(sv.getScijavaContext());
 
-			final SciviewBridge bridge = new SciviewBridge(mastodon, sv);
+			final SciviewBridge bridge = new SciviewBridge(mastodon,0,2, sv);
 			bridge.openSyncedBDV();
 
 		} catch (Exception e) {
