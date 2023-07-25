@@ -35,6 +35,7 @@ import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
 import javax.swing.JFrame;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
 
@@ -200,7 +201,7 @@ public class SciviewBridge {
 		blueVolChannelNode = sciviewWin.addVolume(blueVolChannelImg, "BLUE VOL"+commonNodeName, new float[] {1,1,1});
 		adjustAndPlaceVolumeIntoTheScene(blueVolChannelNode, "Blue.lut", volumeScale, INTENSITY_RANGE_MIN, INTENSITY_RANGE_MAX);
 		//
-		volNodes = List.of(redVolChannelNode,greenVolChannelNode,blueVolChannelNode);
+		volNodes = Arrays.asList(redVolChannelNode,greenVolChannelNode,blueVolChannelNode);
 
 		final int converterSetupID = SOURCE_ID < redVolChannelNode.getConverterSetups().size() ? SOURCE_ID : 0;
 		//setup intensity display listeners that keep the ranges of the three volumes in sync
