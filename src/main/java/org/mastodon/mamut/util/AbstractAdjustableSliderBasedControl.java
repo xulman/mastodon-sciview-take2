@@ -1,11 +1,8 @@
 package org.mastodon.mamut.util;
 
-import bdv.ui.rangeslider.RangeSlider;
-
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -13,7 +10,7 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.util.ArrayList;
 
-public class AbstractAdjustableSliderBasedControl {
+public abstract class AbstractAdjustableSliderBasedControl {
 
 	/** represents the Control key, which is changeable and shared among all such controls
 	 * (to warrant all are controlled the same way) */
@@ -50,101 +47,16 @@ public class AbstractAdjustableSliderBasedControl {
 		return new SpinnerNumberModel(withThisCurrentValue, minBound_lowLimit,minBound_highLimit, withThisStep);
 	}
 
-	public static AbstractAdjustableSliderBasedControl createAndPlaceHere(final Container intoThisComponent,
-	                                                                      final int initialValue,
-	                                                                      final int initialMin,
-	                                                                      final int initialMax) {
-		if (initialValue < initialMin || initialValue > initialMax)
-			throw new IllegalArgumentException("Refuse to create slider showing value that's outside the slider's min and max range.");
-		if (initialMin < minBound_lowLimit || initialMin > minBound_highLimit)
-			throw new IllegalArgumentException("Required MIN bound is outside the interval assumed by this governing class.");
-		if (initialMax < maxBound_lowLimit || initialMax > maxBound_highLimit)
-			throw new IllegalArgumentException("Required MAX bound is outside the interval assumed by this governing class.");
-
-		final GridBagLayout gridBagLayout = new GridBagLayout();
-		intoThisComponent.setLayout( gridBagLayout );
-
-		final GridBagConstraints c = new GridBagConstraints();
-		c.anchor = GridBagConstraints.LINE_START;
-		c.fill = GridBagConstraints.HORIZONTAL;
-
-		//set to the current wanted range
-		JSlider slider = new JSlider(JSlider.HORIZONTAL, initialMin, initialMax, initialValue);
-		JSpinner spinner = new JSpinner( AbstractAdjustableSliderBasedControl.createAppropriateSpinnerModel(initialValue) );
-		JLabel lowBoundInformer = new JLabel(String.valueOf(initialMin));
-		JLabel highBoundInformer = new JLabel(String.valueOf(initialMax));
-
-		//from bigdataviewer-core/src/main/java/bdv/ui/convertersetupeditor/BoundedRangePanel.java,
-		//method updateBoundLabelFonts(), L283
-		final Font labelFont = UIManager.getFont( "Label.font" );
-		final Font font = new Font( labelFont.getName(), labelFont.getStyle(), 10 );
-		lowBoundInformer.setFont( font );
-		highBoundInformer.setFont( font );
-
-		c.gridheight = 2;
-		c.gridy = 0;
-		c.weightx = 0.05;
-		c.gridx = 0;
-		intoThisComponent.add(spinner, c);
-		c.weightx = 0.9;
-		c.gridx = 1;
-		intoThisComponent.add(slider, c);
-		c.gridheight = 1;
-		c.weightx = 0.05;
-		c.gridx = 2;
-		intoThisComponent.add(highBoundInformer, c);
-		c.gridy = 1;
-		intoThisComponent.add(lowBoundInformer, c);
-
-		return new AbstractAdjustableSliderBasedControl(slider,spinner,lowBoundInformer,highBoundInformer);
-	}
-
-	public static AbstractAdjustableSliderBasedControl createAndPlaceHere(final Container intoThisComponent,
-	                                                                      final int initialLowValue,
-	                                                                      final int initialHighValue,
-	                                                                      final int initialMin,
-	                                                                      final int initialMax) {
-		final GridBagLayout gridBagLayout = new GridBagLayout();
-		intoThisComponent.setLayout( gridBagLayout );
-
-		final GridBagConstraints c = new GridBagConstraints();
-		c.anchor = GridBagConstraints.LINE_START;
-		c.fill = GridBagConstraints.HORIZONTAL;
-
-		//set to the current wanted range
-		RangeSlider slider = new RangeSlider(initialMin, initialMax);
-		slider.setRange(initialLowValue, initialHighValue);
-
-		JSpinner minSpinner = new JSpinner(
-				AbstractAdjustableSliderBasedControl.createAppropriateSpinnerModel( slider.getMinimum() ));
-		JSpinner maxSpinner = new JSpinner(
-				AbstractAdjustableSliderBasedControl.createAppropriateSpinnerModel( slider.getMaximum() ));
-
-		c.gridy = 0;
-		c.weightx = 0.05;
-		c.gridx = 0;
-		intoThisComponent.add(minSpinner, c);
-		c.weightx = 0.9;
-		c.gridx = 1;
-		intoThisComponent.add(slider, c);
-		c.weightx = 0.05;
-		c.gridx = 2;
-		intoThisComponent.add(maxSpinner, c);
-
-		//return new AbstractAdjustableSliderBasedControl(slider,minSpinner,maxSpinner);
-		return null;
-	}
-
-	// ================================= stuff for the initialization =================================
-	private final JSlider slider;
-	private final JLabel lowBoundInfo;
-	private final JLabel highBoundInfo;
+	// ================================= initialization =================================
+	protected final JSlider slider;
+	protected final JLabel lowBoundInfo;
+	protected final JLabel highBoundInfo;
 
 	//internal shortcuts
-	private static final int minBound_lowLimit = 0;
-	private static final int minBound_highLimit = 65535;
-	private static final int maxBound_lowLimit = 0;
-	private static final int maxBound_highLimit = 65535;
+	static final int minBound_lowLimit = 0;
+	static final int minBound_highLimit = 65535;
+	static final int maxBound_lowLimit = 0;
+	static final int maxBound_highLimit = 65535;
 	//TODO: is there any reason to have different intervals for what min and max bounds can be?
 
 	public AbstractAdjustableSliderBasedControl(final JSlider manageThisSlider,
@@ -190,17 +102,41 @@ public class AbstractAdjustableSliderBasedControl {
 		return slider.getValue();
 	}
 
-	// ================================= stuff for the execution =================================
+	// ================================= execution: managing slider thumbs =================================
+	//only for derived classes...
+	protected int originalSliderValue = -1; //aka before-dragging-value
+
+	protected void storeSliderThumbsPositions() {
+		originalSliderValue = slider.getValue();
+	}
+	protected void fixupSliderThumbsPositions() {
+		//make sure that the slider is not changing while adjusting its boundary,
+		//which may not be always possible (as the boundary is allowed to move
+		//irrespective of what the slider value was)
+		if (originalSliderValue < slider.getMinimum()) slider.setValue(slider.getMinimum());
+		else if (originalSliderValue > slider.getMaximum()) slider.setValue(slider.getMaximum());
+		else slider.setValue(originalSliderValue);
+	}
+	protected boolean didSliderThumbsChangedPositions() {
+		return slider.getValue() != originalSliderValue;
+	}
+
+	// ================================= execution: internal state =================================
 	private boolean isControlKeyPressed = false;
 	private boolean isMouseLBpressed = false;
 	private boolean isInControllingMode = false;
 	private int initialMousePosition = 0;
 	private int initialBoundaryValue = 0;
-	private int originalSliderValue = -1; //aka before-dragging-value
 	private boolean isMinBoundaryControlled = false;
 
+	//meant originally for derived classes...
+	public boolean isInControllingMode() {
+		return isInControllingMode;
+	}
+
 	// ================================= execution: events handling =================================
-	private class EventHandler implements KeyListener, MouseListener, MouseMotionListener {
+	protected class EventHandler
+	implements KeyListener, MouseListener, MouseMotionListener {
 		@Override
 		public void keyPressed(KeyEvent keyEvent) {
 			if (keyEvent.getKeyCode() == CONTROL_KEY_keycode) {
@@ -229,7 +165,7 @@ public class AbstractAdjustableSliderBasedControl {
 					initialMousePosition = mouseEvent.getXOnScreen();
 					isMinBoundaryControlled = ((float) mouseEvent.getX() / (float) slider.getWidth()) < 0.5f;
 					initialBoundaryValue = isMinBoundaryControlled ? slider.getMinimum() : slider.getMaximum();
-					originalSliderValue = slider.getValue();
+					storeSliderThumbsPositions();
 				}
 			}
 		}
@@ -266,12 +202,7 @@ public class AbstractAdjustableSliderBasedControl {
 						highBoundInfo.setText(String.valueOf(newSliderValue));
 					}
 				}
-				//make sure that the slider is not changing while adjusting its boundary,
-				//which may not be always possible (as the boundary is allowed to move
-				//irrespective of what the slider value was)
-				if (originalSliderValue < slider.getMinimum()) slider.setValue(slider.getMinimum());
-				else if (originalSliderValue > slider.getMaximum()) slider.setValue(slider.getMaximum());
-				else slider.setValue(originalSliderValue);
+				fixupSliderThumbsPositions();
 			}
 		}
 
@@ -303,7 +234,7 @@ public class AbstractAdjustableSliderBasedControl {
 	}
 
 	// ================================= execution: listeners =================================
-	private final java.util.List<ChangeListener> listeners = new ArrayList<>(10);
+	protected final java.util.List<ChangeListener> listeners = new ArrayList<>(10);
 
 	public void addChangeListener(final ChangeListener listener) {
 		listeners.add(listener);
@@ -313,13 +244,13 @@ public class AbstractAdjustableSliderBasedControl {
 		listeners.remove(listener);
 	}
 
-	private void tellListenersThatSliderHasChanged(final ChangeEvent event) {
+	protected void tellListenersThatSliderHasChanged(final ChangeEvent event) {
 		listeners.forEach(listener -> listener.stateChanged(event));
 	}
 
-	private void tellListenersThatWeEndedAdjustingMode() {
+	protected void tellListenersThatWeEndedAdjustingMode() {
 		//...but only when we really have changed the value before and after the adjustment
-		if (slider.getValue() != originalSliderValue) {
+		if (didSliderThumbsChangedPositions()) {
 			tellListenersThatSliderHasChanged(new ChangeEvent(slider));
 		}
 	}
