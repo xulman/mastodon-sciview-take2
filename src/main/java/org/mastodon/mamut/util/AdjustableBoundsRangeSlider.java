@@ -81,6 +81,7 @@ public class AdjustableBoundsRangeSlider extends AbstractAdjustableSliderBasedCo
 		final GridBagConstraints c = new GridBagConstraints();
 		c.anchor = GridBagConstraints.LINE_START;
 		c.fill = GridBagConstraints.HORIZONTAL;
+		final Insets defaultInset = c.insets;
 
 		//set to the current wanted range
 		RangeSlider slider = new RangeSlider(initialMin, initialMax);
@@ -107,12 +108,15 @@ public class AdjustableBoundsRangeSlider extends AbstractAdjustableSliderBasedCo
 		intoThisComponent.add(lowSpinner, c);
 		c.weightx = 0.85;
 		c.gridx = 1;
+		c.insets = new Insets(defaultInset.top, 5, defaultInset.bottom, 5);
 		intoThisComponent.add(slider, c);
+		c.insets = defaultInset;
 		c.weightx = 0.05;
 		c.gridx = 2;
 		intoThisComponent.add(highSpinner, c);
 		c.gridheight = 1;
 		c.gridx = 3;
+		c.insets = new Insets(defaultInset.top, 5, defaultInset.bottom, defaultInset.right);
 		intoThisComponent.add(highBoundInformer, c);
 		c.gridy = 1;
 		intoThisComponent.add(lowBoundInformer, c);
