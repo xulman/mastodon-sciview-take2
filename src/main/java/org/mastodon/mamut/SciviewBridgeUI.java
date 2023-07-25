@@ -1,9 +1,7 @@
 //TODO add license text
 package org.mastodon.mamut;
 
-import bdv.ui.rangeslider.RangeSlider;
 import org.mastodon.mamut.util.AdjustableBoundsRangeSlider;
-
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -104,6 +102,26 @@ public class SciviewBridgeUI {
 				(int)controlledBridge.INTENSITY_RANGE_MIN, (int)controlledBridge.INTENSITY_RANGE_MAX,
 				0, 10000);
 		INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener);
+
+		c.gridy++;
+		visToggleSpots = new JButton("Toggle visibility of SPOTS");
+		visToggleSpots.addActionListener(toggleSpotsVisibility);
+		visToggleVols = new JButton("Toggle visibility of VOLUME");
+		visToggleVols.addActionListener(toggleVolumeVisibility);
+		//
+		JPanel twoCenteredButtonsPlaceHolder = new JPanel();
+		contentPane.add(twoCenteredButtonsPlaceHolder, c);
+		//
+		twoCenteredButtonsPlaceHolder.setLayout( new GridBagLayout() );
+		GridBagConstraints bc = new GridBagConstraints();
+		bc.fill = GridBagConstraints.HORIZONTAL;
+		bc.weightx = 0.4;
+		bc.gridx = 0;
+		bc.insets = new Insets(0,0,0,20);
+		twoCenteredButtonsPlaceHolder.add(visToggleSpots, bc);
+		bc.gridx = 1;
+		bc.insets = new Insets(0,20,0,0);
+		twoCenteredButtonsPlaceHolder.add(visToggleVols, bc);
 
 		// -------------- separator --------------
 		c.gridy++;
@@ -289,6 +307,20 @@ public class SciviewBridgeUI {
 			}
 		}
 	};
+	final ActionListener toggleSpotsVisibility = new ActionListener() {
+		@Override
+		public void actionPerformed(ActionEvent actionEvent) {
+			boolean newState = !controlledBridge.sphereParent.getVisible();
+			controlledBridge.setVisibilityOfSpots(newState);
+		}
+	};
+	final ActionListener toggleVolumeVisibility = new ActionListener() {
+		@Override
+		public void actionPerformed(ActionEvent actionEvent) {
+			boolean newState = !controlledBridge.redVolChannelNode.getVisible();
+			controlledBridge.setVisibilityOfVolume(newState);
+		}
+	};
 
 	/**
 	 * Disable all listeners to make sure that, even if this UI window would ever
@@ -301,6 +333,8 @@ public class SciviewBridgeUI {
 		checkBoxesWithListeners.forEach(c -> c.removeItemListener( checkboxChangeListener ));
 		INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.removeChangeListener(rangeSliderListener);
 		UPDATE_VOLUME_AUTOMATICALLY.removeActionListener( updVolAutoListener );
+		visToggleSpots.removeActionListener(toggleSpotsVisibility);
+		visToggleVols.removeActionListener(toggleVolumeVisibility);
 		this.controlledBridge = null;
 	}
 
@@ -345,6 +379,8 @@ public class SciviewBridgeUI {
 		controlledBridge.redVolChannelNode.setMinDisplayRange( controlledBridge.INTENSITY_RANGE_MIN );
 		controlledBridge.redVolChannelNode.setMaxDisplayRange( controlledBridge.INTENSITY_RANGE_MAX );
 	};
+	//
+	JButton visToggleSpots, visToggleVols;
 
 	JCheckBox INTENSITY_OF_COLORS_APPLY;
 	SpinnerModel SPOT_RADIUS_SCALE;
