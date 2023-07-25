@@ -202,24 +202,25 @@ public class SciviewBridge {
 		//
 		volNodes = List.of(redVolChannelNode,greenVolChannelNode,blueVolChannelNode);
 
+		final int converterSetupID = SOURCE_ID < redVolChannelNode.getConverterSetups().size() ? SOURCE_ID : 0;
 		//setup intensity display listeners that keep the ranges of the three volumes in sync
 		// (but the change of one triggers listeners of the others (making each volume its ranges
 		//  adjusted 3x times... luckily it doesn't start cycling/looping; perhaps switch to cascade?)
-		redVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		redVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("RED informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			greenVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			greenVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 			blueVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			blueVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 		});
-		greenVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		greenVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("GREEN informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			redVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			redVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 			blueVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			blueVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 		});
-		blueVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		blueVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("BLUE informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			redVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			redVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());

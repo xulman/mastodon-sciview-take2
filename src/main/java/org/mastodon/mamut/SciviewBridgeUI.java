@@ -57,7 +57,7 @@ public class SciviewBridgeUI {
 		insertLabel("Apply on Volume this contrast factor:", c);
 		//
 		c.gridx = 1;
-		INTENSITY_CONTRAST = new SpinnerNumberModel(1.0, 0.0, 100.0, 0.5);
+		INTENSITY_CONTRAST = new SpinnerNumberModel(1.0, -100.0, 100.0, 0.5);
 		insertSpinner(INTENSITY_CONTRAST, (f) -> controlledBridge.INTENSITY_CONTRAST = f, c);
 
 		c.gridy++;
