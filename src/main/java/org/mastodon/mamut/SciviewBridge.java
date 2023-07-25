@@ -40,6 +40,7 @@ import sc.iview.SciView;
 import javax.swing.WindowConstants;
 import javax.swing.JFrame;
 import java.io.IOException;
+import java.util.List;
 import java.util.function.BiConsumer;
 
 public class SciviewBridge {
@@ -93,6 +94,7 @@ public class SciviewBridge {
 	final Volume redVolChannelNode;
 	final Volume greenVolChannelNode;
 	final Volume blueVolChannelNode;
+	final List<Node> volNodes; //shortcut for ops that operate on the three channels
 	final RandomAccessibleInterval<UnsignedShortType> redVolChannelImg;
 	final RandomAccessibleInterval<UnsignedShortType> greenVolChannelImg;
 	final RandomAccessibleInterval<UnsignedShortType> blueVolChannelImg;
@@ -113,6 +115,7 @@ public class SciviewBridge {
 		this.greenVolChannelNode = null;
 		this.blueVolChannelNode = null;
 		this.redVolChannelNode = null;
+		this.volNodes = null;
 		this.greenVolChannelImg = null;
 		this.blueVolChannelImg = null;
 		this.redVolChannelImg = null;
@@ -190,6 +193,8 @@ public class SciviewBridge {
 		//
 		blueVolChannelNode = sciviewWin.addVolume(blueVolChannelImg, "BLUE VOL"+commonNodeName, new float[] {1,1,1});
 		adjustAndPlaceVolumeIntoTheScene(blueVolChannelNode, "Blue.lut", volumeScale, INTENSITY_RANGE_MIN, INTENSITY_RANGE_MAX);
+		//
+		volNodes = List.of(redVolChannelNode,greenVolChannelNode,blueVolChannelNode);
 
 		//setup intensity display listeners that keep the ranges of the three volumes in sync
 		// (but the change of one triggers listeners of the others (making each volume its ranges
@@ -573,6 +578,26 @@ public class SciviewBridge {
 	private final AffineTransform3D auxTransform = new AffineTransform3D();
 	private final Matrix4f viewMatrix = new Matrix4f(1f,0,0,0, 0,1f,0,0, 0,0,1f,0, 0,0,0,1);
 	private final Quaternionf viewRotation = new Quaternionf();
+
+	// --------------------------------------------------------------------------
+	public void setVisibilityOfVolume(final boolean state) {
+		volNodes.forEach(v -> {
+			v.setVisible(state);
+			if (state) {
+				v.getChildren().stream()
+						.filter(c -> c.getName().startsWith("Bounding"))
+						.forEach(c -> c.setVisible(false));
+			}
+		});
+	}
+	public void setVisibilityOfSpots(final boolean state) {
+		sphereParent.setVisible(state);
+		if (state) {
+			sphereParent
+					.getChildrenByName(SphereNodes.NAME_OF_NOT_USED_SPHERES)
+					.forEach(s -> s.setVisible(false));
+		}
+	}
 
 	// --------------------------------------------------------------------------
 	private void keyboardHandlersForTestingForNow(final DPP_BdvAdapter forThisBdv) {
