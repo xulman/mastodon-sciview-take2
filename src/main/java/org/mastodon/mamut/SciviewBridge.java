@@ -121,12 +121,20 @@ public class SciviewBridge {
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
+		this(mastodonMainWindow,0,0,targetSciviewWindow);
+	}
+
+	public SciviewBridge(final WindowManager mastodonMainWindow,
+	                     final int sourceID, final int sourceResLevel,
+	                     final SciView targetSciviewWindow)
+	{
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
 
 		//adjust the default scene's settings
 		sciviewWin.setApplicationName("sciview for Mastodon: "
 				+ mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		sciviewWin.toggleSidebar();
 		sciviewWin.getFloor().setVisible(false);
 		sciviewWin.getLights().forEach(l -> {
 			if (l.getName().startsWith("headli"))
@@ -146,9 +154,11 @@ public class SciviewBridge {
 		sciviewWin.addChild( axesParent );
 
 		//get necessary metadata - from image data
+		SOURCE_ID = sourceID;
+		SOURCE_USED_RES_LEVEL = sourceResLevel;
 		final Source<?> spimSource = mastodonWin.getAppModel().getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource();
 		final long[] volumeDims = spimSource.getSource(0,0).dimensionsAsLongArray();
-		SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
+		//SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
 		final long[] volumeDims_usedResLevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray();
 		final float[] volumeDownscale = new float[] {
 				(float)volumeDims[0] / (float)volumeDims_usedResLevel[0],
@@ -272,7 +282,7 @@ public class SciviewBridge {
 		return finalRatio;
 	}
 
-	public <T extends IntegerType<T>>
+	<T extends IntegerType<T>>
 	void freshNewWhiteContent(final RandomAccessibleInterval<T> redCh,
 	                          final RandomAccessibleInterval<T> greenCh,
 	                          final RandomAccessibleInterval<T> blueCh,

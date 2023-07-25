@@ -41,7 +41,6 @@ public class StartSciviewBridgeDirectly {
 	public static void main(String[] args) {
 		try {
 			SciView sv = createSciview();
-			sv.toggleSidebar();
 			WindowManager mastodon = giveMeSomeMastodon(sv.getScijavaContext());
 
 			final SciviewBridge bridge = new SciviewBridge(mastodon, sv);
