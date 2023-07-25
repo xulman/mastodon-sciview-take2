@@ -11,7 +11,6 @@ import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
 import graphics.scenery.primitives.Cylinder;
 import graphics.scenery.volumes.Volume;
-import mpicbg.spim.data.SpimDataException;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.FinalInterval;
@@ -27,19 +26,15 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.model.Link;
-import org.mastodon.mamut.project.MamutProjectIO;
 import org.mastodon.mamut.util.SphereNodes;
 import org.mastodon.model.tag.TagSetStructure;
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator;
 import org.mastodon.ui.coloring.DefaultGraphColorGenerator;
 import org.mastodon.ui.coloring.GraphColorGenerator;
-import org.scijava.Context;
 import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
-import javax.swing.WindowConstants;
 import javax.swing.JFrame;
-import java.io.IOException;
 import java.util.List;
 import java.util.function.BiConsumer;
 
@@ -727,50 +722,5 @@ public class SciviewBridge {
 	void updateUI() {
 		if (associatedUI == null) return;
 		associatedUI.updatePaneValues();
-	}
-
-	// --------------------------------------------------------------------------
-	private static WindowManager giveMeSomeMastodon(final Context scijavaCtx)
-	throws IOException, SpimDataException {
-		String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
-
-		//ImageJ ij = new ImageJ();
-		//ij.ui().showUI();
-
-		//the central hub, a container to hold all
-		final WindowManager windowManager = new WindowManager( scijavaCtx );
-		windowManager.getProjectManager().open( new MamutProjectIO().load( projectPath ) );
-
-		//a GUI element wrapping around the hub
-		final MainWindow win = new MainWindow(windowManager);
-
-		//this makes the true Mastodon window visible
-		//note: you can open project that restores/reopen e.g. TrackScheme window,
-		//      yet the main Mastodon window is not shown... but this is runs non-stop
-		win.setVisible( true );
-
-		//this makes the whole thing (incl. the central hub) go down when the GUI is closed
-		win.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE );
-
-		return windowManager;
-	}
-
-	private static SciView createSciview()
-	throws Exception {
-		return SciView.create();
-	}
-
-	public static void main(String[] args) {
-		try {
-			SciView sv = createSciview();
-			sv.toggleSidebar();
-			WindowManager mastodon = giveMeSomeMastodon(sv.getScijavaContext());
-
-			final SciviewBridge bridge = new SciviewBridge(mastodon, sv);
-			bridge.openSyncedBDV();
-
-		} catch (Exception e) {
-			System.out.println("Got this exception: "+e.getMessage());
-		}
 	}
 }
