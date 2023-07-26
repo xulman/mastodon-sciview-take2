@@ -36,23 +36,38 @@ public class SciviewBridgeUI {
 
 	// -------------------------------------------------------------------------------------------
 	void populatePane() {
-		final GridBagLayout gridBagLayout = new GridBagLayout();
-		contentPane.setLayout( gridBagLayout );
+		contentPane.setLayout( new GridBagLayout() );
 
 		final GridBagConstraints c = new GridBagConstraints();
 		c.anchor = GridBagConstraints.LINE_START;
 		c.fill = GridBagConstraints.HORIZONTAL;
 
 		JPanel MastodonRowPlaceHolder = new JPanel();
+		MastodonRowPlaceHolder.setLayout( new GridBagLayout() );
 		final GridBagConstraints mc = new GridBagConstraints();
+		mc.anchor = GridBagConstraints.LINE_START;
+		mc.fill = GridBagConstraints.HORIZONTAL;
+		mc.insets = new Insets(0,0,0,0);
+		mc.weightx = 0.2;
+		mc.gridx = 0;
 		lockGroupHandler = new GroupLocksHandling(controlledBridge, controlledBridge.mastodonWin);
 		MastodonRowPlaceHolder.add(lockGroupHandler.createAndActivate(), mc);
+		mc.weightx = 0.6;
+		mc.gridx = 1;
+		JButton openBdvBtn = new JButton("Open synced Mastodon BDV");
+		openBdvBtn.addActionListener(l -> controlledBridge.openSyncedBDV());
+		MastodonRowPlaceHolder.add(openBdvBtn, mc);
+		//
 		c.gridy = 0;
 		c.gridwidth = 2;
+		c.gridx = 0;
 		c.weightx = 0.1;
-		c.insets = new Insets(sideSpace,sideSpace,2,sideSpace);
-		contentPane.add( new JLabel("Volume pixel values 'v' are processed linearly, normalized, gamma, scaled back:"), c);
+		c.insets = new Insets(4,sideSpace,8,sideSpace-2);
+		contentPane.add(MastodonRowPlaceHolder, c);
+
+		c.gridy++;
 		c.insets = new Insets(2,sideSpace,2,sideSpace);
+		contentPane.add( new JLabel("Volume pixel values 'v' are processed linearly, normalized, gamma, scaled back:"), c);
 		c.gridwidth = 1;
 
 		c.gridy++;
