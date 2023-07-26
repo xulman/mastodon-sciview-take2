@@ -251,6 +251,9 @@ public class SciviewBridge {
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
 		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), 0, noTScolorizer);
+
+		//temporary handlers, originally for testing....
+		registerKeyboardHandlers();
 	}
 
 	private void adjustAndPlaceVolumeIntoTheScene(final Volume v,
@@ -452,8 +455,6 @@ public class SciviewBridge {
 				mastodonWin.getAppModel(),
 				bdvWin);
 
-		//temporary handlers mostly for testing
-		keyboardHandlersForTestingForNow(bdvWinParamsProvider);
 		return bdvWin;
 	}
 
@@ -631,7 +632,7 @@ public class SciviewBridge {
 	}
 
 	// --------------------------------------------------------------------------
-	private void keyboardHandlersForTestingForNow(final DPP_BdvAdapter forThisBdv) {
+	private void registerKeyboardHandlers() {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> {
 			sphereNodes.decreaseSphereScale();
@@ -642,7 +643,7 @@ public class SciviewBridge {
 			updateUI();
 		};
 		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> {
-			updateSciviewColoringNow(forThisBdv);
+			updateSciviewColoringNow();
 			updateUI();
 		};
 		final Behaviour clk_CLRNG_AUTO = (ClickBehaviour) (x, y) -> {
