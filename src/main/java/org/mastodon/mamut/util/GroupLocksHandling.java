@@ -89,6 +89,7 @@ public class GroupLocksHandling {
 	public void focusMastodonToSpot(final String name) {
 		Optional<Spot> res = vertices.stream().filter( s -> name.matches(s.getLabel()) ).findFirst();
 		if (res.isPresent()) {
+			//TODO: this is triggering also our handler (see above navigateToVertex()) !
 			myGroupHandle.getModel(appModel.NAVIGATION).notifyNavigateToVertex(res.get());
 		}
 	}
