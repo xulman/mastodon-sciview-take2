@@ -555,7 +555,7 @@ public class SciviewBridge {
 				forThisBdv.getTimepoint(), forThisBdv.getColorizer());
 	}
 
-	private int lastTpWhenVolumeWasUpdated = -1;
+	private int lastTpWhenVolumeWasUpdated = 0;
 	void updateSciviewColoring(final DisplayParamsProvider forThisBdv) {
 		//only a wrapper that conditionally calls the workhorse method
 		if (UPDATE_VOLUME_AUTOMATICALLY) {
