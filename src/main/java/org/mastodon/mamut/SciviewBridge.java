@@ -688,7 +688,17 @@ public class SciviewBridge {
 		}
 	}
 
+	public void focusSpot(final String name) {
+		List<Node> nodes = sphereParent.getChildrenByName(name);
+		if (nodes.size() > 0) sciviewWin.setActiveCenteredNode( nodes.get(0) );
+	}
+
 	final DPP_DetachedOwnTime detachedDPP_withOwnTime;
+	public void showTimepoint(final int timepoint) {
+		detachedDPP_withOwnTime.setTimepoint(timepoint);
+		updateSciviewContent(detachedDPP_withOwnTime);
+	}
+
 	// --------------------------------------------------------------------------
 	public static final String key_DEC_SPH = "O";
 	public static final String key_INC_SPH = "shift O";
