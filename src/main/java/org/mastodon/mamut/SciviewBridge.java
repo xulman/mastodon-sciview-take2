@@ -31,6 +31,7 @@ import org.mastodon.model.tag.TagSetStructure;
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator;
 import org.mastodon.ui.coloring.DefaultGraphColorGenerator;
 import org.mastodon.ui.coloring.GraphColorGenerator;
+import org.scijava.event.EventService;
 import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
@@ -258,6 +259,10 @@ public class SciviewBridge {
 
 		//temporary handlers, originally for testing....
 		registerKeyboardHandlers();
+	}
+
+	public EventService getEventService() {
+		return sciviewWin.getScijavaContext().getService(EventService.class);
 	}
 
 	public void close() {

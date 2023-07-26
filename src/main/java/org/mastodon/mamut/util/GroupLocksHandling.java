@@ -1,6 +1,5 @@
 package org.mastodon.mamut.util;
 
-import bdv.viewer.TimePointListener;
 import org.mastodon.app.ui.GroupLocksPanel;
 import org.mastodon.grouping.GroupHandle;
 import org.mastodon.mamut.MamutAppModel;
@@ -11,7 +10,11 @@ import org.mastodon.mamut.model.Spot;
 import org.mastodon.model.NavigationListener;
 import org.mastodon.model.TimepointListener;
 import org.mastodon.pool.PoolCollectionWrapper;
-
+import org.scijava.AbstractContextual;
+import org.scijava.event.EventHandler;
+import org.scijava.event.EventSubscriber;
+import sc.iview.event.NodeActivatedEvent;
+import java.util.List;
 import java.util.Optional;
 
 public class GroupLocksHandling {
@@ -19,6 +22,7 @@ public class GroupLocksHandling {
 	private final MamutAppModel appModel;  //controls Mastodon
 	private final PoolCollectionWrapper<Spot> vertices; //shortcut to inside of Mastodon
 	private final NavigationRequestsHandler navigationRequestsHandler = new NavigationRequestsHandler();
+	private final SciviewEventListener sciviewFocusHandler = new SciviewEventListener();
 
 	public GroupLocksHandling(final SciviewBridge bridge, final WindowManager mastodon) {
 		this.bridge = bridge;
@@ -35,6 +39,8 @@ public class GroupLocksHandling {
 		if (isActive) return null;
 		isActive = true;
 
+		bridge.getEventService().subscribe(sciviewFocusHandler);
+
 		myGroupHandle = appModel.getGroupManager().createGroupHandle();
 		myGroupHandle.getModel(appModel.NAVIGATION).listeners().add(navigationRequestsHandler);
 		myGroupHandle.getModel(appModel.TIMEPOINT).listeners().add(navigationRequestsHandler);
@@ -44,6 +50,8 @@ public class GroupLocksHandling {
 	public void deactivate() {
 		if (!isActive) return;
 		isActive = false;
+
+		bridge.getEventService().unsubscribe( List.of((EventSubscriber<?>)sciviewFocusHandler) );
 
 		myGroupHandle.getModel(appModel.NAVIGATION).listeners().remove(navigationRequestsHandler);
 		myGroupHandle.getModel(appModel.TIMEPOINT).listeners().remove(navigationRequestsHandler);
@@ -67,9 +75,19 @@ public class GroupLocksHandling {
 		}
 	}
 
+	class SciviewEventListener extends AbstractContextual {
+		@EventHandler
+		public void onEvent(NodeActivatedEvent event) {
+			if (event.getNode() == null) return;
+			if (isActive) focusMastodonToSpot(event.getNode().getName());
+		}
+	}
+
 	public void focusMastodonToSpot(final String name) {
-		Optional<Spot> res = vertices.parallelStream().filter(s -> s.getLabel().equals(name)).findFirst();
-		res.ifPresent(spot -> myGroupHandle.getModel(appModel.NAVIGATION).notifyNavigateToVertex(spot));
+		Optional<Spot> res = vertices.stream().filter( s -> name.startsWith(s.getLabel()) ).findFirst();
+		if (res.isPresent()) {
+			myGroupHandle.getModel(appModel.NAVIGATION).notifyNavigateToVertex(res.get());
+		}
 	}
 
 	public void focusSciviewToNode(final String name) {
