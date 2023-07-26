@@ -669,6 +669,22 @@ public class SciviewBridge {
 	}
 
 	// --------------------------------------------------------------------------
+	public static final String key_DEC_SPH = "O";
+	public static final String key_INC_SPH = "shift O";
+	public static final String key_COLORING = "G";
+	public static final String key_CLRNG_AUTO = "shift G";
+	public static final String key_CLRNG_ONOFF = "ctrl G";
+	public static final String key_CTRL_WIN = "ctrl I";
+	public static final String key_CTRL_INFO = "shift I";
+
+	public static final String desc_DEC_SPH = "decrease_initial_spheres_size";
+	public static final String desc_INC_SPH = "increase_initial_spheres_size";
+	public static final String desc_COLORING = "recolor_volume_now";
+	public static final String desc_CLRNG_AUTO = "recolor_automatically";
+	public static final String desc_CLRNG_ONOFF = "recolor_enabled";
+	public static final String desc_CTRL_WIN = "controlling_window";
+	public static final String desc_CTRL_INFO = "controlling_info";
+
 	private void registerKeyboardHandlers() {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> {
@@ -699,40 +715,50 @@ public class SciviewBridge {
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
-		handler.addKeyBinding("decrease_initial_spheres_size", "O");
-		handler.addBehaviour("decrease_initial_spheres_size", clk_DEC_SPH);
-		handler.addKeyBinding("increase_initial_spheres_size", "shift O");
-		handler.addBehaviour("increase_initial_spheres_size", clk_INC_SPH);
-		handler.addKeyBinding("recolor_volume_now", "G");
-		handler.addBehaviour("recolor_volume_now", clk_COLORING);
-		handler.addKeyBinding("recolor_automatically", "shift G");
-		handler.addBehaviour("recolor_automatically", clk_CLRNG_AUTO);
-		handler.addKeyBinding("recolor_enabled", "ctrl G");
-		handler.addBehaviour("recolor_enabled", clk_CLRNG_ONOFF);
-
-		handler.addKeyBinding("controlling_window", "ctrl I");
-		handler.addBehaviour("controlling_window", clk_CTRL_WIN);
-		handler.addKeyBinding("controlling_info", "shift I");
-		handler.addBehaviour("controlling_info", clk_CTRL_INFO);
+		handler.addKeyBinding(desc_DEC_SPH, key_DEC_SPH);
+		handler.addBehaviour( desc_DEC_SPH, clk_DEC_SPH);
+		//
+		handler.addKeyBinding(desc_INC_SPH, key_INC_SPH);
+		handler.addBehaviour( desc_INC_SPH, clk_INC_SPH);
+		//
+		handler.addKeyBinding(desc_COLORING, key_COLORING);
+		handler.addBehaviour( desc_COLORING, clk_COLORING);
+		//
+		handler.addKeyBinding(desc_CLRNG_AUTO, key_CLRNG_AUTO);
+		handler.addBehaviour( desc_CLRNG_AUTO, clk_CLRNG_AUTO);
+		//
+		handler.addKeyBinding(key_CLRNG_ONOFF, key_CLRNG_ONOFF);
+		handler.addBehaviour( key_CLRNG_ONOFF, clk_CLRNG_ONOFF);
+		//
+		handler.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN);
+		handler.addBehaviour( desc_CTRL_WIN, clk_CTRL_WIN);
+		//
+		handler.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO);
+		handler.addBehaviour( desc_CTRL_INFO, clk_CTRL_INFO);
 	}
 
 	private void deregisterKeyboardHandlers() {
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
-		handler.removeKeyBinding("decrease_initial_spheres_size");
-		handler.removeBehaviour("decrease_initial_spheres_size");
-		handler.removeKeyBinding("increase_initial_spheres_size");
-		handler.removeBehaviour("increase_initial_spheres_size");
-		handler.removeKeyBinding("recolor_volume_now");
-		handler.removeBehaviour("recolor_volume_now");
-		handler.removeKeyBinding("recolor_automatically");
-		handler.removeBehaviour("recolor_automatically");
-		handler.removeKeyBinding("recolor_enabled");
-		handler.removeBehaviour("recolor_enabled");
-
-		handler.removeKeyBinding("controlling_window");
-		handler.removeBehaviour("controlling_window");
-		handler.removeKeyBinding("controlling_info");
-		handler.removeBehaviour("controlling_info");
+		handler.removeKeyBinding(desc_DEC_SPH);
+		handler.removeBehaviour( desc_DEC_SPH);
+		//
+		handler.removeKeyBinding(desc_INC_SPH);
+		handler.removeBehaviour( desc_INC_SPH);
+		//
+		handler.removeKeyBinding(desc_COLORING);
+		handler.removeBehaviour( desc_COLORING);
+		//
+		handler.removeKeyBinding(desc_CLRNG_AUTO);
+		handler.removeBehaviour( desc_CLRNG_AUTO);
+		//
+		handler.removeKeyBinding(key_CLRNG_ONOFF);
+		handler.removeBehaviour( key_CLRNG_ONOFF);
+		//
+		handler.removeKeyBinding(desc_CTRL_WIN);
+		handler.removeBehaviour( desc_CTRL_WIN);
+		//
+		handler.removeKeyBinding(desc_CTRL_INFO);
+		handler.removeBehaviour( desc_CTRL_INFO);
 	}
 
 	public JFrame createAndShowControllingUI() {
