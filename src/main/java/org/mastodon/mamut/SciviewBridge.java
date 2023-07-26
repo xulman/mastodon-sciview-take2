@@ -251,6 +251,43 @@ public class SciviewBridge {
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
 		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), 0, noTScolorizer);
+
+		//temporary handlers, originally for testing....
+		registerKeyboardHandlers();
+	}
+
+	public void close() {
+		detachControllingUI();
+		deregisterKeyboardHandlers();
+		System.out.println("Mastodon-sciview Bridge closing procedure: UI and keyboards handlers are removed now");
+
+		sciviewWin.setActiveNode(axesParent);
+		System.out.println("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes");
+
+		//first make invisible, then remove...
+		setVisibilityOfVolume(false);
+		setVisibilityOfSpots(false);
+		System.out.println("Mastodon-sciview Bridge closing procedure: our nodes made hidden");
+
+		final long graceTimeForVolumeUpdatingInMS = 100;
+		try {
+			sciviewWin.deleteNode(redVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: red volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(greenVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: green volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(blueVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: blue volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(sphereParent, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: spots were removed");
+		} catch (InterruptedException e) { /* do nothing */ }
+
+		sciviewWin.deleteNode(axesParent, true);
 	}
 
 	private void adjustAndPlaceVolumeIntoTheScene(final Volume v,
@@ -452,8 +489,6 @@ public class SciviewBridge {
 				mastodonWin.getAppModel(),
 				bdvWin);
 
-		//temporary handlers mostly for testing
-		keyboardHandlersForTestingForNow(bdvWinParamsProvider);
 		return bdvWin;
 	}
 
@@ -631,7 +666,7 @@ public class SciviewBridge {
 	}
 
 	// --------------------------------------------------------------------------
-	private void keyboardHandlersForTestingForNow(final DPP_BdvAdapter forThisBdv) {
+	private void registerKeyboardHandlers() {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> {
 			sphereNodes.decreaseSphereScale();
@@ -642,7 +677,7 @@ public class SciviewBridge {
 			updateUI();
 		};
 		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> {
-			updateSciviewColoringNow(forThisBdv);
+			updateSciviewColoringNow();
 			updateUI();
 		};
 		final Behaviour clk_CLRNG_AUTO = (ClickBehaviour) (x, y) -> {
@@ -656,18 +691,8 @@ public class SciviewBridge {
 			updateUI();
 		};
 
-		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x,y) -> this.createAndShowControllingUI();
-		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x,y) -> {
-			/*
-			this.sciviewWin.getSceneryInputHandler()
-				.getAllBindings().forEach((t,a) ->
-						System.out.println("registered keys >>"
-								+ t.toString()
-								+ "<< do actions: "
-								+ a.stream().reduce("",(s1,s2)->s1+","+s2)) );
-			*/
-			System.out.println(this);
-		};
+		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x, y) -> this.createAndShowControllingUI();
+		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x, y) -> System.out.println(this);
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
@@ -686,25 +711,25 @@ public class SciviewBridge {
 		handler.addBehaviour("controlling_window", clk_CTRL_WIN);
 		handler.addKeyBinding("controlling_info", "shift I");
 		handler.addBehaviour("controlling_info", clk_CTRL_INFO);
+	}
 
-		//deregister them when they are due
-		forThisBdv.ofThisBdv.onClose(() -> {
-			handler.removeKeyBinding("decrease_initial_spheres_size");
-			handler.removeBehaviour("decrease_initial_spheres_size");
-			handler.removeKeyBinding("increase_initial_spheres_size");
-			handler.removeBehaviour("increase_initial_spheres_size");
-			handler.removeKeyBinding("recolor_volume_now");
-			handler.removeBehaviour("recolor_volume_now");
-			handler.removeKeyBinding("recolor_automatically");
-			handler.removeBehaviour("recolor_automatically");
-			handler.removeKeyBinding("recolor_enabled");
-			handler.removeBehaviour("recolor_enabled");
+	private void deregisterKeyboardHandlers() {
+		final InputHandler handler = sciviewWin.getSceneryInputHandler();
+		handler.removeKeyBinding("decrease_initial_spheres_size");
+		handler.removeBehaviour("decrease_initial_spheres_size");
+		handler.removeKeyBinding("increase_initial_spheres_size");
+		handler.removeBehaviour("increase_initial_spheres_size");
+		handler.removeKeyBinding("recolor_volume_now");
+		handler.removeBehaviour("recolor_volume_now");
+		handler.removeKeyBinding("recolor_automatically");
+		handler.removeBehaviour("recolor_automatically");
+		handler.removeKeyBinding("recolor_enabled");
+		handler.removeBehaviour("recolor_enabled");
 
-			handler.removeKeyBinding("controlling_window");
-			handler.removeBehaviour("controlling_window");
-			handler.removeKeyBinding("controlling_info");
-			handler.removeBehaviour("controlling_info");
-		});
+		handler.removeKeyBinding("controlling_window");
+		handler.removeBehaviour("controlling_window");
+		handler.removeKeyBinding("controlling_info");
+		handler.removeBehaviour("controlling_info");
 	}
 
 	public JFrame createAndShowControllingUI() {
