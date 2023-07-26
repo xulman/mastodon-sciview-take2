@@ -13,6 +13,7 @@ import org.mastodon.pool.PoolCollectionWrapper;
 import org.scijava.AbstractContextual;
 import org.scijava.event.EventHandler;
 import org.scijava.event.EventSubscriber;
+import org.scijava.event.SciJavaEvent;
 import sc.iview.event.NodeActivatedEvent;
 import java.util.List;
 import java.util.Optional;
@@ -51,11 +52,13 @@ public class GroupLocksHandling {
 		if (!isActive) return;
 		isActive = false;
 
-		bridge.getEventService().unsubscribe( List.of((EventSubscriber<?>)sciviewFocusHandler) );
-
 		myGroupHandle.getModel(appModel.NAVIGATION).listeners().remove(navigationRequestsHandler);
 		myGroupHandle.getModel(appModel.TIMEPOINT).listeners().remove(navigationRequestsHandler);
 		appModel.getGroupManager().removeGroupHandle(myGroupHandle);
+
+		//can fail, so we better do it as the last action here
+		List<EventSubscriber<SciJavaEvent>> subs = bridge.getEventService().getSubscribers(SciJavaEvent.class);
+		if (subs != null) subs.remove(sciviewFocusHandler);
 	}
 
 
@@ -84,7 +87,7 @@ public class GroupLocksHandling {
 	}
 
 	public void focusMastodonToSpot(final String name) {
-		Optional<Spot> res = vertices.stream().filter( s -> name.startsWith(s.getLabel()) ).findFirst();
+		Optional<Spot> res = vertices.stream().filter( s -> name.matches(s.getLabel()) ).findFirst();
 		if (res.isPresent()) {
 			myGroupHandle.getModel(appModel.NAVIGATION).notifyNavigateToVertex(res.get());
 		}
