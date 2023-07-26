@@ -117,6 +117,7 @@ public class SciviewBridge {
 		this.blueVolChannelImg = null;
 		this.redVolChannelImg = null;
 		this.mastodonToImgCoordsTransfer = null;
+		this.detachedDPP_withOwnTime = new DPP_DetachedOwnTime(0,0);
 	}
 
 	public SciviewBridge(final WindowManager mastodonMainWindow,
@@ -131,6 +132,9 @@ public class SciviewBridge {
 	{
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
+		detachedDPP_withOwnTime = new DPP_DetachedOwnTime(
+				mastodonWin.getAppModel().getMinTimepoint(),
+				mastodonWin.getAppModel().getMaxTimepoint() );
 
 		//adjust the default scene's settings
 		sciviewWin.setApplicationName("sciview for Mastodon: "
@@ -547,6 +551,22 @@ public class SciviewBridge {
 			return recentColorizer != null ? recentColorizer : noTScolorizer;
 		}
 	}
+	class DPP_DetachedOwnTime implements DisplayParamsProvider {
+		final int min,max;
+		DPP_DetachedOwnTime(int min, int max) { this.min = min; this.max = max; }
+		int timepoint = 0;
+		public void setTimepoint(int tp) { timepoint = Math.max(min, Math.min(max, tp)); }
+		public void prevTimepoint() { timepoint = Math.max(min, timepoint-1); }
+		public void nextTimepoint() { timepoint = Math.min(max, timepoint+1); }
+		@Override
+		public int getTimepoint() {
+			return timepoint;
+		}
+		@Override
+		public GraphColorGenerator<Spot, Link> getColorizer() {
+			return recentColorizer != null ? recentColorizer : noTScolorizer;
+		}
+	}
 	//------------------------------
 
 	void updateSciviewContent(final DisplayParamsProvider forThisBdv) {
@@ -569,9 +589,9 @@ public class SciviewBridge {
 		}
 	}
 
-	final DisplayParamsProvider sharedDPP_Detached = new DPP_Detached();
+	final DisplayParamsProvider detachedDPP_showsLastTimepoint = new DPP_Detached();
 	void updateSciviewColoringNow() {
-		updateSciviewColoringNow( sharedDPP_Detached );
+		updateSciviewColoringNow(detachedDPP_showsLastTimepoint);
 	}
 
 	void updateSciviewColoringNow(final DisplayParamsProvider forThisBdv) {
@@ -668,6 +688,17 @@ public class SciviewBridge {
 		}
 	}
 
+	public void focusSpot(final String name) {
+		List<Node> nodes = sphereParent.getChildrenByName(name);
+		if (nodes.size() > 0) sciviewWin.setActiveCenteredNode( nodes.get(0) );
+	}
+
+	final DPP_DetachedOwnTime detachedDPP_withOwnTime;
+	public void showTimepoint(final int timepoint) {
+		detachedDPP_withOwnTime.setTimepoint(timepoint);
+		updateSciviewContent(detachedDPP_withOwnTime);
+	}
+
 	// --------------------------------------------------------------------------
 	public static final String key_DEC_SPH = "O";
 	public static final String key_INC_SPH = "shift O";
@@ -676,6 +707,8 @@ public class SciviewBridge {
 	public static final String key_CLRNG_ONOFF = "ctrl G";
 	public static final String key_CTRL_WIN = "ctrl I";
 	public static final String key_CTRL_INFO = "shift I";
+	public static final String key_PREV_TP = "T";
+	public static final String key_NEXT_TP = "shift T";
 
 	public static final String desc_DEC_SPH = "decrease_initial_spheres_size";
 	public static final String desc_INC_SPH = "increase_initial_spheres_size";
@@ -684,6 +717,8 @@ public class SciviewBridge {
 	public static final String desc_CLRNG_ONOFF = "recolor_enabled";
 	public static final String desc_CTRL_WIN = "controlling_window";
 	public static final String desc_CTRL_INFO = "controlling_info";
+	public static final String desc_PREV_TP = "show_previous_timepoint";
+	public static final String desc_NEXT_TP = "show_next_timepoint";
 
 	private void registerKeyboardHandlers() {
 		//handlers
@@ -713,6 +748,15 @@ public class SciviewBridge {
 		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x, y) -> this.createAndShowControllingUI();
 		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x, y) -> System.out.println(this);
 
+		final Behaviour clk_PREV_TP = (ClickBehaviour) (x, y) -> {
+			detachedDPP_withOwnTime.prevTimepoint();
+			updateSciviewContent(detachedDPP_withOwnTime);
+		};
+		final Behaviour clk_NEXT_TP = (ClickBehaviour) (x, y) -> {
+			detachedDPP_withOwnTime.nextTimepoint();
+			updateSciviewContent(detachedDPP_withOwnTime);
+		};
+
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
 		handler.addKeyBinding(desc_DEC_SPH, key_DEC_SPH);
@@ -735,6 +779,12 @@ public class SciviewBridge {
 		//
 		handler.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO);
 		handler.addBehaviour( desc_CTRL_INFO, clk_CTRL_INFO);
+		//
+		handler.addKeyBinding(desc_PREV_TP, key_PREV_TP);
+		handler.addBehaviour( desc_PREV_TP, clk_PREV_TP);
+		//
+		handler.addKeyBinding(desc_NEXT_TP, key_NEXT_TP);
+		handler.addBehaviour( desc_NEXT_TP, clk_NEXT_TP);
 	}
 
 	private void deregisterKeyboardHandlers() {
@@ -759,6 +809,12 @@ public class SciviewBridge {
 		//
 		handler.removeKeyBinding(desc_CTRL_INFO);
 		handler.removeBehaviour( desc_CTRL_INFO);
+		//
+		handler.removeKeyBinding(desc_PREV_TP);
+		handler.removeBehaviour( desc_PREV_TP);
+		//
+		handler.removeKeyBinding(desc_NEXT_TP);
+		handler.removeBehaviour( desc_NEXT_TP);
 	}
 
 	public JFrame createAndShowControllingUI() {
