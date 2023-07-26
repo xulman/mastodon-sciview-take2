@@ -347,6 +347,11 @@ public class SciviewBridgeUI {
 	}
 
 	public void updatePaneValues() {
+		final boolean updVolAutoBackup = controlledBridge.UPDATE_VOLUME_AUTOMATICALLY;
+		//temporarily disable because setting the controls trigger their listeners
+		//that trigger (not all of them) the expensive volume updating
+		controlledBridge.UPDATE_VOLUME_AUTOMATICALLY = false;
+
 		INTENSITY_CONTRAST.setValue( controlledBridge.INTENSITY_CONTRAST );
 		INTENSITY_SHIFT.setValue( controlledBridge.INTENSITY_SHIFT );
 		INTENSITY_CLAMP_AT_TOP.setValue( controlledBridge.INTENSITY_CLAMP_AT_TOP );
@@ -365,10 +370,10 @@ public class SciviewBridgeUI {
 		INTENSITY_OF_COLORS_BOOST.setSelected( controlledBridge.INTENSITY_OF_COLORS_BOOST );
 		SPOT_RADIUS_SCALE.setValue( controlledBridge.SPOT_RADIUS_SCALE );
 
-		UPDATE_VOLUME_AUTOMATICALLY.setSelectedItem(
-				controlledBridge.UPDATE_VOLUME_AUTOMATICALLY ?
-						updVolMsgA : updVolMsgM);
+		UPDATE_VOLUME_AUTOMATICALLY.setSelectedItem(updVolAutoBackup ? updVolMsgA : updVolMsgM);
 		UPDATE_VOLUME_VERBOSE_REPORTS.setSelected( controlledBridge.UPDATE_VOLUME_VERBOSE_REPORTS );
+
+		controlledBridge.UPDATE_VOLUME_AUTOMATICALLY = updVolAutoBackup;
 	}
 
 	//int SOURCE_ID = 0;
