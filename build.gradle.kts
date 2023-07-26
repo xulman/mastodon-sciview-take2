@@ -14,7 +14,7 @@ repositories {
 dependencies {
     implementation(platform("org.scijava:pom-scijava:35.1.1"))
 
-    implementation("net.imagej:imagej-common")
+    implementation("net.imagej:imagej")
 
     //api("sc.iview:sciview")
     implementation("sc.iview:sciview")

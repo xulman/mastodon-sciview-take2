@@ -18,6 +18,7 @@ public class SphereNodes {
 
 	float SCALE_FACTOR = 1.f;
 	int DEFAULT_COLOR = 0x00FFFFFF;
+	public static final String NAME_OF_NOT_USED_SPHERES = "not used now";
 
 	final SciView sv;
 	final Node parentNode;
@@ -82,13 +83,15 @@ public class SphereNodes {
 			//NB: mark not-touched knownNodes as hidden
 			int i = visibleNodesAfterall;
 			while (i < knownNodes.size()) {
-				knownNodes.get(i).setName("not used now");
+				knownNodes.get(i).setName(NAME_OF_NOT_USED_SPHERES);
 				knownNodes.get(i++).setVisible(false);
 			}
 		}
+		/*
 		System.out.println("Drawing currently in total "+visibleNodesAfterall
 				+ " and there are "+(knownNodes.size()-visibleNodesAfterall)
 				+ " hidden...");
+		*/
 		return visibleNodesAfterall;
 	}
 
