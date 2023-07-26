@@ -117,6 +117,7 @@ public class SciviewBridge {
 		this.blueVolChannelImg = null;
 		this.redVolChannelImg = null;
 		this.mastodonToImgCoordsTransfer = null;
+		this.detachedDPP_withOwnTime = new DPP_DetachedOwnTime(0,0);
 	}
 
 	public SciviewBridge(final WindowManager mastodonMainWindow,
@@ -131,6 +132,9 @@ public class SciviewBridge {
 	{
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
+		detachedDPP_withOwnTime = new DPP_DetachedOwnTime(
+				mastodonWin.getAppModel().getMinTimepoint(),
+				mastodonWin.getAppModel().getMaxTimepoint() );
 
 		//adjust the default scene's settings
 		sciviewWin.setApplicationName("sciview for Mastodon: "
@@ -547,6 +551,22 @@ public class SciviewBridge {
 			return recentColorizer != null ? recentColorizer : noTScolorizer;
 		}
 	}
+	class DPP_DetachedOwnTime implements DisplayParamsProvider {
+		final int min,max;
+		DPP_DetachedOwnTime(int min, int max) { this.min = min; this.max = max; }
+		int timepoint = 0;
+		public void setTimepoint(int tp) { timepoint = Math.max(min, Math.min(max, tp)); }
+		public void prevTimepoint() { timepoint = Math.max(min, timepoint-1); }
+		public void nextTimepoint() { timepoint = Math.min(max, timepoint+1); }
+		@Override
+		public int getTimepoint() {
+			return timepoint;
+		}
+		@Override
+		public GraphColorGenerator<Spot, Link> getColorizer() {
+			return recentColorizer != null ? recentColorizer : noTScolorizer;
+		}
+	}
 	//------------------------------
 
 	void updateSciviewContent(final DisplayParamsProvider forThisBdv) {
@@ -569,9 +589,9 @@ public class SciviewBridge {
 		}
 	}
 
-	final DisplayParamsProvider sharedDPP_Detached = new DPP_Detached();
+	final DisplayParamsProvider detachedDPP_showsLastTimepoint = new DPP_Detached();
 	void updateSciviewColoringNow() {
-		updateSciviewColoringNow( sharedDPP_Detached );
+		updateSciviewColoringNow(detachedDPP_showsLastTimepoint);
 	}
 
 	void updateSciviewColoringNow(final DisplayParamsProvider forThisBdv) {
@@ -668,6 +688,7 @@ public class SciviewBridge {
 		}
 	}
 
+	final DPP_DetachedOwnTime detachedDPP_withOwnTime;
 	// --------------------------------------------------------------------------
 	public static final String key_DEC_SPH = "O";
 	public static final String key_INC_SPH = "shift O";
