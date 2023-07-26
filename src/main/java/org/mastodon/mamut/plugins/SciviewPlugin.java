@@ -1,5 +1,6 @@
 package org.mastodon.mamut.plugins;
 
+import org.mastodon.mamut.SciviewBridge;
 import org.scijava.command.Command;
 import org.scijava.log.LogService;
 import org.scijava.plugin.Menu;
@@ -20,7 +21,17 @@ public class SciviewPlugin implements Command
 	@Override
 	public void run()
 	{
-		logService.warn("Mastodon-sciview Bridge Help:");
-		System.out.println("IEWRORUTEWIOURTEIWO");
+		StringBuilder msg = new StringBuilder("Mastodon-sciview Bridge Help:\n");
+		msg.append(SciviewBridge.key_DEC_SPH).append(" does ").append(SciviewBridge.desc_DEC_SPH).append("\n");
+		msg.append(SciviewBridge.key_INC_SPH).append(" does ").append(SciviewBridge.desc_INC_SPH).append("\n");
+		msg.append(SciviewBridge.key_COLORING).append(" does ").append(SciviewBridge.desc_COLORING).append("\n");
+		msg.append(SciviewBridge.key_CLRNG_AUTO).append(" does ").append(SciviewBridge.desc_CLRNG_AUTO).append("\n");
+		msg.append(SciviewBridge.key_CLRNG_ONOFF).append(" does ").append(SciviewBridge.desc_CLRNG_ONOFF).append("\n");
+		msg.append(SciviewBridge.key_CTRL_WIN).append(" does ").append(SciviewBridge.desc_CTRL_WIN).append("\n");
+		msg.append(SciviewBridge.key_CTRL_INFO).append(" does ").append(SciviewBridge.desc_CTRL_INFO).append("\n");
+
+		//abusing the warn level to make sure the log window pops up
+		//and the help message is not left unnoticed
+		logService.warn(msg.toString());
 	}
 }
