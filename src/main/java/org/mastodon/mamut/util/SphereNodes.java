@@ -87,9 +87,11 @@ public class SphereNodes {
 				knownNodes.get(i++).setVisible(false);
 			}
 		}
+		/*
 		System.out.println("Drawing currently in total "+visibleNodesAfterall
 				+ " and there are "+(knownNodes.size()-visibleNodesAfterall)
 				+ " hidden...");
+		*/
 		return visibleNodesAfterall;
 	}
 
