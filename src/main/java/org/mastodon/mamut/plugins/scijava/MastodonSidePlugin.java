@@ -135,6 +135,10 @@ public class MastodonSidePlugin extends DynamicCommand {
 				SciviewBridge bridge = new SciviewBridge(mastodon, channelIdx,chosenLevel, sv);
 				if (openBridgeUI) bridge.createAndShowControllingUI();
 
+				mastodon.getAppModel().projectClosedListeners().add(() -> {
+					System.out.println("Mastodon project was closed, cleaning up in sciview:");
+					bridge.close(); //calls also bridge.detachControllingUI();
+				});
 			} catch (Exception e) {
 				logService.error("MastodonSciview plugin error: " + e.getMessage());
 				e.printStackTrace();

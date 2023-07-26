@@ -256,6 +256,40 @@ public class SciviewBridge {
 		registerKeyboardHandlers();
 	}
 
+	public void close() {
+		detachControllingUI();
+		deregisterKeyboardHandlers();
+		System.out.println("Mastodon-sciview Bridge closing procedure: UI and keyboards handlers are removed now");
+
+		sciviewWin.setActiveNode(axesParent);
+		System.out.println("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes");
+
+		//first make invisible, then remove...
+		setVisibilityOfVolume(false);
+		setVisibilityOfSpots(false);
+		System.out.println("Mastodon-sciview Bridge closing procedure: our nodes made hidden");
+
+		final long graceTimeForVolumeUpdatingInMS = 100;
+		try {
+			sciviewWin.deleteNode(redVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: red volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(greenVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: green volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(blueVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: blue volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(sphereParent, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: spots were removed");
+		} catch (InterruptedException e) { /* do nothing */ }
+
+		sciviewWin.deleteNode(axesParent, true);
+	}
+
 	private void adjustAndPlaceVolumeIntoTheScene(final Volume v,
 																 final String colorMapName,
 	                                              final Vector3f scale,
