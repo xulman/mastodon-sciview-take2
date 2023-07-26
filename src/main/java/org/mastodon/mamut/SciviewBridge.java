@@ -333,6 +333,9 @@ public class SciviewBridge {
 						, INTENSITY_GAMMA) )
 			:
 				(src, tgt) -> tgt.setReal( Math.min(INTENSITY_CONTRAST*src.getRealFloat() +INTENSITY_SHIFT, INTENSITY_CLAMP_AT_TOP) );
+
+		if (srcImg == null) System.out.println("freshNewWhiteContent(): srcImg is null !!!");
+		if (redCh == null) System.out.println("freshNewWhiteContent(): redCh is null !!!");
 		//
 		//massage input data into the red channel
 		LoopBuilder.setImages(srcImg,redCh)
