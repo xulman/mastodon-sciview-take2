@@ -44,7 +44,7 @@ public class StartSciviewBridgeDirectly {
 			WindowManager mastodon = giveMeSomeMastodon(sv.getScijavaContext());
 
 			final SciviewBridge bridge = new SciviewBridge(mastodon,0,2, sv);
-			bridge.openSyncedBDV();
+			//bridge.openSyncedBDV();
 
 			mastodon.getAppModel().projectClosedListeners().add(() -> {
 				System.out.println("Mastodon project was closed, cleaning up in sciview:");
