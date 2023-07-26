@@ -11,7 +11,6 @@ import graphics.scenery.Sphere;
 import graphics.scenery.controls.InputHandler;
 import graphics.scenery.primitives.Cylinder;
 import graphics.scenery.volumes.Volume;
-import mpicbg.spim.data.SpimDataException;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.FinalInterval;
@@ -27,19 +26,17 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.model.Link;
-import org.mastodon.mamut.project.MamutProjectIO;
 import org.mastodon.mamut.util.SphereNodes;
 import org.mastodon.model.tag.TagSetStructure;
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator;
 import org.mastodon.ui.coloring.DefaultGraphColorGenerator;
 import org.mastodon.ui.coloring.GraphColorGenerator;
-import org.scijava.Context;
 import org.scijava.ui.behaviour.Behaviour;
 import org.scijava.ui.behaviour.ClickBehaviour;
 import sc.iview.SciView;
-import javax.swing.WindowConstants;
 import javax.swing.JFrame;
-import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.BiConsumer;
 
 public class SciviewBridge {
@@ -54,6 +51,7 @@ public class SciviewBridge {
 	float INTENSITY_GAMMA = 1.0f;      //...then, finally, gamma-corrected (squeezed through exp());
 
 	boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
+	boolean INTENSITY_OF_COLORS_BOOST = true;//flag to enable/disable boosting of rgb colors to the brightest possible, yet same hue
 	float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
 	float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
 
@@ -93,6 +91,7 @@ public class SciviewBridge {
 	final Volume redVolChannelNode;
 	final Volume greenVolChannelNode;
 	final Volume blueVolChannelNode;
+	final List<Node> volNodes; //shortcut for ops that operate on the three channels
 	final RandomAccessibleInterval<UnsignedShortType> redVolChannelImg;
 	final RandomAccessibleInterval<UnsignedShortType> greenVolChannelImg;
 	final RandomAccessibleInterval<UnsignedShortType> blueVolChannelImg;
@@ -113,6 +112,7 @@ public class SciviewBridge {
 		this.greenVolChannelNode = null;
 		this.blueVolChannelNode = null;
 		this.redVolChannelNode = null;
+		this.volNodes = null;
 		this.greenVolChannelImg = null;
 		this.blueVolChannelImg = null;
 		this.redVolChannelImg = null;
@@ -122,12 +122,20 @@ public class SciviewBridge {
 	public SciviewBridge(final WindowManager mastodonMainWindow,
 	                     final SciView targetSciviewWindow)
 	{
+		this(mastodonMainWindow,0,0,targetSciviewWindow);
+	}
+
+	public SciviewBridge(final WindowManager mastodonMainWindow,
+	                     final int sourceID, final int sourceResLevel,
+	                     final SciView targetSciviewWindow)
+	{
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
 
 		//adjust the default scene's settings
 		sciviewWin.setApplicationName("sciview for Mastodon: "
 				+ mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
+		sciviewWin.toggleSidebar();
 		sciviewWin.getFloor().setVisible(false);
 		sciviewWin.getLights().forEach(l -> {
 			if (l.getName().startsWith("headli"))
@@ -144,12 +152,14 @@ public class SciviewBridge {
 
 		//add "root" with data axes
 		this.axesParent = addDataAxes();
-		sciviewWin.addChild( axesParent );
+		sciviewWin.addNode( axesParent );
 
 		//get necessary metadata - from image data
+		SOURCE_ID = sourceID;
+		SOURCE_USED_RES_LEVEL = sourceResLevel;
 		final Source<?> spimSource = mastodonWin.getAppModel().getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource();
 		final long[] volumeDims = spimSource.getSource(0,0).dimensionsAsLongArray();
-		SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
+		//SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
 		final long[] volumeDims_usedResLevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray();
 		final float[] volumeDownscale = new float[] {
 				(float)volumeDims[0] / (float)volumeDims_usedResLevel[0],
@@ -190,25 +200,28 @@ public class SciviewBridge {
 		//
 		blueVolChannelNode = sciviewWin.addVolume(blueVolChannelImg, "BLUE VOL"+commonNodeName, new float[] {1,1,1});
 		adjustAndPlaceVolumeIntoTheScene(blueVolChannelNode, "Blue.lut", volumeScale, INTENSITY_RANGE_MIN, INTENSITY_RANGE_MAX);
+		//
+		volNodes = Arrays.asList(redVolChannelNode,greenVolChannelNode,blueVolChannelNode);
 
+		final int converterSetupID = SOURCE_ID < redVolChannelNode.getConverterSetups().size() ? SOURCE_ID : 0;
 		//setup intensity display listeners that keep the ranges of the three volumes in sync
 		// (but the change of one triggers listeners of the others (making each volume its ranges
 		//  adjusted 3x times... luckily it doesn't start cycling/looping; perhaps switch to cascade?)
-		redVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		redVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("RED informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			greenVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			greenVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 			blueVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			blueVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 		});
-		greenVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		greenVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("GREEN informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			redVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			redVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 			blueVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			blueVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
 		});
-		blueVolChannelNode.getConverterSetups().get(SOURCE_ID).setupChangeListeners().add( t -> {
+		blueVolChannelNode.getConverterSetups().get(converterSetupID).setupChangeListeners().add( t -> {
 			//System.out.println("BLUE informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
 			redVolChannelNode.setMinDisplayRange((float)t.getDisplayRangeMin());
 			redVolChannelNode.setMaxDisplayRange((float)t.getDisplayRangeMax());
@@ -238,6 +251,43 @@ public class SciviewBridge {
 		//add the sciview-side displaying handler for the spots
 		this.sphereNodes = new SphereNodes(this.sciviewWin, sphereParent);
 		sphereNodes.showTheseSpots(mastodonWin.getAppModel(), 0, noTScolorizer);
+
+		//temporary handlers, originally for testing....
+		registerKeyboardHandlers();
+	}
+
+	public void close() {
+		detachControllingUI();
+		deregisterKeyboardHandlers();
+		System.out.println("Mastodon-sciview Bridge closing procedure: UI and keyboards handlers are removed now");
+
+		sciviewWin.setActiveNode(axesParent);
+		System.out.println("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes");
+
+		//first make invisible, then remove...
+		setVisibilityOfVolume(false);
+		setVisibilityOfSpots(false);
+		System.out.println("Mastodon-sciview Bridge closing procedure: our nodes made hidden");
+
+		final long graceTimeForVolumeUpdatingInMS = 100;
+		try {
+			sciviewWin.deleteNode(redVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: red volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(greenVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: green volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(blueVolChannelNode, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: blue volume removed");
+			Thread.sleep(graceTimeForVolumeUpdatingInMS);
+
+			sciviewWin.deleteNode(sphereParent, true);
+			System.out.println("Mastodon-sciview Bridge closing procedure: spots were removed");
+		} catch (InterruptedException e) { /* do nothing */ }
+
+		sciviewWin.deleteNode(axesParent, true);
 	}
 
 	private void adjustAndPlaceVolumeIntoTheScene(final Volume v,
@@ -271,15 +321,22 @@ public class SciviewBridge {
 		return finalRatio;
 	}
 
-	public <T extends IntegerType<T>>
+	<T extends IntegerType<T>>
 	void freshNewWhiteContent(final RandomAccessibleInterval<T> redCh,
 	                          final RandomAccessibleInterval<T> greenCh,
 	                          final RandomAccessibleInterval<T> blueCh,
 	                          final RandomAccessibleInterval<T> srcImg) {
-		final BiConsumer<T,T> intensityProcessor =
+		final BiConsumer<T,T> intensityProcessor
+			= INTENSITY_GAMMA != 1.0 ?
 				(src, tgt) -> tgt.setReal( INTENSITY_CLAMP_AT_TOP * Math.pow( //TODO, replace pow() with LUT for several gammas
 						Math.min(INTENSITY_CONTRAST*src.getRealFloat() +INTENSITY_SHIFT, INTENSITY_CLAMP_AT_TOP) / INTENSITY_CLAMP_AT_TOP
-						, INTENSITY_GAMMA) );
+						, INTENSITY_GAMMA) )
+			:
+				(src, tgt) -> tgt.setReal( Math.min(INTENSITY_CONTRAST*src.getRealFloat() +INTENSITY_SHIFT, INTENSITY_CLAMP_AT_TOP) );
+
+		if (srcImg == null) System.out.println("freshNewWhiteContent(): srcImg is null !!!");
+		if (redCh == null) System.out.println("freshNewWhiteContent(): redCh is null !!!");
+		//
 		//massage input data into the red channel
 		LoopBuilder.setImages(srcImg,redCh)
 				.flatIterationOrder()
@@ -328,6 +385,21 @@ public class SciviewBridge {
 		//the way to INTENSITY_OF_COLORS (the brightest color displayed)
 		final float intensityScale = INTENSITY_OF_COLORS / INTENSITY_CLAMP_AT_TOP;
 
+		float[] usedColor;
+		if (INTENSITY_OF_COLORS_BOOST) {
+			float boostMul = Math.max( rgbValue[0], Math.max(rgbValue[1],rgbValue[2]) );
+			boostMul = 1.f / boostMul;
+			usedColor = rgbAux;
+			usedColor[0] = boostMul * rgbValue[0];
+			usedColor[1] = boostMul * rgbValue[1];
+			usedColor[2] = boostMul * rgbValue[2];
+			//NB: this operations is very very close to what
+			//"rgb -> hsv -> set v=1.0 (highest) -> back to rgb"
+			//would do, it non-decreases all rgb components
+		} else {
+			usedColor = rgbValue;
+		}
+
 		int cnt = 0;
 		while (si.hasNext()) {
 			rc.next(); gc.next(); bc.next();
@@ -342,20 +414,24 @@ public class SciviewBridge {
 			final double distSq = pos[0]*pos[0] + pos[1]*pos[1] + pos[2]*pos[2];
 			if (distSq <= maxDistSq) {
 				//we're within the ROI (spot)
-				final float val = si.get().getInteger() * intensityScale;
-				rc.get().setReal( val * rgbValue[0] );
-				gc.get().setReal( val * rgbValue[1] );
-				bc.get().setReal( val * rgbValue[2] );
+				final float val = si.get().getRealFloat() * intensityScale;
+				rc.get().setReal( val * usedColor[0] );
+				gc.get().setReal( val * usedColor[1] );
+				bc.get().setReal( val * usedColor[2] );
 				++cnt;
 			}
 		}
 
-		if (UPDATE_VOLUME_VERBOSE_REPORTS)
+		if (UPDATE_VOLUME_VERBOSE_REPORTS) {
 			System.out.println("  colored "+cnt+" pixels in the interval ["
 				+min[0]+","+min[1]+","+min[2]+"] -> ["
 				+max[0]+","+max[1]+","+max[2]+"] @ ["
 				+pxCentre[0]+","+pxCentre[1]+","+pxCentre[2]+"]");
+			System.out.println("  boosted ["+rgbValue[0]+","+rgbValue[1]+","+rgbValue[2]
+				+"] to ["+usedColor[0]+","+usedColor[1]+","+usedColor[2]+"]");
+		}
 	}
+	final float[] rgbAux = new float[3];
 
 	public long[] mastodonToImgCoord(final float[] mastodonCoord,
 	                                 final long[] pxCoord) {
@@ -416,8 +492,6 @@ public class SciviewBridge {
 				mastodonWin.getAppModel(),
 				bdvWin);
 
-		//temporary handlers mostly for testing
-		keyboardHandlersForTestingForNow(bdvWinParamsProvider);
 		return bdvWin;
 	}
 
@@ -575,7 +649,43 @@ public class SciviewBridge {
 	private final Quaternionf viewRotation = new Quaternionf();
 
 	// --------------------------------------------------------------------------
-	private void keyboardHandlersForTestingForNow(final DPP_BdvAdapter forThisBdv) {
+	public void setVisibilityOfVolume(final boolean state) {
+		volNodes.forEach(v -> {
+			v.setVisible(state);
+			if (state) {
+				v.getChildren().stream()
+						.filter(c -> c.getName().startsWith("Bounding"))
+						.forEach(c -> c.setVisible(false));
+			}
+		});
+	}
+	public void setVisibilityOfSpots(final boolean state) {
+		sphereParent.setVisible(state);
+		if (state) {
+			sphereParent
+					.getChildrenByName(SphereNodes.NAME_OF_NOT_USED_SPHERES)
+					.forEach(s -> s.setVisible(false));
+		}
+	}
+
+	// --------------------------------------------------------------------------
+	public static final String key_DEC_SPH = "O";
+	public static final String key_INC_SPH = "shift O";
+	public static final String key_COLORING = "G";
+	public static final String key_CLRNG_AUTO = "shift G";
+	public static final String key_CLRNG_ONOFF = "ctrl G";
+	public static final String key_CTRL_WIN = "ctrl I";
+	public static final String key_CTRL_INFO = "shift I";
+
+	public static final String desc_DEC_SPH = "decrease_initial_spheres_size";
+	public static final String desc_INC_SPH = "increase_initial_spheres_size";
+	public static final String desc_COLORING = "recolor_volume_now";
+	public static final String desc_CLRNG_AUTO = "recolor_automatically";
+	public static final String desc_CLRNG_ONOFF = "recolor_enabled";
+	public static final String desc_CTRL_WIN = "controlling_window";
+	public static final String desc_CTRL_INFO = "controlling_info";
+
+	private void registerKeyboardHandlers() {
 		//handlers
 		final Behaviour clk_DEC_SPH = (ClickBehaviour) (x, y) -> {
 			sphereNodes.decreaseSphereScale();
@@ -586,7 +696,7 @@ public class SciviewBridge {
 			updateUI();
 		};
 		final Behaviour clk_COLORING = (ClickBehaviour) (x, y) -> {
-			updateSciviewColoringNow(forThisBdv);
+			updateSciviewColoringNow();
 			updateUI();
 		};
 		final Behaviour clk_CLRNG_AUTO = (ClickBehaviour) (x, y) -> {
@@ -600,55 +710,55 @@ public class SciviewBridge {
 			updateUI();
 		};
 
-		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x,y) -> this.createAndShowControllingUI();
-		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x,y) -> {
-			/*
-			this.sciviewWin.getSceneryInputHandler()
-				.getAllBindings().forEach((t,a) ->
-						System.out.println("registered keys >>"
-								+ t.toString()
-								+ "<< do actions: "
-								+ a.stream().reduce("",(s1,s2)->s1+","+s2)) );
-			*/
-			System.out.println(this);
-		};
+		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x, y) -> this.createAndShowControllingUI();
+		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x, y) -> System.out.println(this);
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
-		handler.addKeyBinding("decrease_initial_spheres_size", "O");
-		handler.addBehaviour("decrease_initial_spheres_size", clk_DEC_SPH);
-		handler.addKeyBinding("increase_initial_spheres_size", "shift O");
-		handler.addBehaviour("increase_initial_spheres_size", clk_INC_SPH);
-		handler.addKeyBinding("recolor_volume_now", "G");
-		handler.addBehaviour("recolor_volume_now", clk_COLORING);
-		handler.addKeyBinding("recolor_automatically", "shift G");
-		handler.addBehaviour("recolor_automatically", clk_CLRNG_AUTO);
-		handler.addKeyBinding("recolor_enabled", "ctrl G");
-		handler.addBehaviour("recolor_enabled", clk_CLRNG_ONOFF);
+		handler.addKeyBinding(desc_DEC_SPH, key_DEC_SPH);
+		handler.addBehaviour( desc_DEC_SPH, clk_DEC_SPH);
+		//
+		handler.addKeyBinding(desc_INC_SPH, key_INC_SPH);
+		handler.addBehaviour( desc_INC_SPH, clk_INC_SPH);
+		//
+		handler.addKeyBinding(desc_COLORING, key_COLORING);
+		handler.addBehaviour( desc_COLORING, clk_COLORING);
+		//
+		handler.addKeyBinding(desc_CLRNG_AUTO, key_CLRNG_AUTO);
+		handler.addBehaviour( desc_CLRNG_AUTO, clk_CLRNG_AUTO);
+		//
+		handler.addKeyBinding(key_CLRNG_ONOFF, key_CLRNG_ONOFF);
+		handler.addBehaviour( key_CLRNG_ONOFF, clk_CLRNG_ONOFF);
+		//
+		handler.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN);
+		handler.addBehaviour( desc_CTRL_WIN, clk_CTRL_WIN);
+		//
+		handler.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO);
+		handler.addBehaviour( desc_CTRL_INFO, clk_CTRL_INFO);
+	}
 
-		handler.addKeyBinding("controlling_window", "ctrl I");
-		handler.addBehaviour("controlling_window", clk_CTRL_WIN);
-		handler.addKeyBinding("controlling_info", "shift I");
-		handler.addBehaviour("controlling_info", clk_CTRL_INFO);
-
-		//deregister them when they are due
-		forThisBdv.ofThisBdv.onClose(() -> {
-			handler.removeKeyBinding("decrease_initial_spheres_size");
-			handler.removeBehaviour("decrease_initial_spheres_size");
-			handler.removeKeyBinding("increase_initial_spheres_size");
-			handler.removeBehaviour("increase_initial_spheres_size");
-			handler.removeKeyBinding("recolor_volume_now");
-			handler.removeBehaviour("recolor_volume_now");
-			handler.removeKeyBinding("recolor_automatically");
-			handler.removeBehaviour("recolor_automatically");
-			handler.removeKeyBinding("recolor_enabled");
-			handler.removeBehaviour("recolor_enabled");
-
-			handler.removeKeyBinding("controlling_window");
-			handler.removeBehaviour("controlling_window");
-			handler.removeKeyBinding("controlling_info");
-			handler.removeBehaviour("controlling_info");
-		});
+	private void deregisterKeyboardHandlers() {
+		final InputHandler handler = sciviewWin.getSceneryInputHandler();
+		handler.removeKeyBinding(desc_DEC_SPH);
+		handler.removeBehaviour( desc_DEC_SPH);
+		//
+		handler.removeKeyBinding(desc_INC_SPH);
+		handler.removeBehaviour( desc_INC_SPH);
+		//
+		handler.removeKeyBinding(desc_COLORING);
+		handler.removeBehaviour( desc_COLORING);
+		//
+		handler.removeKeyBinding(desc_CLRNG_AUTO);
+		handler.removeBehaviour( desc_CLRNG_AUTO);
+		//
+		handler.removeKeyBinding(key_CLRNG_ONOFF);
+		handler.removeBehaviour( key_CLRNG_ONOFF);
+		//
+		handler.removeKeyBinding(desc_CTRL_WIN);
+		handler.removeBehaviour( desc_CTRL_WIN);
+		//
+		handler.removeKeyBinding(desc_CTRL_INFO);
+		handler.removeBehaviour( desc_CTRL_INFO);
 	}
 
 	public JFrame createAndShowControllingUI() {
@@ -678,50 +788,5 @@ public class SciviewBridge {
 	void updateUI() {
 		if (associatedUI == null) return;
 		associatedUI.updatePaneValues();
-	}
-
-	// --------------------------------------------------------------------------
-	private static WindowManager giveMeSomeMastodon(final Context scijavaCtx)
-	throws IOException, SpimDataException {
-		String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
-
-		//ImageJ ij = new ImageJ();
-		//ij.ui().showUI();
-
-		//the central hub, a container to hold all
-		final WindowManager windowManager = new WindowManager( scijavaCtx );
-		windowManager.getProjectManager().open( new MamutProjectIO().load( projectPath ) );
-
-		//a GUI element wrapping around the hub
-		final MainWindow win = new MainWindow(windowManager);
-
-		//this makes the true Mastodon window visible
-		//note: you can open project that restores/reopen e.g. TrackScheme window,
-		//      yet the main Mastodon window is not shown... but this is runs non-stop
-		win.setVisible( true );
-
-		//this makes the whole thing (incl. the central hub) go down when the GUI is closed
-		win.setDefaultCloseOperation( WindowConstants.EXIT_ON_CLOSE );
-
-		return windowManager;
-	}
-
-	private static SciView createSciview()
-	throws Exception {
-		return SciView.create();
-	}
-
-	public static void main(String[] args) {
-		try {
-			SciView sv = createSciview();
-			sv.toggleSidebar();
-			WindowManager mastodon = giveMeSomeMastodon(sv.getScijavaContext());
-
-			final SciviewBridge bridge = new SciviewBridge(mastodon, sv);
-			bridge.openSyncedBDV();
-
-		} catch (Exception e) {
-			System.out.println("Got this exception: "+e.getMessage());
-		}
 	}
 }
