@@ -65,6 +65,8 @@ public class SciviewPlugin implements Command
 		Collection<String[]> rows = new ArrayList<>(15);
 		rows.add(new String[] {SciviewBridge.key_DEC_SPH, SciviewBridge.desc_DEC_SPH});
 		rows.add(new String[] {SciviewBridge.key_INC_SPH, SciviewBridge.desc_INC_SPH});
+		rows.add(new String[] {SciviewBridge.key_PREV_TP, SciviewBridge.desc_PREV_TP});
+		rows.add(new String[] {SciviewBridge.key_NEXT_TP, SciviewBridge.desc_NEXT_TP});
 		rows.add(new String[] {SciviewBridge.key_COLORING, SciviewBridge.desc_COLORING});
 		rows.add(new String[] {SciviewBridge.key_CLRNG_AUTO, SciviewBridge.desc_CLRNG_AUTO});
 		rows.add(new String[] {SciviewBridge.key_CLRNG_ONOFF, SciviewBridge.desc_CLRNG_ONOFF});

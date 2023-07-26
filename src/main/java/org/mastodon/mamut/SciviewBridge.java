@@ -707,6 +707,8 @@ public class SciviewBridge {
 	public static final String key_CLRNG_ONOFF = "ctrl G";
 	public static final String key_CTRL_WIN = "ctrl I";
 	public static final String key_CTRL_INFO = "shift I";
+	public static final String key_PREV_TP = "T";
+	public static final String key_NEXT_TP = "shift T";
 
 	public static final String desc_DEC_SPH = "decrease_initial_spheres_size";
 	public static final String desc_INC_SPH = "increase_initial_spheres_size";
@@ -715,6 +717,8 @@ public class SciviewBridge {
 	public static final String desc_CLRNG_ONOFF = "recolor_enabled";
 	public static final String desc_CTRL_WIN = "controlling_window";
 	public static final String desc_CTRL_INFO = "controlling_info";
+	public static final String desc_PREV_TP = "show_previous_timepoint";
+	public static final String desc_NEXT_TP = "show_next_timepoint";
 
 	private void registerKeyboardHandlers() {
 		//handlers
@@ -744,6 +748,15 @@ public class SciviewBridge {
 		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x, y) -> this.createAndShowControllingUI();
 		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x, y) -> System.out.println(this);
 
+		final Behaviour clk_PREV_TP = (ClickBehaviour) (x, y) -> {
+			detachedDPP_withOwnTime.prevTimepoint();
+			updateSciviewContent(detachedDPP_withOwnTime);
+		};
+		final Behaviour clk_NEXT_TP = (ClickBehaviour) (x, y) -> {
+			detachedDPP_withOwnTime.nextTimepoint();
+			updateSciviewContent(detachedDPP_withOwnTime);
+		};
+
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
 		handler.addKeyBinding(desc_DEC_SPH, key_DEC_SPH);
@@ -766,6 +779,12 @@ public class SciviewBridge {
 		//
 		handler.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO);
 		handler.addBehaviour( desc_CTRL_INFO, clk_CTRL_INFO);
+		//
+		handler.addKeyBinding(desc_PREV_TP, key_PREV_TP);
+		handler.addBehaviour( desc_PREV_TP, clk_PREV_TP);
+		//
+		handler.addKeyBinding(desc_NEXT_TP, key_NEXT_TP);
+		handler.addBehaviour( desc_NEXT_TP, clk_NEXT_TP);
 	}
 
 	private void deregisterKeyboardHandlers() {
@@ -790,6 +809,12 @@ public class SciviewBridge {
 		//
 		handler.removeKeyBinding(desc_CTRL_INFO);
 		handler.removeBehaviour( desc_CTRL_INFO);
+		//
+		handler.removeKeyBinding(desc_PREV_TP);
+		handler.removeBehaviour( desc_PREV_TP);
+		//
+		handler.removeKeyBinding(desc_NEXT_TP);
+		handler.removeBehaviour( desc_NEXT_TP);
 	}
 
 	public JFrame createAndShowControllingUI() {
