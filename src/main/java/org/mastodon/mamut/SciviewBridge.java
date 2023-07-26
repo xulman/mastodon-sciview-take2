@@ -656,18 +656,8 @@ public class SciviewBridge {
 			updateUI();
 		};
 
-		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x,y) -> this.createAndShowControllingUI();
-		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x,y) -> {
-			/*
-			this.sciviewWin.getSceneryInputHandler()
-				.getAllBindings().forEach((t,a) ->
-						System.out.println("registered keys >>"
-								+ t.toString()
-								+ "<< do actions: "
-								+ a.stream().reduce("",(s1,s2)->s1+","+s2)) );
-			*/
-			System.out.println(this);
-		};
+		final Behaviour clk_CTRL_WIN = (ClickBehaviour) (x, y) -> this.createAndShowControllingUI();
+		final Behaviour clk_CTRL_INFO = (ClickBehaviour) (x, y) -> System.out.println(this);
 
 		//register them
 		final InputHandler handler = sciviewWin.getSceneryInputHandler();
