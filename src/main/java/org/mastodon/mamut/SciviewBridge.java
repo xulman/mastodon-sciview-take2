@@ -677,25 +677,25 @@ public class SciviewBridge {
 		handler.addBehaviour("controlling_window", clk_CTRL_WIN);
 		handler.addKeyBinding("controlling_info", "shift I");
 		handler.addBehaviour("controlling_info", clk_CTRL_INFO);
+	}
 
-		//deregister them when they are due
-		forThisBdv.ofThisBdv.onClose(() -> {
-			handler.removeKeyBinding("decrease_initial_spheres_size");
-			handler.removeBehaviour("decrease_initial_spheres_size");
-			handler.removeKeyBinding("increase_initial_spheres_size");
-			handler.removeBehaviour("increase_initial_spheres_size");
-			handler.removeKeyBinding("recolor_volume_now");
-			handler.removeBehaviour("recolor_volume_now");
-			handler.removeKeyBinding("recolor_automatically");
-			handler.removeBehaviour("recolor_automatically");
-			handler.removeKeyBinding("recolor_enabled");
-			handler.removeBehaviour("recolor_enabled");
+	private void deregisterKeyboardHandlers() {
+		final InputHandler handler = sciviewWin.getSceneryInputHandler();
+		handler.removeKeyBinding("decrease_initial_spheres_size");
+		handler.removeBehaviour("decrease_initial_spheres_size");
+		handler.removeKeyBinding("increase_initial_spheres_size");
+		handler.removeBehaviour("increase_initial_spheres_size");
+		handler.removeKeyBinding("recolor_volume_now");
+		handler.removeBehaviour("recolor_volume_now");
+		handler.removeKeyBinding("recolor_automatically");
+		handler.removeBehaviour("recolor_automatically");
+		handler.removeKeyBinding("recolor_enabled");
+		handler.removeBehaviour("recolor_enabled");
 
-			handler.removeKeyBinding("controlling_window");
-			handler.removeBehaviour("controlling_window");
-			handler.removeKeyBinding("controlling_info");
-			handler.removeBehaviour("controlling_info");
-		});
+		handler.removeKeyBinding("controlling_window");
+		handler.removeBehaviour("controlling_window");
+		handler.removeKeyBinding("controlling_info");
+		handler.removeBehaviour("controlling_info");
 	}
 
 	public JFrame createAndShowControllingUI() {
