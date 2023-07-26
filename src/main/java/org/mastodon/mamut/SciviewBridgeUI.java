@@ -2,6 +2,8 @@
 package org.mastodon.mamut;
 
 import org.mastodon.mamut.util.AdjustableBoundsRangeSlider;
+import org.mastodon.mamut.util.GroupLocksHandling;
+
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -41,6 +43,10 @@ public class SciviewBridgeUI {
 		c.anchor = GridBagConstraints.LINE_START;
 		c.fill = GridBagConstraints.HORIZONTAL;
 
+		JPanel MastodonRowPlaceHolder = new JPanel();
+		final GridBagConstraints mc = new GridBagConstraints();
+		lockGroupHandler = new GroupLocksHandling(controlledBridge, controlledBridge.mastodonWin);
+		MastodonRowPlaceHolder.add(lockGroupHandler.createAndActivate(), mc);
 		c.gridy = 0;
 		c.gridwidth = 2;
 		c.weightx = 0.1;
@@ -337,6 +343,7 @@ public class SciviewBridgeUI {
 	 */
 	public void deactivateAndForget() {
 		//listeners tear-down here
+		lockGroupHandler.deactivate();
 		spinnerModelsWithListeners.forEach(c -> c.observedSource.removeChangeListener(c));
 		checkBoxesWithListeners.forEach(c -> c.removeItemListener( checkboxChangeListener ));
 		INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.removeChangeListener(rangeSliderListener);
@@ -404,4 +411,6 @@ public class SciviewBridgeUI {
 	static final String updVolMsgM = "Manually";
 	private JComboBox<String> UPDATE_VOLUME_AUTOMATICALLY;
 	private JCheckBox UPDATE_VOLUME_VERBOSE_REPORTS;
+
+	private GroupLocksHandling lockGroupHandler;
 }
