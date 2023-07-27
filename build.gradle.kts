@@ -3,8 +3,8 @@ plugins {
     kotlin("jvm") version embeddedKotlinVersion
 }
 
-group = "org.example"
-version = "1.0-SNAPSHOT"
+group = "org.mastodon"
+version = "0.9"
 
 repositories {
     mavenCentral()

@@ -1,3 +1,3 @@
-rootProject.name = "mastodon_sciview_take2"
+rootProject.name = "mastodon-sciview-bridge"
 
 includeBuild("../sciview")
