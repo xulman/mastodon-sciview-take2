@@ -1,4 +1,5 @@
 plugins {
+    kotlin("kapt") version "1.9.0"
     kotlin("jvm") version embeddedKotlinVersion
 }
 
@@ -24,6 +25,11 @@ dependencies {
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+
+    val scijavaCommonVersion = "2.94.1"
+    kapt("org.scijava:scijava-common:$scijavaCommonVersion") {
+        exclude("org.lwjgl")
+    }
 }
 
 tasks.test {
