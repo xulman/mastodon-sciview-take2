@@ -46,17 +46,19 @@ public class SciviewBridge {
 	final WindowManager mastodonWin;
 	int SOURCE_ID = 0;
 	int SOURCE_USED_RES_LEVEL = 0;
+
+	//NB: defaults do not alter the raw data values
 	float INTENSITY_CONTRAST = 1;      //raw data multiplied with this value and...
 	float INTENSITY_SHIFT = 0;         //...then added with this value and...
-	float INTENSITY_CLAMP_AT_TOP = 700;//...then assured/clamped not to be above this value and...
+	float INTENSITY_CLAMP_AT_TOP = 65535;//...then assured/clamped not to be above this value and...
 	float INTENSITY_GAMMA = 1.0f;      //...then, finally, gamma-corrected (squeezed through exp());
 
-	boolean INTENSITY_OF_COLORS_APPLY = true;//flag to enable/disable imprinting, with details just below:
+	boolean INTENSITY_OF_COLORS_APPLY = false;//flag to enable/disable imprinting, with details just below:
 	boolean INTENSITY_OF_COLORS_BOOST = true;//flag to enable/disable boosting of rgb colors to the brightest possible, yet same hue
 	float SPOT_RADIUS_SCALE = 3.0f;    //the spreadColor() imprints spot this much larger than what it is in Mastodon
 	float INTENSITY_OF_COLORS = 2100;  //and this max allowed value is used for the imprinting...
 
-	float INTENSITY_RANGE_MAX = 2110;  //...because it plays nicely with this scaling range
+	float INTENSITY_RANGE_MAX = 5000;  //...because it plays nicely with this scaling range
 	float INTENSITY_RANGE_MIN = 0;
 	boolean UPDATE_VOLUME_AUTOMATICALLY = true;
 	boolean UPDATE_VOLUME_VERBOSE_REPORTS = false;
