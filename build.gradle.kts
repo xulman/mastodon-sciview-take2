@@ -13,7 +13,7 @@ repositories {
 }
 
 dependencies {
-    implementation(platform("org.scijava:pom-scijava:35.1.1"))
+    implementation(platform("org.scijava:pom-scijava:36.0.0"))
 
     implementation("net.imagej:imagej")
 
