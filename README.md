@@ -1,6 +1,5 @@
 # Mastodon-sciview Bridge (take2)
-This is a reincarnation of [`xulman`](https://github.com/xulman) and [`RuoshanLan`](https://github.com/ruoshanlan)
-[earlier project `mastodon-sciview`](https://github.com/mastodon-sc/mastodon-sciview/).
+This is a reincarnation of [an earlier project `mastodon-sciview`](https://github.com/mastodon-sc/mastodon-sciview/) by [`xulman`](https://github.com/xulman) and [`RuoshanLan`](https://github.com/ruoshanlan).
 It aims to display data from [Mastodon](https://github.com/mastodon-sc) also in [sciview (and scenery)](https://github.com/scenerygraphics/sciview).
 
 The repository was started during the [scenery and sciview hackathon](https://imagesc.zulipchat.com/#narrow/stream/391996-Zzz.3A-.5B2023-06.5D-scenery.2Bsciview-hackathon-dresden)
@@ -55,7 +54,15 @@ and allows to adjust parameters of it:
 
 ![The controls panel dialog window](doc/controls_panel.png)
 
-In its middle section, convenience shortcuts to the sciview controls made available, while, at the bottom, in-painting controls are grouped.
+In its middle section, convenience shortcuts to the sciview controls are made available, while, at the bottom, in-painting controls are grouped.
+
+Opening a new Mastodon's BDV (BigDataViewer) window via the panel's top-right button `Open Synced Mastodon BDV` will make sciview's view follow
+that BDV's view. That said, the change of view angle (but not panning nor zooming) in that BDV is immediately applied also to sciview, which makes
+sciview look at the same piece of data. Enabled colors (tags) in that BDV are also immediately effective in sciview. Last but not least, selecting
+a spot in Mastodon selects it also in the sciview and displays it's sphere as a wire-frame (not as solid sphere as it is usually). This works also
+in the opposite direction, from sciview to Mastodon.
+
+Alternatively, the controls panel contains the same three locks as it is in Mastodon, and it works as expected.
 
 ## Keyboard shortcuts
 The summary of the currently available keyboard keys can be opened into a separate, non-model window by selecting the menu `Help -> Mastodon Bridge` in sciview.
