@@ -103,10 +103,11 @@ java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar;dependency/*" org.mastodon.
 
 ### Notes:
 
-Make sure Java 11 or newer is used.
+Make sure **exactly Java 11** is used.
 
-The versions must match. This repository is wanting sciview of a particular version, see `pom.xml`, the `dependency` section.
-Either use sciview of that version, or update the `version` tag in the `pom.xml` to that of currently used sciview.
+Furthermore, the package versions must match. 
+This repository is wanting sciview of a particular version, see `pom.xml`, the `dependency` section.
+Either use sciview of that version, or update the `version` tag in the `pom.xml` to the current version of your sciview.
 The version of the currently used sciview can be found in the `sciview/settings.gradle.kts`, the entry `gradle.rootProject`.
 
 Known functional versions are:
