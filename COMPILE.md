@@ -1,9 +1,9 @@
 # Mastodon-sciview Bridge (take2)
-This is a reincarnation of `xulman` and `RuoshanLan` [earlier project `mastodon-sciview`](https://github.com/mastodon-sc/mastodon-sciview/).
+This is a reincarnation of [an earlier project `mastodon-sciview`](https://github.com/mastodon-sc/mastodon-sciview/) by [`xulman`](https://github.com/xulman) and [`RuoshanLan`](https://github.com/ruoshanlan).
 It aims to display data from [Mastodon](https://github.com/mastodon-sc) also in [sciview (and scenery)](https://github.com/scenerygraphics/sciview).
 
 The repository was started during the [scenery and sciview hackathon](https://imagesc.zulipchat.com/#narrow/stream/391996-Zzz.3A-.5B2023-06.5D-scenery.2Bsciview-hackathon-dresden)
-in Dresden (Germany) in June 2023, but most of the code was contributed by `xulman` shortly afterwards.
+in Dresden (Germany) in June 2023, but most of the code was contributed by [`xulman`](https://github.com/xulman) shortly afterward.
 
 [example image here]
 
