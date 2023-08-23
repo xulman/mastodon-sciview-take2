@@ -95,6 +95,12 @@ ulman@localhost ~/devel/sciview_hack2/mastodon-sciview-take2/target
 $ java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar:dependency/*" org.mastodon.mamut.util.StartFiji
 ```
 
+or on Windows systems (where [`:` is on Windows replaced with `;`](https://www.baeldung.com/java-classpath-syntax))
+
+```
+java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar;dependency/*" org.mastodon.mamut.util.StartFiji
+```
+
 ### Notes:
 
 Make sure Java 11 or newer is used.
