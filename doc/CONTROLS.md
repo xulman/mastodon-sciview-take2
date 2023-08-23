@@ -7,7 +7,7 @@ This enabled us to implement *gamma correction* as well as *track colors in-pain
 
 An illustrative screenshot of the [Mastodon freely available example project with pixel data](https://github.com/mastodon-sc/mastodon-example-data)
 could look like this:
-![A screenshot of the Mastodon public demo data shown with this project](doc/example_data.png)
+![A screenshot of the Mastodon public demo data shown with this project](example_data.png)
 
 ## Gamma correction, and more...
 First we need to understand what happens to pixel values on their way to the screen:

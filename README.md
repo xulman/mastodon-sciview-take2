@@ -49,7 +49,7 @@ the functionalities of sciview itself.
 
 ## Viewing options
 However, controls relevant to the tracking context (plus convenience shortcut controls) are put together in the controls panel.
-The panel, for example, summarizes [how (copies of the) pixel data are additionally processed in order to improve their appearance](CONTROLS.md),
+The panel, for example, summarizes [how (copies of the) pixel data are additionally processed in order to improve their appearance](doc/CONTROLS.md),
 and allows to adjust parameters of it:
 
 ![The controls panel dialog window](doc/controls_panel.png)
@@ -73,4 +73,4 @@ Sometimes, it is necessary to (right) mouse click into the main viewing pane of 
 
 
 # How to compile and deploy
-[Please, refer to `COMPILE.md`](COMPILE.md)
+[Please, refer to `doc/COMPILE.md`](doc/COMPILE.md)
