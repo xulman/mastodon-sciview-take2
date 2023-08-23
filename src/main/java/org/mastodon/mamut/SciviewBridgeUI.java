@@ -99,7 +99,7 @@ public class SciviewBridgeUI {
 
 		c.gridy++;
 		c.gridx = 0;
-		insertLabel("Set to zero any voxel whose value would have been above:", c);
+		insertLabel("Clamp all voxels so that their values are not above:", c);
 		//
 		c.gridx = 1;
 		INTENSITY_CLAMP_AT_TOP = new SpinnerNumberModel(700.0, 0.0, 65535.0, 50.0);
