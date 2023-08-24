@@ -64,6 +64,11 @@ public abstract class AbstractAdjustableSliderBasedControl {
 		lowBoundInfo = associatedLowBound;
 		highBoundInfo = associatedHighBound;
 
+		//add tooltip but only if there's none already
+		if (slider.getToolTipText() == null) {
+			slider.setToolTipText("Press and hold both CTRL and left-mouse-button while dragging the mouse horizontally to adjust sliding range.");
+		}
+
 		//listeners setup: setting the slider from the associated spinner
 		final SpinnerModel m = associatedValueSpinner.getModel();
 		if (! (m instanceof SpinnerNumberModel))
