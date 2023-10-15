@@ -1,18 +1,18 @@
-package org.mastodon.mamut.util;
+package plugins.util;
 
 import graphics.scenery.Node;
+import graphics.scenery.Sphere;
 import org.joml.Vector3f;
 import org.mastodon.mamut.MamutAppModel;
-import org.mastodon.mamut.model.Spot;
 import org.mastodon.mamut.model.Link;
+import org.mastodon.mamut.model.Spot;
 import org.mastodon.spatial.SpatialIndex;
 import org.mastodon.ui.coloring.GraphColorGenerator;
 import sc.iview.SciView;
-import graphics.scenery.Sphere;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
 public class SphereNodes {
 

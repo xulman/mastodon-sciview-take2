@@ -1,4 +1,4 @@
-package org.mastodon.mamut.util;
+package plugins.util;
 
 import bdv.ui.rangeslider.RangeSlider;
 

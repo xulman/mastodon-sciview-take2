@@ -1,8 +1,6 @@
 package org.mastodon.mamut;
 
 import bdv.ui.rangeslider.RangeSlider;
-import org.mastodon.mamut.util.AbstractAdjustableSliderBasedControl;
-import org.mastodon.mamut.util.AdjustableBoundsRangeSlider;
 
 import javax.swing.*;
 import java.awt.*;

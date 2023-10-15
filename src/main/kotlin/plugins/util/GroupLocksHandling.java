@@ -1,4 +1,4 @@
-package org.mastodon.mamut.util;
+package plugins.util;
 
 import org.mastodon.app.ui.GroupLocksPanel;
 import org.mastodon.grouping.GroupHandle;
@@ -15,6 +15,7 @@ import org.scijava.event.EventHandler;
 import org.scijava.event.EventSubscriber;
 import org.scijava.event.SciJavaEvent;
 import sc.iview.event.NodeActivatedEvent;
+
 import java.util.List;
 import java.util.Optional;
 

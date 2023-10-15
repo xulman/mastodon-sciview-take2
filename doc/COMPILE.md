@@ -92,13 +92,13 @@ ulman@localhost ~/devel/sciview_hack2/mastodon-sciview-take2
 $ cd target
 
 ulman@localhost ~/devel/sciview_hack2/mastodon-sciview-take2/target
-$ java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar:dependency/*" org.mastodon.mamut.util.StartFiji
+$ java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar:dependency/*" org.mastodon.mamut.util_java.StartFiji
 ```
 
 or on Windows systems (where [`:` is on Windows replaced with `;`](https://www.baeldung.com/java-classpath-syntax))
 
 ```
-java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar;dependency/*" org.mastodon.mamut.util.StartFiji
+java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar;dependency/*" org.mastodon.mamut.util_java.StartFiji
 ```
 
 ### Notes:

@@ -1,6 +1,7 @@
 package org.mastodon.mamut;
 
-import org.mastodon.mamut.util.AdjustableBoundsSlider;
+
+import util_java.AdjustableBoundsSlider;
 
 import javax.swing.*;
 import java.awt.*;

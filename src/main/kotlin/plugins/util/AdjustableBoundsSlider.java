@@ -1,4 +1,4 @@
-package org.mastodon.mamut.util;
+package plugins.util;
 
 import javax.swing.*;
 import java.awt.*;
