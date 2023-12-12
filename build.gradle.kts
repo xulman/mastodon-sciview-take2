@@ -21,7 +21,7 @@ dependencies {
     implementation("sc.iview:sciview")
     implementation("org.yaml:snakeyaml:[1.29, 1.33]!!")
 
-    implementation("org.mastodon:mastodon:1.0.0-beta-27-SNAPSHOT")
+    implementation("org.mastodon:mastodon:1.0.0-beta-27")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")

@@ -5,6 +5,7 @@ import bdv.viewer.TransformListener
 import net.imglib2.realtransform.AffineTransform3D
 import org.mastodon.graph.GraphChangeListener
 import org.mastodon.mamut.model.Spot
+import org.mastodon.mamut.views.bdv.MamutViewBdv
 import org.mastodon.model.FocusListener
 import org.mastodon.spatial.VertexPositionListener
 import org.mastodon.ui.coloring.ColoringModel.ColoringChangedListener
@@ -27,7 +28,7 @@ import java.beans.PropertyChangeListener
 class BdvNotifier(
     updateContentProcessor: Runnable,
     updateViewProcessor: Runnable,
-    mastodonAppModel: MamutAppModel,
+    mastodonAppModel: ProjectModel,
     bdvWindow: MamutViewBdv
 ) {
 

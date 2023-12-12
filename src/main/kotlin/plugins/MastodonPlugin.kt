@@ -28,14 +28,17 @@
 package plugins
 
 import org.mastodon.app.ui.ViewMenuBuilder
+import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.plugin.MamutPlugin
-import org.mastodon.mamut.plugin.MamutPluginAppModel
-import org.mastodon.ui.keymap.CommandDescriptionProvider
-import org.mastodon.ui.keymap.CommandDescriptions
+//import org.mastodon.mamut.plugin.MamutPluginAppModel
+//import org.mastodon.ui.keymap.CommandDescriptionProvider
+//import org.mastodon.ui.keymap.CommandDescriptions
 import org.mastodon.ui.keymap.KeyConfigContexts
 import org.scijava.AbstractContextual
 import org.scijava.command.CommandService
 import org.scijava.plugin.Plugin
+import org.scijava.ui.behaviour.io.gui.CommandDescriptionProvider
+import org.scijava.ui.behaviour.io.gui.CommandDescriptions
 import org.scijava.ui.behaviour.util.AbstractNamedAction
 import org.scijava.ui.behaviour.util.Actions
 import org.scijava.ui.behaviour.util.RunnableAction
@@ -53,7 +56,7 @@ class MastodonPlugin : AbstractContextual(), MamutPlugin {
 
     /** Command descriptions for all provided commands  */
     @Plugin(type = Descriptions::class)
-    class Descriptions : CommandDescriptionProvider(KeyConfigContexts.TRACKSCHEME, KeyConfigContexts.BIGDATAVIEWER) {
+    class Descriptions : CommandDescriptionProvider(Scope(KeyConfigContexts.TRACKSCHEME), KeyConfigContexts.BIGDATAVIEWER) {
         override fun getCommandDescriptions(descriptions: CommandDescriptions) {
             descriptions.add(OPEN_SCIVIEW, OPEN_SCIVIEW_KEYS, "TBA")
         }
@@ -61,14 +64,14 @@ class MastodonPlugin : AbstractContextual(), MamutPlugin {
 
     //------------------------------------------------------------------------
     private val actionOpenSciview: AbstractNamedAction
-    private var pluginAppModel: MamutPluginAppModel? = null
+    private var pluginAppModel: ProjectModel? = null
 
     init {
         actionOpenSciview = RunnableAction(OPEN_SCIVIEW) { openSciview() }
         updateEnabledActions()
     }
 
-    override fun setAppPluginModel(model: MamutPluginAppModel) {
+    override fun setAppPluginModel(model: ProjectModel) {
         pluginAppModel = model
         updateEnabledActions()
     }
@@ -79,7 +82,7 @@ class MastodonPlugin : AbstractContextual(), MamutPlugin {
 
     /** enables/disables menu items based on the availability of some project  */
     private fun updateEnabledActions() {
-        val appModel = if (pluginAppModel == null) null else pluginAppModel!!.appModel
+        val appModel = if (pluginAppModel == null) null else pluginAppModel!!
         actionOpenSciview.setEnabled(appModel != null)
     }
 
