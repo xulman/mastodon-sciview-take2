@@ -20,10 +20,13 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
+import org.mastodon.mamut.views.bdv.MamutViewBdv
 import org.mastodon.model.tag.TagSetStructure
 import org.mastodon.ui.coloring.DefaultGraphColorGenerator
 import org.mastodon.ui.coloring.GraphColorGenerator
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator
+import org.mastodon.views.bdv.BigDataViewerMamut
+import org.scijava.Context
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
@@ -39,7 +42,7 @@ import kotlin.math.sqrt
 
 class SciviewBridge {
     //data source stuff
-    val mastodonWin: WindowManager?
+    val mastodonWin: ProjectModel?
     var SOURCE_ID = 0
     var SOURCE_USED_RES_LEVEL = 0
 
@@ -115,25 +118,25 @@ class SciviewBridge {
     }
 
     constructor(
-        mastodonMainWindow: WindowManager,
+        mastodonMainWindow: ProjectModel,
         targetSciviewWindow: SciView?
     ) : this(mastodonMainWindow, 0, 0, targetSciviewWindow)
 
     constructor(
-        mastodonMainWindow: WindowManager,
+        mastodonMainWindow: ProjectModel,
         sourceID: Int, sourceResLevel: Int,
         targetSciviewWindow: SciView?
     ) {
         mastodonWin = mastodonMainWindow
         sciviewWin = targetSciviewWindow
         detachedDPP_withOwnTime = DPP_DetachedOwnTime(
-            mastodonWin.appModel.minTimepoint,
-            mastodonWin.appModel.maxTimepoint
+            mastodonWin.minTimepoint,
+            mastodonWin.maxTimepoint
         )
 
         //adjust the default scene's settings
         sciviewWin!!.applicationName = ("sciview for Mastodon: "
-                + mastodonMainWindow.projectManager.project.projectRoot.toString())
+                + mastodonMainWindow.project.projectRoot.toString())
         sciviewWin.toggleSidebar()
         sciviewWin.floor!!.visible = false
         sciviewWin.lights!!.forEach(Consumer { l: PointLight ->
@@ -154,7 +157,7 @@ class SciviewBridge {
         //get necessary metadata - from image data
         SOURCE_ID = sourceID
         SOURCE_USED_RES_LEVEL = sourceResLevel
-        val spimSource = mastodonWin.appModel.sharedBdvData.sources[SOURCE_ID].spimSource
+        val spimSource = mastodonWin.sharedBdvData.sources[SOURCE_ID].spimSource
         val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()
         //SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
         val volumedimsUsedreslevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray()
@@ -191,7 +194,7 @@ class SciviewBridge {
         volumeParent = null //sciviewWin.addSphere();
         //volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
         //
-        val commonNodeName = ": " + mastodonMainWindow.projectManager.project.projectRoot.toString()
+        val commonNodeName = ": " + mastodonMainWindow.project.projectRoot.toString()
         redVolChannelNode = sciviewWin.addVolume(redVolChannelImg, "RED VOL$commonNodeName", floatArrayOf(1f, 1f, 1f))
         adjustAndPlaceVolumeIntoTheScene(
             redVolChannelNode,
@@ -276,7 +279,7 @@ class SciviewBridge {
 
         //add the sciview-side displaying handler for the spots
         sphereNodes = SphereNodes(sciviewWin, sphereParent)
-        sphereNodes.showTheseSpots(mastodonWin.appModel, 0, noTScolorizer)
+        sphereNodes.showTheseSpots(mastodonWin, 0, noTScolorizer)
 
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
@@ -481,7 +484,7 @@ class SciviewBridge {
         BdvNotifier(
             { updateSciviewContent(bdvWinParamsProvider) },
             { updateSciviewCamera(bdvWin) },
-            mastodonWin.appModel,
+            mastodonWin,
             bdvWin
         )
         return bdvWin
@@ -497,7 +500,7 @@ class SciviewBridge {
         val ts = forThisBdv.coloringModel.tagSet
         if (ts != null) {
             if (ts !== recentTagSet) {
-                recentColorizer = TagSetGraphColorGenerator(mastodonWin!!.appModel.model.tagSetModel, ts)
+                recentColorizer = TagSetGraphColorGenerator(mastodonWin!!.model.tagSetModel, ts)
             }
             colorizer = recentColorizer
         } else {
@@ -550,7 +553,7 @@ class SciviewBridge {
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateSciviewColoring(forThisBdv)
         sphereNodes!!.showTheseSpots(
-            mastodonWin!!.appModel,
+            mastodonWin!!,
             forThisBdv.timepoint, forThisBdv.colorizer!!
         )
     }
@@ -578,7 +581,7 @@ class SciviewBridge {
         val color = FloatArray(3)
         if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: started")
         val tp = forThisBdv.timepoint
-        val srcRAI = mastodonWin!!.appModel
+        val srcRAI = mastodonWin!!
             .sharedBdvData.sources[SOURCE_ID]
             .spimSource.getSource(tp, SOURCE_USED_RES_LEVEL)
         if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: resets with new white content")
@@ -588,7 +591,7 @@ class SciviewBridge {
         )
         if (INTENSITY_OF_COLORS_APPLY) {
             val colorizer = forThisBdv.colorizer
-            for (s in mastodonWin.appModel.model.spatioTemporalIndex.getSpatialIndex(tp)) {
+            for (s in mastodonWin.model.spatioTemporalIndex.getSpatialIndex(tp)) {
                 val col = colorizer!!.color(s)
                 if (col == 0) continue  //don't imprint black spots into the volume
                 color[0] = (col and 0x00FF0000 shr 16) / 255f
