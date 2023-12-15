@@ -1,8 +1,8 @@
 package plugins.scijava
 
 import org.mastodon.mamut.CloseListener
+import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.SciviewBridge
-import org.mastodon.mamut.WindowManager
 import org.scijava.command.Command
 import org.scijava.command.CommandService
 import org.scijava.command.DynamicCommand
@@ -14,7 +14,7 @@ import sc.iview.SciViewService
 @Plugin(type = Command::class, name = "Mastodon to Sciview")
 class MastodonSidePlugin : DynamicCommand() {
     @Parameter
-    private var mastodon: WindowManager? = null
+    private var mastodon: ProjectModel? = null
 
     @Parameter(label = "Try to reuse existing sciview window:")
     var tryToReuseExistingSciviewWindow = true
@@ -25,13 +25,11 @@ class MastodonSidePlugin : DynamicCommand() {
     @Parameter(label = "Choose image data channel:", choices = [], initializer = "volumeParams")
     var useThisChannel = "default first channel"
     lateinit var channelNames: MutableList<String>
+
     fun volumeParams() {
-        val sources = mastodon!!.appModel
-            .sharedBdvData.sources.size
+        val sources = mastodon!!.sharedBdvData.sources.size
         channelNames = ArrayList(sources)
-        mastodon!!.appModel
-            .sharedBdvData.sources
-            .forEach{ channelNames.add(it.spimSource.name) }
+        mastodon!!.sharedBdvData.sources.forEach{ channelNames.add(it.spimSource.name) }
         getInfo()
             .getMutableInput("useThisChannel", String::class.java).choices = channelNames
     }
@@ -65,7 +63,7 @@ class MastodonSidePlugin : DynamicCommand() {
         private var sciViewService: SciViewService? = null
 
         @Parameter
-        private var mastodon: WindowManager? = null
+        private var mastodon: ProjectModel? = null
 
         @Parameter(persist = false)
         private var channelIdx = 0
@@ -80,7 +78,7 @@ class MastodonSidePlugin : DynamicCommand() {
         var useThisResolutionDownscale = "[1,1,1]"
         lateinit var levelNames: MutableList<String>
         fun levelParams() {
-            val chSource = mastodon!!.appModel
+            val chSource = mastodon!!
                 .sharedBdvData.sources[channelIdx].spimSource
             val levels = chSource.numMipmapLevels
             levelNames = ArrayList(levels)
@@ -113,7 +111,7 @@ class MastodonSidePlugin : DynamicCommand() {
                 val sv = sciViewService!!.getOrCreateActiveSciView()
                 val bridge = SciviewBridge(mastodon!!, channelIdx, chosenLevel, sv)
                 if (openBridgeUI) bridge.createAndShowControllingUI()
-                mastodon!!.appModel.projectClosedListeners().add(CloseListener {
+                mastodon!!.projectClosedListeners().add(CloseListener {
                     println("Mastodon project was closed, cleaning up in sciview:")
                     bridge.close() //calls also bridge.detachControllingUI();
                 })

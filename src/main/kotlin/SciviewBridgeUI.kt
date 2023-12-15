@@ -29,7 +29,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         mc.insets = Insets(0, 0, 0, 0)
         mc.weightx = 0.2
         mc.gridx = 0
-        lockGroupHandler = GroupLocksHandling(controlledBridge!!, controlledBridge!!.mastodonWin!!)
+        lockGroupHandler = GroupLocksHandling(controlledBridge!!, controlledBridge!!.mastodon!!)
         MastodonRowPlaceHolder.add(lockGroupHandler.createAndActivate()!!, mc)
         mc.weightx = 0.6
         mc.gridx = 1
