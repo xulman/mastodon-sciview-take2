@@ -133,8 +133,7 @@ class SciviewBridge {
         )
 
         //adjust the default scene's settings
-        sciviewWin!!.applicationName = ("sciview for Mastodon: "
-                + mastodonMainWindow.project.projectRoot.toString())
+        sciviewWin!!.applicationName = ("sciview for Mastodon: " + mastodon.projectName)
         sciviewWin.toggleSidebar()
         sciviewWin.floor!!.visible = false
         sciviewWin.lights!!.forEach(Consumer { l: PointLight ->
@@ -192,7 +191,7 @@ class SciviewBridge {
         volumeParent = null //sciviewWin.addSphere();
         //volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
         //
-        val commonNodeName = ": " + mastodonMainWindow.project.projectRoot.toString()
+        val commonNodeName = ": " + mastodon.projectName
         redVolChannelNode = sciviewWin.addVolume(redVolChannelImg, "RED VOL$commonNodeName", floatArrayOf(1f, 1f, 1f))
         adjustAndPlaceVolumeIntoTheScene(
             redVolChannelNode,
@@ -473,7 +472,7 @@ class SciviewBridge {
 
     // --------------------------------------------------------------------------
     fun openSyncedBDV(): MamutViewBdv {
-        val bdvWin = mastodonWin!!.createBigDataViewer()
+        val bdvWin = mastodon!!.windowManager.createView(MamutViewBdv::class.java)
         bdvWin.frame.setTitle("BDV linked to " + sciviewWin!!.getName())
 
         //initial spots content:
