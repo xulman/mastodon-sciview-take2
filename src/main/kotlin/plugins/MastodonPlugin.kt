@@ -30,9 +30,7 @@ package plugins
 import org.mastodon.app.ui.ViewMenuBuilder
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.plugin.MamutPlugin
-//import org.mastodon.mamut.plugin.MamutPluginAppModel
-//import org.mastodon.ui.keymap.CommandDescriptionProvider
-//import org.mastodon.ui.keymap.CommandDescriptions
+import org.mastodon.mamut.KeyConfigScopes
 import org.mastodon.ui.keymap.KeyConfigContexts
 import org.scijava.AbstractContextual
 import org.scijava.command.CommandService
@@ -56,7 +54,8 @@ class MastodonPlugin : AbstractContextual(), MamutPlugin {
 
     /** Command descriptions for all provided commands  */
     @Plugin(type = Descriptions::class)
-    class Descriptions : CommandDescriptionProvider(Scope(KeyConfigContexts.TRACKSCHEME), KeyConfigContexts.BIGDATAVIEWER) {
+    class Descriptions : CommandDescriptionProvider(KeyConfigScopes.MAMUT,
+                KeyConfigContexts.TRACKSCHEME, KeyConfigContexts.BIGDATAVIEWER) {
         override fun getCommandDescriptions(descriptions: CommandDescriptions) {
             descriptions.add(OPEN_SCIVIEW, OPEN_SCIVIEW_KEYS, "TBA")
         }
