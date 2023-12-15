@@ -22,13 +22,13 @@ import java.beans.PropertyChangeListener
  *
  * @param updateContentProcessor  handler of the scene rebuilding event
  * @param updateViewProcessor  handler of the scene viewing-angle event
- * @param mastodonAppModel  the underlying Mastodon data
+ * @param mastodon  the underlying Mastodon data
  * @param bdvWindow  BDV window that operated on the underlying Mastodon data
  */
 class BdvNotifier(
     updateContentProcessor: Runnable,
     updateViewProcessor: Runnable,
-    mastodonAppModel: ProjectModel,
+    mastodon: ProjectModel,
     bdvWindow: MamutViewBdv
 ) {
 
@@ -49,9 +49,9 @@ class BdvNotifier(
         bdvWindow.viewerPanelMamut.timePointListeners().add(bdvUpdateListener)
         bdvWindow.viewerPanelMamut.addPropertyChangeListener(bdvUpdateListener)
         bdvWindow.coloringModel.listeners().add(bdvUpdateListener)
-        mastodonAppModel.focusModel.listeners().add(bdvUpdateListener)
-        mastodonAppModel.model.graph.addVertexPositionListener(bdvUpdateListener)
-        mastodonAppModel.model.graph.addGraphChangeListener(bdvUpdateListener)
+        mastodon.focusModel.listeners().add(bdvUpdateListener)
+        mastodon.model.graph.addVertexPositionListener(bdvUpdateListener)
+        mastodon.model.graph.addGraphChangeListener(bdvUpdateListener)
         cumulatingEventsHandlerThread.start()
         bdvWindow.onClose {
             println("Cleaning up while BDV window is closing.")
@@ -59,9 +59,9 @@ class BdvNotifier(
             bdvWindow.viewerPanelMamut.timePointListeners().remove(bdvUpdateListener)
             bdvWindow.viewerPanelMamut.removePropertyChangeListener(bdvUpdateListener)
             bdvWindow.coloringModel.listeners().remove(bdvUpdateListener)
-            mastodonAppModel.focusModel.listeners().remove(bdvUpdateListener)
-            mastodonAppModel.model.graph.removeGraphChangeListener(bdvUpdateListener)
-            mastodonAppModel.model.graph.removeVertexPositionListener(bdvUpdateListener)
+            mastodon.focusModel.listeners().remove(bdvUpdateListener)
+            mastodon.model.graph.removeGraphChangeListener(bdvUpdateListener)
+            mastodon.model.graph.removeVertexPositionListener(bdvUpdateListener)
             cumulatingEventsHandlerThread.stopTheWatching()
         }
     }
