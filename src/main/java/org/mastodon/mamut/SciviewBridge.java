@@ -239,7 +239,7 @@ public class SciviewBridge {
 		//spots stuff:
 		sphereParent = sciviewWin.addSphere();
 		//todo: make the parent node (sphere) invisible
-		sphereParent.setName("SPOTS"+commonNodeName);
+//		sphereParent.setName("SPOTS"+commonNodeName);
 		//
 		final float MAGIC_ONE_TENTH = 0.1f; //probably something inside scenery...
 		spotsScale.mul( MAGIC_ONE_TENTH * redVolChannelNode.getPixelToWorldRatio() );
@@ -350,7 +350,6 @@ public class SciviewBridge {
 		//
 		//massage input data into the red channel
 		LoopBuilder.setImages(srcImg,redCh)
-				.flatIterationOrder()
 				.multiThreaded()
 				.forEachPixel(intensityProcessor);
 		//clone the red channel into the remaining two, which for sure

@@ -46,8 +46,8 @@ public class StartSciviewBridgeDirectly {
 			// --------------->>  <<---------------
 			//point this to your testing project, or grab example project with:
 			//git clone https://github.com/mastodon-sc/mastodon-example-data.git
-			//String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
-			String projectPath = "/home/ulman/devel/sciview_hack2/mastodon-example-data/tgmm-mini/tgmm-mini.mastodon";
+			String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
+			//String projectPath = "/home/ulman/devel/sciview_hack2/mastodon-example-data/tgmm-mini/tgmm-mini.mastodon";
 			// --------------->>  <<---------------
 
 			SciView sv = createSciview();
