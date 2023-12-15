@@ -96,25 +96,6 @@ class SciviewBridge {
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
 
-    /** exists here only for the demo (in tests folder), don't ever use in normal scenarios  */
-    internal constructor() {
-        mastodonWin = null
-        sciviewWin = null
-        sphereNodes = null
-        axesParent = null
-        sphereParent = null
-        volumeParent = null
-        greenVolChannelNode = null
-        blueVolChannelNode = null
-        redVolChannelNode = null
-        volNodes = null
-        greenVolChannelImg = null
-        blueVolChannelImg = null
-        redVolChannelImg = null
-        mastodonToImgCoordsTransfer = null
-        detachedDPP_withOwnTime = DPP_DetachedOwnTime(0, 0)
-    }
-
     constructor(
         mastodonMainWindow: ProjectModel,
         targetSciviewWindow: SciView?
