@@ -62,27 +62,15 @@ class MastodonPlugin : AbstractContextual(), MamutPlugin {
     }
 
     //------------------------------------------------------------------------
-    private val actionOpenSciview: AbstractNamedAction
-    private var pluginAppModel: ProjectModel? = null
-
-    init {
-        actionOpenSciview = RunnableAction(OPEN_SCIVIEW) { openSciview() }
-        updateEnabledActions()
-    }
+    private val actionOpenSciview: AbstractNamedAction = RunnableAction(OPEN_SCIVIEW) { openSciview() }
+    private var projectModel: ProjectModel? = null
 
     override fun setAppPluginModel(model: ProjectModel) {
-        pluginAppModel = model
-        updateEnabledActions()
+        projectModel = model
     }
 
     override fun installGlobalActions(actions: Actions) {
         actions.namedAction(actionOpenSciview, *OPEN_SCIVIEW_KEYS)
-    }
-
-    /** enables/disables menu items based on the availability of some project  */
-    private fun updateEnabledActions() {
-        val appModel = if (pluginAppModel == null) null else pluginAppModel!!
-        actionOpenSciview.setEnabled(appModel != null)
     }
 
     //------------------------------------------------------------------------
