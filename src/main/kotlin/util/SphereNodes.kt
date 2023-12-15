@@ -3,7 +3,7 @@ package util
 import graphics.scenery.Node
 import graphics.scenery.Sphere
 import org.joml.Vector3f
-import org.mastodon.mamut.MamutAppModel
+import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
 import org.mastodon.ui.coloring.GraphColorGenerator
@@ -21,7 +21,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
     val addedExtraNodes: MutableList<Sphere> = LinkedList()
     private var spotRef: Spot? = null
     fun showTheseSpots(
-        mastodonData: MamutAppModel,
+        mastodonData: ProjectModel,
         timepoint: Int,
         colorizer: GraphColorGenerator<Spot, Link>
     ): Int {

@@ -2,9 +2,8 @@ package util
 
 import org.mastodon.app.ui.GroupLocksPanel
 import org.mastodon.grouping.GroupHandle
-import org.mastodon.mamut.MamutAppModel
+import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.SciviewBridge
-import org.mastodon.mamut.WindowManager
 import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
 import org.mastodon.model.NavigationListener
@@ -16,10 +15,10 @@ import org.scijava.event.SciJavaEvent
 import sc.iview.event.NodeActivatedEvent
 
 class GroupLocksHandling(//controls sciview via this bridge obj
-    private val bridge: SciviewBridge, mastodon: WindowManager
+    private val bridge: SciviewBridge, mastodon: ProjectModel
 ) {
-    private val appModel //controls Mastodon
-            : MamutAppModel
+    private val projectModel //controls Mastodon
+            : ProjectModel
     private val vertices //shortcut to inside of Mastodon
             : PoolCollectionWrapper<Spot>
     private val navigationRequestsHandler: NavigationRequestsHandler = NavigationRequestsHandler()
@@ -28,8 +27,8 @@ class GroupLocksHandling(//controls sciview via this bridge obj
     private var isActive = false
 
     init {
-        appModel = mastodon.appModel
-        vertices = appModel.model.graph.vertices()
+        projectModel = mastodon
+        vertices = projectModel.model.graph.vertices()
         //'cause it's not having any group handle yet
     }
 
@@ -37,18 +36,18 @@ class GroupLocksHandling(//controls sciview via this bridge obj
         if (isActive) return null
         isActive = true
         bridge.eventService.subscribe(sciviewFocusHandler)
-        myGroupHandle = appModel.groupManager.createGroupHandle()
-        myGroupHandle.getModel(appModel.NAVIGATION).listeners().add(navigationRequestsHandler)
-        myGroupHandle.getModel(appModel.TIMEPOINT).listeners().add(navigationRequestsHandler)
+        myGroupHandle = projectModel.groupManager.createGroupHandle()
+        myGroupHandle.getModel(projectModel.NAVIGATION).listeners().add(navigationRequestsHandler)
+        myGroupHandle.getModel(projectModel.TIMEPOINT).listeners().add(navigationRequestsHandler)
         return GroupLocksPanel(myGroupHandle)
     }
 
     fun deactivate() {
         if (!isActive) return
         isActive = false
-        myGroupHandle.getModel(appModel.NAVIGATION).listeners().remove(navigationRequestsHandler)
-        myGroupHandle.getModel(appModel.TIMEPOINT).listeners().remove(navigationRequestsHandler)
-        appModel.groupManager.removeGroupHandle(myGroupHandle)
+        myGroupHandle.getModel(projectModel.NAVIGATION).listeners().remove(navigationRequestsHandler)
+        myGroupHandle.getModel(projectModel.TIMEPOINT).listeners().remove(navigationRequestsHandler)
+        projectModel.groupManager.removeGroupHandle(myGroupHandle)
 
         //can fail, so we better do it as the last action here
         val subs = bridge.eventService.getSubscribers(
@@ -67,7 +66,7 @@ class GroupLocksHandling(//controls sciview via this bridge obj
         }
 
         override fun timepointChanged() {
-            bridge.showTimepoint(myGroupHandle.getModel(appModel.TIMEPOINT).timepoint)
+            bridge.showTimepoint(myGroupHandle.getModel(projectModel.TIMEPOINT).timepoint)
         }
     }
 
@@ -83,7 +82,7 @@ class GroupLocksHandling(//controls sciview via this bridge obj
         val res = vertices.stream().filter { s: Spot -> name.matches(s.label.toRegex()) }.findFirst()
         if (res.isPresent) {
             //TODO: this is triggering also our handler (see above navigateToVertex()) !
-            myGroupHandle.getModel(appModel.NAVIGATION).notifyNavigateToVertex(res.get())
+            myGroupHandle.getModel(projectModel.NAVIGATION).notifyNavigateToVertex(res.get())
         }
     }
 
