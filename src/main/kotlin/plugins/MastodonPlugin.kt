@@ -78,7 +78,7 @@ class MastodonPlugin : AbstractContextual(), MamutPlugin {
     private fun openSciview() {
         context.getService(CommandService::class.java).run(
             MastodonSidePlugin::class.java, true,
-            "mastodon", pluginAppModel!!.windowManager
+            "mastodon", projectModel!!
         )
     }
 
