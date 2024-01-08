@@ -2,6 +2,7 @@ package util
 
 import graphics.scenery.Node
 import graphics.scenery.Sphere
+import graphics.scenery.utils.extensions.times
 import org.joml.Vector3f
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
@@ -29,7 +30,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         addedExtraNodes.clear()
 
         //nodes should honor if they are wished to be immediately visible or not
-        val finalVisiblityState = parentNode.visible
+        val finalVisibilityState = parentNode.visible
         if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
         val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
         val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
@@ -38,7 +39,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
             if (visibleNodesAfterall < knownNodes.size) {
                 //injecting into known nodes (already registered with sciview)
                 node = knownNodes[visibleNodesAfterall]
-                node.visible = finalVisiblityState
+                node.visible = finalVisibilityState
                 //NB: make sure it's visible (could have got hidden
                 // when there were fewer spots before)
             } else {
@@ -47,7 +48,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
                 node = Sphere()
                 parentNode.addChild(node)
                 addedExtraNodes.add(node)
-                node.visible = finalVisiblityState
+                node.visible = finalVisibilityState
             }
             setSphereNode(node, s, colorizer)
             if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == s.internalPoolIndex) {
@@ -78,10 +79,10 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
 
     private val auxSpatialPos = FloatArray(3)
     private val minusThisOffset = floatArrayOf(0f, 0f, 0f)
-    fun setDataCentre(centre: Vector3f) {
-        minusThisOffset[0] = centre.x
-        minusThisOffset[1] = centre.y
-        minusThisOffset[2] = centre.z
+    fun setDataCenter(center: Vector3f) {
+        minusThisOffset[0] = center.x
+        minusThisOffset[1] = center.y
+        minusThisOffset[2] = center.z
     }
 
     private fun setSphereNode(
@@ -114,7 +115,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         SCALE_FACTOR -= 0.5f
         if (SCALE_FACTOR < 0.4f) SCALE_FACTOR = 0.5f
         val factor = SCALE_FACTOR / oldScale
-        knownNodes.forEach(Consumer { s: Sphere -> s.spatial().scale = s.spatial().scale.mul(factor) })
+        knownNodes.forEach { s: Sphere -> s.spatial().scale.mul(factor) }
         println("Decreasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
@@ -122,7 +123,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         val oldScale = SCALE_FACTOR
         SCALE_FACTOR += 0.5f
         val factor = SCALE_FACTOR / oldScale
-        knownNodes.forEach(Consumer { s: Sphere -> s.spatial().scale = s.spatial().scale.mul(factor) })
+        knownNodes.forEach { s: Sphere -> s.spatial().scale.mul(factor) }
         println("Increasing scale to $SCALE_FACTOR, by factor $factor")
     }
 

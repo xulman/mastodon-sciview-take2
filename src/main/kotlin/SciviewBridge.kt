@@ -117,14 +117,12 @@ class SciviewBridge {
         sciviewWin!!.applicationName = ("sciview for Mastodon: " + mastodon.projectName)
         sciviewWin.toggleSidebar()
         sciviewWin.floor!!.visible = false
-        sciviewWin.lights!!.forEach(Consumer { l: PointLight ->
+        sciviewWin.lights!!.forEach { l: PointLight ->
             if (l.name.startsWith("headli")) adjustHeadLight(l) else l.visible = false
-        })
-        sciviewWin.camera!!.children.forEach(Consumer { l: Node ->
-            if (l.name.startsWith("headli") && l is PointLight) adjustHeadLight(
-                l
-            )
-        })
+        }
+        sciviewWin.camera!!.children.forEach { l: Node ->
+            if (l.name.startsWith("headli") && l is PointLight) adjustHeadLight(l)
+        }
         sciviewWin.addNode(AmbientLight(0.05f, Vector3f(1f, 1f, 1f)))
         sciviewWin.camera!!.spatial().move(30f, 2)
 
@@ -138,32 +136,32 @@ class SciviewBridge {
         val spimSource = mastodon.sharedBdvData.sources[SOURCE_ID].spimSource
         val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()
         //SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
-        val volumedimsUsedreslevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray()
+        val volumeDimsUsedResLevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray()
         val volumeDownscale = floatArrayOf(
-            volumeDims[0].toFloat() / volumedimsUsedreslevel[0].toFloat(),
-            volumeDims[1].toFloat() / volumedimsUsedreslevel[1].toFloat(),
-            volumeDims[2].toFloat() / volumedimsUsedreslevel[2].toFloat()
+            volumeDims[0].toFloat() / volumeDimsUsedResLevel[0].toFloat(),
+            volumeDims[1].toFloat() / volumeDimsUsedResLevel[1].toFloat(),
+            volumeDims[2].toFloat() / volumeDimsUsedResLevel[2].toFloat()
         )
         println("downscale factors: " + volumeDownscale[0] + "x, " + volumeDownscale[1] + "x, " + volumeDownscale[2] + "x")
         //
-        val volumePxRess = calculateDisplayVoxelRatioAlaBDV(spimSource)
-        println("pixel ratios: " + volumePxRess[0] + "x, " + volumePxRess[1] + "x, " + volumePxRess[2] + "x")
+        val voxelRes = getDisplayVoxelRatio(spimSource)
+        println("pixel ratios: " + voxelRes[0] + "x, " + voxelRes[1] + "x, " + voxelRes[2] + "x")
         //
         val volumeScale = Vector3f(
-            volumePxRess[0] * volumePxRess[0] * volumeDownscale[0] * volumeDownscale[0],
-            volumePxRess[1] * volumePxRess[1] * volumeDownscale[1] * volumeDownscale[1],
-            -1.0f * volumePxRess[2] * volumePxRess[2] * volumeDownscale[2] * volumeDownscale[2]
+            voxelRes[0] * voxelRes[0] * volumeDownscale[0] * volumeDownscale[0],
+            voxelRes[1] * voxelRes[1] * volumeDownscale[1] * volumeDownscale[1],
+            voxelRes[2] * voxelRes[2] * volumeDownscale[2] * volumeDownscale[2] * -1.0f
         )
         val spotsScale = Vector3f(
-            volumeDims[0] * volumePxRess[0],
-            volumeDims[1] * volumePxRess[1],
-            volumeDims[2] * volumePxRess[2]
+            volumeDims[0] * voxelRes[0],
+            volumeDims[1] * voxelRes[1],
+            volumeDims[2] * voxelRes[2]
         )
 
         //volume stuff:
-        redVolChannelImg = PlanarImgs.unsignedShorts(*volumedimsUsedreslevel)
-        greenVolChannelImg = PlanarImgs.unsignedShorts(*volumedimsUsedreslevel)
-        blueVolChannelImg = PlanarImgs.unsignedShorts(*volumedimsUsedreslevel)
+        redVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
+        greenVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
+        blueVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
         //
         freshNewWhiteContent(
             redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
@@ -241,15 +239,15 @@ class SciviewBridge {
         val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
         spotsScale.mul(MAGIC_ONE_TENTH * redVolChannelNode.pixelToWorldRatio)
         mastodonToImgCoordsTransfer = Vector3f(
-            volumePxRess[0] * volumeDownscale[0],
-            volumePxRess[1] * volumeDownscale[1],
-            volumePxRess[2] * volumeDownscale[2]
+            voxelRes[0] * volumeDownscale[0],
+            voxelRes[1] * volumeDownscale[1],
+            voxelRes[2] * volumeDownscale[2]
         )
         sphereParent.spatial().scale = spotsScale
         sphereParent.spatial().position = Vector3f(
-            volumedimsUsedreslevel[0].toFloat(),
-            volumedimsUsedreslevel[1].toFloat(),
-            volumedimsUsedreslevel[2].toFloat()
+            volumeDimsUsedResLevel[0].toFloat(),
+            volumeDimsUsedResLevel[1].toFloat(),
+            volumeDimsUsedResLevel[2].toFloat()
         )
             .mul(-0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
             .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
@@ -764,7 +762,7 @@ class SciviewBridge {
     }
 
     companion object {
-        fun calculateDisplayVoxelRatioAlaBDV(forThisSource: Source<*>): FloatArray {
+        fun getDisplayVoxelRatio(forThisSource: Source<*>): FloatArray {
             val vxAxisRatio = forThisSource.voxelDimensions.dimensionsAsDoubleArray()
             val finalRatio = FloatArray(vxAxisRatio.size)
             var minLength = vxAxisRatio[0]
