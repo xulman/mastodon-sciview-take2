@@ -201,41 +201,35 @@ class SciviewBridge {
             INTENSITY_RANGE_MAX.toDouble()
         )
         //
-        volNodes = Arrays.asList<Node?>(redVolChannelNode, greenVolChannelNode, blueVolChannelNode)
+        volNodes = listOf<Node?>(redVolChannelNode, greenVolChannelNode, blueVolChannelNode)
         val converterSetupID = if (SOURCE_ID < redVolChannelNode.converterSetups.size) SOURCE_ID else 0
         //setup intensity display listeners that keep the ranges of the three volumes in sync
         // (but the change of one triggers listeners of the others (making each volume its ranges
         //  adjusted 3x times... luckily it doesn't start cycling/looping; perhaps switch to cascade?)
-        redVolChannelNode.converterSetups.get(converterSetupID).setupChangeListeners()
-            .add(SetupChangeListener { t: ConverterSetup ->
-                //System.out.println("RED informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
-                greenVolChannelNode.minDisplayRange = t.displayRangeMin.toFloat()
-                greenVolChannelNode.maxDisplayRange = t.displayRangeMax.toFloat()
-                blueVolChannelNode.minDisplayRange = t.displayRangeMin.toFloat()
-                blueVolChannelNode.maxDisplayRange = t.displayRangeMax.toFloat()
-            })
-        greenVolChannelNode.converterSetups.get(converterSetupID).setupChangeListeners()
-            .add(SetupChangeListener { t: ConverterSetup ->
-                //System.out.println("GREEN informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
-                redVolChannelNode.minDisplayRange = t.displayRangeMin.toFloat()
-                redVolChannelNode.maxDisplayRange = t.displayRangeMax.toFloat()
-                blueVolChannelNode.minDisplayRange = t.displayRangeMin.toFloat()
-                blueVolChannelNode.maxDisplayRange = t.displayRangeMax.toFloat()
-            })
-        blueVolChannelNode.converterSetups.get(converterSetupID).setupChangeListeners()
-            .add(SetupChangeListener { t: ConverterSetup ->
-                //System.out.println("BLUE informer: "+t.getDisplayRangeMin()+" to "+t.getDisplayRangeMax());
-                redVolChannelNode.minDisplayRange = t.displayRangeMin.toFloat()
-                redVolChannelNode.maxDisplayRange = t.displayRangeMax.toFloat()
-                greenVolChannelNode.minDisplayRange = t.displayRangeMin.toFloat()
-                greenVolChannelNode.maxDisplayRange = t.displayRangeMax.toFloat()
-            })
+        fun setupChangeListenerForNode(node: Volume, other1: Volume, other2: Volume): (ConverterSetup) -> Unit {
+            return { t: ConverterSetup ->
+                node.minDisplayRange = t.displayRangeMin.toFloat()
+                node.maxDisplayRange = t.displayRangeMax.toFloat()
+                other1.minDisplayRange = t.displayRangeMin.toFloat()
+                other1.maxDisplayRange = t.displayRangeMax.toFloat()
+                other2.minDisplayRange = t.displayRangeMin.toFloat()
+                other2.maxDisplayRange = t.displayRangeMax.toFloat()
+            }
+        }
+
+        val setupChangeListener = setupChangeListenerForNode(greenVolChannelNode, redVolChannelNode, blueVolChannelNode)
+
+        redVolChannelNode.converterSetups[converterSetupID].setupChangeListeners().add(setupChangeListener)
+        greenVolChannelNode.converterSetups[converterSetupID].setupChangeListeners().add(setupChangeListener)
+        blueVolChannelNode.converterSetups[converterSetupID].setupChangeListeners().add(setupChangeListener)
+
 
         //spots stuff:
         sphereParent = sciviewWin.addSphere()
+        sphereParent.visible = false
         //todo: make the parent node (sphere) invisible
         sphereParent.name = "SPOTS$commonNodeName"
-        //
+
         val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
         spotsScale.mul(MAGIC_ONE_TENTH * redVolChannelNode.pixelToWorldRatio)
         mastodonToImgCoordsTransfer = Vector3f(
@@ -267,7 +261,7 @@ class SciviewBridge {
     fun close() {
         detachControllingUI()
         deregisterKeyboardHandlers()
-        println("Mastodon-sciview Bridge closing procedure: UI and keyboards handlers are removed now")
+        println("Mastodon-sciview Bridge closing procedure: UI and keyboard handlers are removed now")
         sciviewWin!!.setActiveNode(axesParent)
         println("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes")
 
@@ -275,7 +269,7 @@ class SciviewBridge {
         setVisibilityOfVolume(false)
         setVisibilityOfSpots(false)
         println("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
-        val graceTimeForVolumeUpdatingInMS: Long = 100
+        val graceTimeForVolumeUpdatingInMS = 100L
         try {
             sciviewWin.deleteNode(redVolChannelNode, true)
             println("Mastodon-sciview Bridge closing procedure: red volume removed")
@@ -306,7 +300,7 @@ class SciviewBridge {
         v.maxDisplayRange = displayRangeMax.toFloat()
 
         //make Bounding Box Grid invisible
-        v.children.forEach(Consumer { n: Node -> n.visible = false })
+        v.children.forEach { n: Node -> n.visible = false }
 
         //FAILED to hook the volume nodes under the this.volumeParent node... so commented out for now
         //(one could construct Volume w/o sciview.addVolume(), but I find that way too difficult)
