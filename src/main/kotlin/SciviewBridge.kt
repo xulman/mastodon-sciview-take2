@@ -1,7 +1,6 @@
 package org.mastodon.mamut
 
 import bdv.tools.brightness.ConverterSetup
-import bdv.tools.brightness.ConverterSetup.SetupChangeListener
 import bdv.viewer.Source
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
@@ -29,7 +28,6 @@ import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
 import util.SphereNodes
-import java.util.*
 import java.util.function.BiConsumer
 import java.util.function.Consumer
 import javax.swing.JFrame
@@ -227,7 +225,6 @@ class SciviewBridge {
         //spots stuff:
         sphereParent = sciviewWin.addSphere()
         sphereParent.visible = false
-        //todo: make the parent node (sphere) invisible
         sphereParent.name = "SPOTS$commonNodeName"
 
         val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
@@ -249,42 +246,42 @@ class SciviewBridge {
 
         //add the sciview-side displaying handler for the spots
         sphereNodes = SphereNodes(sciviewWin, sphereParent)
-        sphereNodes.showTheseSpots(mastodon, 0, noTScolorizer)
+        sphereNodes.showTheseSpots(mastodon, 0, noTSColorizer)
 
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }
 
-    val eventService: EventService
-        get() = sciviewWin!!.scijavaContext!!.getService(EventService::class.java)
+    val eventService: EventService?
+        get() = sciviewWin?.scijavaContext?.getService(EventService::class.java)
 
     fun close() {
         detachControllingUI()
         deregisterKeyboardHandlers()
         println("Mastodon-sciview Bridge closing procedure: UI and keyboard handlers are removed now")
-        sciviewWin!!.setActiveNode(axesParent)
+        sciviewWin?.setActiveNode(axesParent)
         println("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes")
 
         //first make invisible, then remove...
         setVisibilityOfVolume(false)
         setVisibilityOfSpots(false)
         println("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
-        val graceTimeForVolumeUpdatingInMS = 100L
+        val updateGraceTime = 100L // in ms
         try {
-            sciviewWin.deleteNode(redVolChannelNode, true)
+            sciviewWin?.deleteNode(redVolChannelNode, true)
             println("Mastodon-sciview Bridge closing procedure: red volume removed")
-            Thread.sleep(graceTimeForVolumeUpdatingInMS)
-            sciviewWin.deleteNode(greenVolChannelNode, true)
+            Thread.sleep(updateGraceTime)
+            sciviewWin?.deleteNode(greenVolChannelNode, true)
             println("Mastodon-sciview Bridge closing procedure: green volume removed")
-            Thread.sleep(graceTimeForVolumeUpdatingInMS)
-            sciviewWin.deleteNode(blueVolChannelNode, true)
+            Thread.sleep(updateGraceTime)
+            sciviewWin?.deleteNode(blueVolChannelNode, true)
             println("Mastodon-sciview Bridge closing procedure: blue volume removed")
-            Thread.sleep(graceTimeForVolumeUpdatingInMS)
-            sciviewWin.deleteNode(sphereParent, true)
+            Thread.sleep(updateGraceTime)
+            sciviewWin?.deleteNode(sphereParent, true)
             println("Mastodon-sciview Bridge closing procedure: spots were removed")
         } catch (e: InterruptedException) { /* do nothing */
         }
-        sciviewWin.deleteNode(axesParent, true)
+        sciviewWin?.deleteNode(axesParent, true)
     }
 
     private fun adjustAndPlaceVolumeIntoTheScene(
@@ -294,13 +291,14 @@ class SciviewBridge {
         displayRangeMin: Double,
         displayRangeMax: Double
     ) {
-        sciviewWin!!.setColormap(v!!, colorMapName)
-        v.spatial().scale = scale
-        v.minDisplayRange = displayRangeMin.toFloat()
-        v.maxDisplayRange = displayRangeMax.toFloat()
-
-        //make Bounding Box Grid invisible
-        v.children.forEach { n: Node -> n.visible = false }
+        v?.let {
+            sciviewWin?.setColormap(it, colorMapName)
+            it.spatial().scale = scale
+            it.minDisplayRange = displayRangeMin.toFloat()
+            it.maxDisplayRange = displayRangeMax.toFloat()
+            //make Bounding Box Grid invisible
+            it.children.forEach { n: Node -> n.visible = false }
+        }
 
         //FAILED to hook the volume nodes under the this.volumeParent node... so commented out for now
         //(one could construct Volume w/o sciview.addVolume(), but I find that way too difficult)
@@ -463,7 +461,7 @@ class SciviewBridge {
     // --------------------------------------------------------------------------
     private var recentTagSet: TagSetStructure.TagSet? = null
     private var recentColorizer: GraphColorGenerator<Spot, Link>? = null
-    private val noTScolorizer = DefaultGraphColorGenerator<Spot, Link>()
+    private val noTSColorizer = DefaultGraphColorGenerator<Spot, Link>()
     private fun getCurrentColorizer(forThisBdv: MamutViewBdv): GraphColorGenerator<Spot, Link>? {
         //NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending
         val colorizer: GraphColorGenerator<Spot, Link>?
@@ -474,7 +472,7 @@ class SciviewBridge {
             }
             colorizer = recentColorizer
         } else {
-            colorizer = noTScolorizer
+            colorizer = noTSColorizer
         }
         recentTagSet = ts
         return colorizer
@@ -497,7 +495,7 @@ class SciviewBridge {
         override val timepoint: Int
             get() = lastTpWhenVolumeWasUpdated
         override val colorizer: GraphColorGenerator<Spot, Link>?
-            get() = if (recentColorizer != null) recentColorizer else noTScolorizer
+            get() = if (recentColorizer != null) recentColorizer else noTSColorizer
     }
 
     inner class DPP_DetachedOwnTime(val min: Int, val max: Int) : DisplayParamsProvider {
@@ -516,7 +514,7 @@ class SciviewBridge {
         }
 
         override val colorizer: GraphColorGenerator<Spot, Link>?
-            get() = if (recentColorizer != null) recentColorizer else noTScolorizer
+            get() = if (recentColorizer != null) recentColorizer else noTSColorizer
     }
 
     //------------------------------
@@ -613,28 +611,30 @@ class SciviewBridge {
 
     // --------------------------------------------------------------------------
     fun setVisibilityOfVolume(state: Boolean) {
-        volNodes!!.forEach(Consumer { v: Node? ->
-            v!!.visible = state
+        volNodes?.forEach { v: Node? ->
+            v?.visible = state
             if (state) {
-                v.children.stream()
-                    .filter { c: Node -> c.name.startsWith("Bounding") }
-                    .forEach { c: Node -> c.visible = false }
+                v?.children?.stream()
+                    ?.filter { c: Node -> c.name.startsWith("Bounding") }
+                    ?.forEach { c: Node -> c.visible = false }
             }
-        })
-    }
-
-    fun setVisibilityOfSpots(state: Boolean) {
-        sphereParent!!.visible = state
-        if (state) {
-            sphereParent
-                .getChildrenByName(SphereNodes.NAME_OF_NOT_USED_SPHERES)
-                .forEach(Consumer { s: Node -> s.visible = false })
         }
     }
 
-    fun focusSpot(name: String?) {
-        val nodes = sphereParent!!.getChildrenByName(name!!)
-        if (nodes.isNotEmpty()) sciviewWin!!.setActiveCenteredNode(nodes[0])
+    fun setVisibilityOfSpots(state: Boolean) {
+        sphereParent?.visible = state
+        if (state) {
+            sphereParent
+                ?.getChildrenByName(SphereNodes.NAME_OF_NOT_USED_SPHERES)
+                ?.forEach { s: Node -> s.visible = false }
+        }
+    }
+
+    fun focusSpot(name: String) {
+        val nodes = sphereParent?.getChildrenByName(name)
+        if (!nodes.isNullOrEmpty()) {
+            sciviewWin?.setActiveCenteredNode(nodes[0])
+        }
     }
 
     val detachedDPP_withOwnTime: DPP_DetachedOwnTime
@@ -647,86 +647,88 @@ class SciviewBridge {
         //handlers
 
         //register them
-        val handler = sciviewWin!!.sceneryInputHandler
-        handler!!.addKeyBinding(desc_DEC_SPH, key_DEC_SPH)
-        handler.addBehaviour(desc_DEC_SPH, ClickBehaviour { _, _ ->
+        val handler = sciviewWin?.sceneryInputHandler
+        handler?.addKeyBinding(desc_DEC_SPH, key_DEC_SPH)
+        handler?.addBehaviour(desc_DEC_SPH, ClickBehaviour { _, _ ->
             sphereNodes!!.decreaseSphereScale()
             updateUI()
         })
         //
-        handler.addKeyBinding(desc_INC_SPH, key_INC_SPH)
-        handler.addBehaviour(desc_INC_SPH, ClickBehaviour { _, _ ->
+        handler?.addKeyBinding(desc_INC_SPH, key_INC_SPH)
+        handler?.addBehaviour(desc_INC_SPH, ClickBehaviour { _, _ ->
             sphereNodes!!.increaseSphereScale()
             updateUI()
         })
         //
-        handler.addKeyBinding(desc_COLORING, key_COLORING)
-        handler.addBehaviour(desc_COLORING, ClickBehaviour { _, _ ->
+        handler?.addKeyBinding(desc_COLORING, key_COLORING)
+        handler?.addBehaviour(desc_COLORING, ClickBehaviour { _, _ ->
             updateSciviewColoringNow()
             updateUI()
         })
         //
-        handler.addKeyBinding(desc_CLRNG_AUTO, key_CLRNG_AUTO)
-        handler.addBehaviour(desc_CLRNG_AUTO, ClickBehaviour { _, _ ->
+        handler?.addKeyBinding(desc_CLRNG_AUTO, key_CLRNG_AUTO)
+        handler?.addBehaviour(desc_CLRNG_AUTO, ClickBehaviour { _, _ ->
             UPDATE_VOLUME_AUTOMATICALLY = !UPDATE_VOLUME_AUTOMATICALLY
             println("Volume updating auto mode: $UPDATE_VOLUME_AUTOMATICALLY")
             updateUI()
         })
         //
-        handler.addKeyBinding(key_CLRNG_ONOFF, key_CLRNG_ONOFF)
-        handler.addBehaviour(key_CLRNG_ONOFF, ClickBehaviour { _, _ ->
+        handler?.addKeyBinding(key_CLRNG_ONOFF, key_CLRNG_ONOFF)
+        handler?.addBehaviour(key_CLRNG_ONOFF, ClickBehaviour { _, _ ->
             INTENSITY_OF_COLORS_APPLY = !INTENSITY_OF_COLORS_APPLY
             println("Volume spots imprinting enabled: $INTENSITY_OF_COLORS_APPLY")
             updateUI()
         })
         //
-        handler.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN)
-        handler.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
+        handler?.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN)
+        handler?.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
         //
-        handler.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO)
-        handler.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> println(this) })
+        handler?.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO)
+        handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> println(this) })
         //
-        handler.addKeyBinding(desc_PREV_TP, key_PREV_TP)
-        handler.addBehaviour(desc_PREV_TP, ClickBehaviour { _, _ ->
+        handler?.addKeyBinding(desc_PREV_TP, key_PREV_TP)
+        handler?.addBehaviour(desc_PREV_TP, ClickBehaviour { _, _ ->
             detachedDPP_withOwnTime.prevTimepoint()
             updateSciviewContent(detachedDPP_withOwnTime)
         })
         //
-        handler.addKeyBinding(desc_NEXT_TP, key_NEXT_TP)
-        handler.addBehaviour(desc_NEXT_TP, ClickBehaviour { _, _ ->
+        handler?.addKeyBinding(desc_NEXT_TP, key_NEXT_TP)
+        handler?.addBehaviour(desc_NEXT_TP, ClickBehaviour { _, _ ->
             detachedDPP_withOwnTime.nextTimepoint()
             updateSciviewContent(detachedDPP_withOwnTime)
         })
     }
 
     private fun deregisterKeyboardHandlers() {
-        val handler = sciviewWin!!.sceneryInputHandler
-        handler!!.removeKeyBinding(desc_DEC_SPH)
-        handler.removeBehaviour(desc_DEC_SPH)
-        //
-        handler.removeKeyBinding(desc_INC_SPH)
-        handler.removeBehaviour(desc_INC_SPH)
-        //
-        handler.removeKeyBinding(desc_COLORING)
-        handler.removeBehaviour(desc_COLORING)
-        //
-        handler.removeKeyBinding(desc_CLRNG_AUTO)
-        handler.removeBehaviour(desc_CLRNG_AUTO)
-        //
-        handler.removeKeyBinding(key_CLRNG_ONOFF)
-        handler.removeBehaviour(key_CLRNG_ONOFF)
-        //
-        handler.removeKeyBinding(desc_CTRL_WIN)
-        handler.removeBehaviour(desc_CTRL_WIN)
-        //
-        handler.removeKeyBinding(desc_CTRL_INFO)
-        handler.removeBehaviour(desc_CTRL_INFO)
-        //
-        handler.removeKeyBinding(desc_PREV_TP)
-        handler.removeBehaviour(desc_PREV_TP)
-        //
-        handler.removeKeyBinding(desc_NEXT_TP)
-        handler.removeBehaviour(desc_NEXT_TP)
+        val handler = sciviewWin?.sceneryInputHandler
+        if (handler != null) {
+            handler.removeKeyBinding(desc_DEC_SPH)
+            handler.removeBehaviour(desc_DEC_SPH)
+
+            handler.removeKeyBinding(desc_INC_SPH)
+            handler.removeBehaviour(desc_INC_SPH)
+
+            handler.removeKeyBinding(desc_COLORING)
+            handler.removeBehaviour(desc_COLORING)
+
+            handler.removeKeyBinding(desc_CLRNG_AUTO)
+            handler.removeBehaviour(desc_CLRNG_AUTO)
+
+            handler.removeKeyBinding(key_CLRNG_ONOFF)
+            handler.removeBehaviour(key_CLRNG_ONOFF)
+
+            handler.removeKeyBinding(desc_CTRL_WIN)
+            handler.removeBehaviour(desc_CTRL_WIN)
+
+            handler.removeKeyBinding(desc_CTRL_INFO)
+            handler.removeBehaviour(desc_CTRL_INFO)
+
+            handler.removeKeyBinding(desc_PREV_TP)
+            handler.removeBehaviour(desc_PREV_TP)
+
+            handler.removeKeyBinding(desc_NEXT_TP)
+            handler.removeBehaviour(desc_NEXT_TP)
+        }
     }
 
     @JvmOverloads
@@ -741,18 +743,18 @@ class SciviewBridge {
 
     fun detachControllingUI() {
         if (associatedUI != null) {
-            associatedUI!!.deactivateAndForget()
+            associatedUI?.deactivateAndForget()
             associatedUI = null
         }
         if (uiFrame != null) {
-            uiFrame!!.isVisible = false
-            uiFrame!!.dispose()
+            uiFrame?.isVisible = false
+            uiFrame?.dispose()
         }
     }
 
     fun updateUI() {
         if (associatedUI == null) return
-        associatedUI!!.updatePaneValues()
+        associatedUI?.updatePaneValues()
     }
 
     companion object {

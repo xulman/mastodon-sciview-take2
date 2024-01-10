@@ -35,7 +35,7 @@ class GroupLocksHandling(//controls sciview via this bridge obj
     fun createAndActivate(): GroupLocksPanel? {
         if (isActive) return null
         isActive = true
-        bridge.eventService.subscribe(sciviewFocusHandler)
+        bridge.eventService?.subscribe(sciviewFocusHandler)
         myGroupHandle = projectModel.groupManager.createGroupHandle()
         myGroupHandle.getModel(projectModel.NAVIGATION).listeners().add(navigationRequestsHandler)
         myGroupHandle.getModel(projectModel.TIMEPOINT).listeners().add(navigationRequestsHandler)
@@ -50,7 +50,7 @@ class GroupLocksHandling(//controls sciview via this bridge obj
         projectModel.groupManager.removeGroupHandle(myGroupHandle)
 
         //can fail, so we better do it as the last action here
-        val subs = bridge.eventService.getSubscribers(
+        val subs = bridge.eventService?.getSubscribers(
             SciJavaEvent::class.java
         )
         subs?.remove<Any?>(sciviewFocusHandler)
@@ -86,7 +86,7 @@ class GroupLocksHandling(//controls sciview via this bridge obj
         }
     }
 
-    fun focusSciviewToNode(name: String?) {
+    fun focusSciviewToNode(name: String) {
         bridge.focusSpot(name)
     }
 }

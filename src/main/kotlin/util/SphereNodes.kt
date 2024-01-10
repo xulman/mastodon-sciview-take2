@@ -2,7 +2,6 @@ package util
 
 import graphics.scenery.Node
 import graphics.scenery.Sphere
-import graphics.scenery.utils.extensions.times
 import org.joml.Vector3f
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
@@ -10,7 +9,6 @@ import org.mastodon.mamut.model.Spot
 import org.mastodon.ui.coloring.GraphColorGenerator
 import sc.iview.SciView
 import java.util.*
-import java.util.function.Consumer
 import kotlin.math.sqrt
 
 class SphereNodes //FAILED to hook up here a 'parentNode' listener that would setVisible(false) on all children
@@ -26,7 +24,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         timepoint: Int,
         colorizer: GraphColorGenerator<Spot, Link>
     ): Int {
-        var visibleNodesAfterall = 0
+        var visibleNodeCount = 0
         addedExtraNodes.clear()
 
         //nodes should honor if they are wished to be immediately visible or not
@@ -36,9 +34,9 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         var node: Sphere
         for (s in spots) {
-            if (visibleNodesAfterall < knownNodes.size) {
+            if (visibleNodeCount < knownNodes.size) {
                 //injecting into known nodes (already registered with sciview)
-                node = knownNodes[visibleNodesAfterall]
+                node = knownNodes[visibleNodeCount]
                 node.visible = finalVisibilityState
                 //NB: make sure it's visible (could have got hidden
                 // when there were fewer spots before)
@@ -54,7 +52,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
             if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == s.internalPoolIndex) {
                 node.material().wireframe = true
             }
-            ++visibleNodesAfterall
+            ++visibleNodeCount
         }
         if (addedExtraNodes.size > 0) {
             //NB: also means that the knownNodes were fully exhausted
@@ -64,7 +62,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         } else {
             //System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
             //NB: mark not-touched knownNodes as hidden
-            var i = visibleNodesAfterall
+            var i = visibleNodeCount
             while (i < knownNodes.size) {
                 knownNodes[i].name = NAME_OF_NOT_USED_SPHERES
                 knownNodes[i++].visible = false
@@ -73,8 +71,8 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         /*
 		System.out.println("Drawing currently in total "+visibleNodesAfterall
 				+ " and there are "+(knownNodes.size()-visibleNodesAfterall)
-				+ " hidden...");
-		*/return visibleNodesAfterall
+				+ " hidden..."); */
+        return visibleNodeCount
     }
 
     private val auxSpatialPos = FloatArray(3)
