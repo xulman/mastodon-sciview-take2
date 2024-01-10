@@ -332,13 +332,11 @@ class SciviewBridge {
         if (srcImg == null) println("freshNewWhiteContent(): srcImg is null !!!")
         if (redCh == null) println("freshNewWhiteContent(): redCh is null !!!")
         //
-        //massage input data into the red channel
+        //massage input data into the red channel (LB guarantees that counterparting pixels are accessed)
         LoopBuilder.setImages(srcImg, redCh)
-            .flatIterationOrder()
             .multiThreaded()
             .forEachPixel(intensityProcessor)
-        //clone the red channel into the remaining two, which for sure
-        //were created the same way as the red, not needing flatIterationOrder()
+        //clone the red channel into the remaining two
         LoopBuilder.setImages(redCh, greenCh, blueCh)
             .multiThreaded()
             .forEachPixel(LoopBuilder.TriConsumer { r: T, g: T, b: T ->
