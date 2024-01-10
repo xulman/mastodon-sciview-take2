@@ -1,23 +1,18 @@
 # Mastodon-sciview Bridge (take2)
-This is a reincarnation of [an earlier project `mastodon-sciview`](https://github.com/mastodon-sc/mastodon-sciview/) by [`xulman`](https://github.com/xulman) and [`RuoshanLan`](https://github.com/ruoshanlan).
+This is a reincarnation of [an earlier project `mastodon-sciview`](https://github.com/mastodon-sc/mastodon-sciview/) by [`xulman`](https://github.com/xulman) and [`RuoshanLan`](https://github.com/ruoshanlan),
+currently in the hands of [`smlpt`](https://github.com/smlpt/).
 It aims to display data from [Mastodon](https://github.com/mastodon-sc) also in [sciview (and scenery)](https://github.com/scenerygraphics/sciview).
 
 The repository was started during the [scenery and sciview hackathon](https://imagesc.zulipchat.com/#narrow/stream/391996-Zzz.3A-.5B2023-06.5D-scenery.2Bsciview-hackathon-dresden)
-in Dresden (Germany) in June 2023, but most of the code was contributed by [`xulman`](https://github.com/xulman) shortly afterward.
+in Dresden (Germany) in June 2023, but most of the code was contributed by [`xulman`](https://github.com/xulman) shortly afterward, and later converted to Kotlin by [`smlpt`](https://github.com/smlpt/).
 
 [example image here]
 
 # How to compile
-This project is both a gradle build system project (when switched to the `master` branch)
-as well as maven build system project (when switched to the `maven` branch).
-
+This project is now a **gradle build system project** with the official current content on the `master` branch.
 It is a gradle project because scenery and sciview are gradle projects and thus it was the most natural choice when developing or contributing to this project.
-However, for deployment, `xulman` found it easier to use maven and it's "collect all deps" functionality to assemble a minimal functional collection of jar files
-to run this.
 
-When switching between the branches, your IDE may get very confused. It is perhaps better to keep this repo cloned twice, switched to the different branches.
-
-## Gradle, development, `master` branch
+## Development
 Since this regime is intended for development of this project and potentially of adding relevant functions in the sciview, which shall
 be immediately accessible in this project, the gradle settings of this project is instructed to look for local sciview.
 Therefore, the following layout is expected:
@@ -59,7 +54,7 @@ $ tree -L 2
 
 (Put simply, both this and sciview repositories are next to each other.)
 
-## Maven, deployment, `maven` branch
+## Deployment
 
 This regime is intended for deployment of this project. The deployment procedure is the following:
 
@@ -78,36 +73,33 @@ $ ./gradlew clean jar publishToMavenLocal
 - Build and assemble a complete runnable setup of this repository as follows
 
 ```shell
-ulman@localhost ~/devel/sciview_hack2
-$ cd mastodon-sciview-take2
+ulman@localhost ~/devel/sciview_hack2/sciview
+$ cd ../mastodon-sciview-take2
 
 ulman@localhost ~/devel/sciview_hack2/mastodon-sciview-take2
-$ mvn clean package dependency:copy-dependencies
+$ ./gradlew clean jar copyDependencies
 ```
 
 - Start the project
 
 ```shell
 ulman@localhost ~/devel/sciview_hack2/mastodon-sciview-take2
-$ cd target
-
-ulman@localhost ~/devel/sciview_hack2/mastodon-sciview-take2/target
-$ java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar:dependency/*" org.mastodon.mamut.util_java.StartFiji
+$ java -cp "build/libs/mastodon-sciview-bridge-0.9.jar:deps/*" plugins.scijava.StartMastodon_MainKt
 ```
 
 or on Windows systems (where [`:` is on Windows replaced with `;`](https://www.baeldung.com/java-classpath-syntax))
 
 ```
-java -cp "mastodon-sciview-bridge-0.9.0-SNAPSHOT.jar;dependency/*" org.mastodon.mamut.util_java.StartFiji
+java -cp "build/libs/mastodon-sciview-bridge-0.9.jar;deps/*" plugins.scijava.StartMastodon_MainKt
 ```
 
 ### Notes:
 
 Make sure **exactly Java 11** is used.
 
-Furthermore, the package versions must match. 
-This repository is wanting sciview of a particular version, see `pom.xml`, the `dependency` section.
-Either use sciview of that version, or update the `version` tag in the `pom.xml` to the current version of your sciview.
+Furthermore, the package versions must match.
+This repository is especially wanting sciview of a particular version, see below.
+Either use sciview of that version, or update the `version` tag in the gradle project files.
 The version of the currently used sciview can be found in the `sciview/settings.gradle.kts`, the entry `gradle.rootProject`.
 
 Known functional versions are:

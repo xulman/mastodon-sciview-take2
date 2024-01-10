@@ -32,6 +32,10 @@ dependencies {
     }
 }
 
+tasks.register("copyDependencies", Copy::class) {
+    from(configurations.runtimeClasspath); into("deps")
+}
+
 tasks.test {
     useJUnitPlatform()
 }
