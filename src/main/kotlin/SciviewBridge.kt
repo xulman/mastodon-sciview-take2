@@ -4,6 +4,9 @@ import bdv.tools.brightness.ConverterSetup
 import bdv.viewer.Source
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
+import graphics.scenery.utils.extensions.minus
+import graphics.scenery.utils.extensions.times
+import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.volumes.Volume
 import net.imglib2.FinalInterval
 import net.imglib2.Interval
@@ -28,8 +31,6 @@ import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
 import util.SphereNodes
-import java.util.function.BiConsumer
-import java.util.function.Consumer
 import javax.swing.JFrame
 import kotlin.math.max
 import kotlin.math.min
@@ -312,8 +313,8 @@ class SciviewBridge {
         blueCh: RandomAccessibleInterval<T>?,
         srcImg: RandomAccessibleInterval<T>?
     ) {
-        val intensityProcessor = if (INTENSITY_GAMMA.toDouble() != 1.0) BiConsumer<T, T> { src: T, tgt: T ->
-            tgt!!.setReal(
+        val intensityProcessor: (T, T) -> Unit = if (INTENSITY_GAMMA.toDouble() != 1.0) { src: T, tgt: T ->
+            tgt?.setReal(
                 INTENSITY_CLAMP_AT_TOP * ( //TODO, replace pow() with LUT for several gammas
                         min(
                             (INTENSITY_CONTRAST * src!!.realFloat + INTENSITY_SHIFT).toDouble(),
@@ -321,8 +322,8 @@ class SciviewBridge {
                         ) / INTENSITY_CLAMP_AT_TOP
                         ).pow(INTENSITY_GAMMA.toDouble())
             )
-        } else BiConsumer<T, T> { src: T, tgt: T ->
-            tgt!!.setReal(
+        } else { src: T, tgt: T ->
+            tgt?.setReal(
                 min(
                     (INTENSITY_CONTRAST * src!!.realFloat + INTENSITY_SHIFT).toDouble(),
                     INTENSITY_CLAMP_AT_TOP.toDouble()
@@ -350,9 +351,9 @@ class SciviewBridge {
         greenCh: RandomAccessibleInterval<T>?,
         blueCh: RandomAccessibleInterval<T>?,
         srcImg: RandomAccessibleInterval<T>,
-        pxCentre: LongArray,
+        pxCentre: Vector3f,
         maxSpatialDist: Double,
-        rgbValue: FloatArray
+        rgbValue: Vector3f
     ) {
         val min = LongArray(3)
         val max = LongArray(3)
@@ -371,52 +372,42 @@ class SciviewBridge {
         val gc = Views.interval(greenCh, roi).cursor()
         val bc = Views.interval(blueCh, roi).cursor()
         val si = Views.interval(srcImg, roi).localizingCursor()
-        val pos = FloatArray(3)
+        var pos = Vector3f()
         val maxDistSq = (maxSpatialDist * maxSpatialDist).toFloat()
 
         //to preserve a color, the r,g,b ratio must be kept (only mul()s, not add()s);
         //since data values are clamped to INTENSITY_NOT_ABOVE, we can stretch all
         //the way to INTENSITY_OF_COLORS (the brightest color displayed)
         val intensityScale = INTENSITY_OF_COLORS / INTENSITY_CLAMP_AT_TOP
-        val usedColor: FloatArray
-        if (INTENSITY_OF_COLORS_BOOST) {
-            var boostMul = max(rgbValue[0].toDouble(), max(rgbValue[1].toDouble(), rgbValue[2].toDouble()))
-                .toFloat()
-            boostMul = 1f / boostMul
-            usedColor = rgbAux
-            usedColor[0] = boostMul * rgbValue[0]
-            usedColor[1] = boostMul * rgbValue[1]
-            usedColor[2] = boostMul * rgbValue[2]
-            //NB: this operations is very very close to what
-            //"rgb -> hsv -> set v=1.0 (highest) -> back to rgb"
-            //would do, it non-decreases all rgb components
+
+        val usedColor = if (INTENSITY_OF_COLORS_BOOST) {
+            //NB: normalizes all color components so that the maximum is at 1
+            rgbValue.div(rgbValue[rgbValue.maxComponent()])
         } else {
-            usedColor = rgbValue
+            rgbValue
         }
-        var cnt = 0
+        var count = 0
         while (si.hasNext()) {
             rc.next()
             gc.next()
             bc.next()
             si.next()
-            si.localize(pos)
+            si.localize(pos.toFloatArray())
             //(raw) image coords -> Mastodon coords
-            pos[0] = (pos[0] - pxCentre[0]) * mastodonToImgCoordsTransfer.x
-            pos[1] = (pos[1] - pxCentre[1]) * mastodonToImgCoordsTransfer.y
-            pos[2] = (pos[2] - pxCentre[2]) * mastodonToImgCoordsTransfer.z
-            val distSq = (pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]).toDouble()
+            pos = (pos - pxCentre) * mastodonToImgCoordsTransfer
+            val distSq = Vector3f().distanceSquared(pos).toDouble()
             if (distSq <= maxDistSq) {
                 //we're within the ROI (spot)
-                val `val` = si.get()!!.realFloat * intensityScale
-                rc.get()!!.setReal(`val` * usedColor[0])
-                gc.get()!!.setReal(`val` * usedColor[1])
-                bc.get()!!.setReal(`val` * usedColor[2])
-                ++cnt
+                val colorVal = si.get()!!.realFloat * intensityScale
+                rc.get()!!.setReal(colorVal * usedColor[0])
+                gc.get()!!.setReal(colorVal * usedColor[1])
+                bc.get()!!.setReal(colorVal * usedColor[2])
+                ++count
             }
         }
         if (UPDATE_VOLUME_VERBOSE_REPORTS) {
             println(
-                "  colored " + cnt + " pixels in the interval ["
+                "  colored " + count + " pixels in the interval ["
                         + min[0] + "," + min[1] + "," + min[2] + "] -> ["
                         + max[0] + "," + max[1] + "," + max[2] + "] @ ["
                         + pxCentre[0] + "," + pxCentre[1] + "," + pxCentre[2] + "]"
@@ -428,15 +419,8 @@ class SciviewBridge {
         }
     }
 
-    val rgbAux = FloatArray(3)
-    fun mastodonToImgCoord(
-        mastodonCoord: FloatArray,
-        pxCoord: LongArray
-    ): LongArray {
-        pxCoord[0] = (mastodonCoord[0] / mastodonToImgCoordsTransfer!!.x).toLong()
-        pxCoord[1] = (mastodonCoord[1] / mastodonToImgCoordsTransfer.y).toLong()
-        pxCoord[2] = (mastodonCoord[2] / mastodonToImgCoordsTransfer.z).toLong()
-        return pxCoord
+    fun mastodonToImgCoord(mastodonCoord: Vector3f): Vector3f {
+        return mastodonCoord / mastodonToImgCoordsTransfer
     }
 
     // --------------------------------------------------------------------------
@@ -542,9 +526,8 @@ class SciviewBridge {
 
     @JvmOverloads
     fun updateSciviewColoringNow(forThisBdv: DisplayParamsProvider = detachedDPP_showsLastTimepoint) {
-        val pxCoord = LongArray(3)
-        val spotCoord = FloatArray(3)
-        val color = FloatArray(3)
+        val spotCoord = Vector3f()
+        val color = Vector3f()
         if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: started")
         val tp = forThisBdv.timepoint
         val srcRAI = mastodon!!
@@ -560,15 +543,15 @@ class SciviewBridge {
             for (s in mastodon.model.spatioTemporalIndex.getSpatialIndex(tp)) {
                 val col = colorizer!!.color(s)
                 if (col == 0) continue  //don't imprint black spots into the volume
-                color[0] = (col and 0x00FF0000 shr 16) / 255f
-                color[1] = (col and 0x0000FF00 shr 8) / 255f
-                color[2] = (col and 0x000000FF) / 255f
+                color.x = (col and 0x00FF0000 shr 16) / 255f
+                color.y = (col and 0x0000FF00 shr 8) / 255f
+                color.z = (col and 0x000000FF) / 255f
                 if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: colors spot " + s.label + " with color [" + color[0] + "," + color[1] + "," + color[2] + "](" + col + ")")
-                s.localize(spotCoord)
+                s.localize(spotCoord.toFloatArray())
                 spreadColor(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
                     srcRAI,
-                    mastodonToImgCoord(spotCoord, pxCoord),  //NB: spot drawing is driven by image intensity, and thus
+                    mastodonToImgCoord(spotCoord),  //NB: spot drawing is driven by image intensity, and thus
                     //dark BG doesn't get colorized too much ('cause it is dark),
                     //and thus it doesn't hurt if the spot is considered reasonably larger
                     SPOT_RADIUS_SCALE * sqrt(s.boundingSphereRadiusSquared),
