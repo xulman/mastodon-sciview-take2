@@ -4,9 +4,6 @@ import bdv.tools.brightness.ConverterSetup
 import bdv.viewer.Source
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
-import graphics.scenery.utils.extensions.minus
-import graphics.scenery.utils.extensions.times
-import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.volumes.Volume
 import net.imglib2.FinalInterval
 import net.imglib2.Interval
@@ -354,6 +351,7 @@ class SciviewBridge {
             })
     }
 
+    val posAuxArray = FloatArray(3)
     fun <T : IntegerType<T>?> spreadColor(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
@@ -384,7 +382,7 @@ class SciviewBridge {
         val gc = Views.interval(greenCh, roi).cursor()
         val bc = Views.interval(blueCh, roi).cursor()
         val si = Views.interval(srcImg, roi).localizingCursor()
-        var pos = Vector3f()
+        val pos = Vector3f()
         val maxDistSq = (maxSpatialDist * maxSpatialDist).toFloat()
 
         //to preserve a color, the r,g,b ratio must be kept (only mul()s, not add()s);
@@ -404,10 +402,10 @@ class SciviewBridge {
             gc.next()
             bc.next()
             si.next()
-            si.localize(pos.toFloatArray())
+            si.localize(posAuxArray)
+            pos.set(posAuxArray)
             //(raw) image coords -> Mastodon coords
-            pos = (pos - pxCentre) * mastodonToImgCoordsTransfer
-            val distSq = Vector3f().distanceSquared(pos).toDouble()
+            val distSq = pos.sub(pxCentre).mul(mastodonToImgCoordsTransfer).lengthSquared()
             if (distSq <= maxDistSq) {
                 //we're within the ROI (spot)
                 val colorVal = si.get()!!.realFloat * intensityScale
@@ -432,7 +430,20 @@ class SciviewBridge {
     }
 
     fun mastodonToImgCoord(mastodonCoord: Vector3f): Vector3f {
+        //this is probably creating a new object,
+        //...which is okay given the contract/specification of the function,
+        //...but maybe also less efficient
         return mastodonCoord / mastodonToImgCoordsTransfer
+    }
+
+    fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
+        //yes, ugly... but avoids new allocations, yet can be still used "inplace" or "chaining"
+        destVec.set(
+            inputMastodonCoord[0] / mastodonToImgCoordsTransfer!!.x,
+            inputMastodonCoord[1] / mastodonToImgCoordsTransfer.y,
+            inputMastodonCoord[2] / mastodonToImgCoordsTransfer.z
+        )
+        return destVec
     }
 
     // --------------------------------------------------------------------------
@@ -559,11 +570,11 @@ class SciviewBridge {
                 color.y = (col and 0x0000FF00 shr 8) / 255f
                 color.z = (col and 0x000000FF) / 255f
                 if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: colors spot " + s.label + " with color [" + color[0] + "," + color[1] + "," + color[2] + "](" + col + ")")
-                s.localize(spotCoord.toFloatArray())
+                s.localize(posAuxArray)
                 spreadColor(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
                     srcRAI,
-                    mastodonToImgCoord(spotCoord),  //NB: spot drawing is driven by image intensity, and thus
+                    mastodonToImgCoord(posAuxArray,spotCoord),  //NB: spot drawing is driven by image intensity, and thus
                     //dark BG doesn't get colorized too much ('cause it is dark),
                     //and thus it doesn't hurt if the spot is considered reasonably larger
                     SPOT_RADIUS_SCALE * sqrt(s.boundingSphereRadiusSquared),
