@@ -162,7 +162,7 @@ class SciviewBridge {
         greenVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
         blueVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
         //
-        freshNewWhiteContent(
+        freshNewGrayscaleContent(
             redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
             spimSource.getSource(0, SOURCE_USED_RES_LEVEL) as RandomAccessibleInterval<UnsignedShortType>
         )
@@ -307,7 +307,7 @@ class SciviewBridge {
         //this.volumeParent.addChild(v);
     }
 
-    fun <T : IntegerType<T>?> freshNewWhiteContent(
+    fun <T : IntegerType<T>?> freshNewGrayscaleContent(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
         blueCh: RandomAccessibleInterval<T>?,
@@ -542,7 +542,7 @@ class SciviewBridge {
             .sharedBdvData.sources[SOURCE_ID]
             .spimSource.getSource(tp, SOURCE_USED_RES_LEVEL)
         if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: resets with new white content")
-        freshNewWhiteContent(
+        freshNewGrayscaleContent(
             redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
             srcRAI as RandomAccessibleInterval<UnsignedShortType>
         )
