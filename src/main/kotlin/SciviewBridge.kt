@@ -354,6 +354,7 @@ class SciviewBridge {
             })
     }
 
+    val posAuxArray = FloatArray(3)
     fun <T : IntegerType<T>?> spreadColor(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
@@ -432,7 +433,20 @@ class SciviewBridge {
     }
 
     fun mastodonToImgCoord(mastodonCoord: Vector3f): Vector3f {
+        //this is probably creating a new object,
+        //...which is okay given the contract/specification of the function,
+        //...but maybe also less efficient
         return mastodonCoord / mastodonToImgCoordsTransfer
+    }
+
+    fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
+        //yes, ugly... but avoids new allocations, yet can be still used "inplace" or "chaining"
+        destVec.set(
+            inputMastodonCoord[0] / mastodonToImgCoordsTransfer!!.x,
+            inputMastodonCoord[1] / mastodonToImgCoordsTransfer.y,
+            inputMastodonCoord[2] / mastodonToImgCoordsTransfer.z
+        )
+        return destVec
     }
 
     // --------------------------------------------------------------------------
@@ -563,7 +577,7 @@ class SciviewBridge {
                 spreadColor(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
                     srcRAI,
-                    mastodonToImgCoord(spotCoord),  //NB: spot drawing is driven by image intensity, and thus
+                    mastodonToImgCoord(posAuxArray,spotCoord),  //NB: spot drawing is driven by image intensity, and thus
                     //dark BG doesn't get colorized too much ('cause it is dark),
                     //and thus it doesn't hurt if the spot is considered reasonably larger
                     SPOT_RADIUS_SCALE * sqrt(s.boundingSphereRadiusSquared),
