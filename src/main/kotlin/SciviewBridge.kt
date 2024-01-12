@@ -313,6 +313,8 @@ class SciviewBridge {
         blueCh: RandomAccessibleInterval<T>?,
         srcImg: RandomAccessibleInterval<T>?
     ) {
+        //TODO would be great if the following two functions would be outside this function, and would therefore
+        //     be created only once (not created again with every new call of this function like it is now)
         val gammaEnabledIntensityProcessor: (T,T) -> Unit =
             { src: T, tgt: T -> tgt!!.setReal(
                     INTENSITY_CLAMP_AT_TOP * ( //TODO, replace pow() with LUT for several gammas
