@@ -385,7 +385,7 @@ class SciviewBridge {
         val gc = Views.interval(greenCh, roi).cursor()
         val bc = Views.interval(blueCh, roi).cursor()
         val si = Views.interval(srcImg, roi).localizingCursor()
-        var pos = Vector3f()
+        val pos = Vector3f()
         val maxDistSq = (maxSpatialDist * maxSpatialDist).toFloat()
 
         //to preserve a color, the r,g,b ratio must be kept (only mul()s, not add()s);
@@ -405,7 +405,8 @@ class SciviewBridge {
             gc.next()
             bc.next()
             si.next()
-            si.localize(pos.toFloatArray())
+            si.localize(posAuxArray)
+            pos.set(posAuxArray)
             //(raw) image coords -> Mastodon coords
             pos = (pos - pxCentre) * mastodonToImgCoordsTransfer
             val distSq = Vector3f().distanceSquared(pos).toDouble()
