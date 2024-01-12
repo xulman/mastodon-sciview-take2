@@ -363,6 +363,10 @@ class SciviewBridge {
         maxSpatialDist: Double,
         rgbValue: Vector3f
     ) {
+        //TODO: aren't the following two lines doing allocations again and again?? isn't it a pity? :-)
+        //      I would have moved them outside this function to make it one-time created
+        //      class attr, but that is safe only as long as this method is called single-threaded!
+        //      (one has to decide if coloring spots will be called from a thread pool, I don't think it is necessary)
         val min = LongArray(3)
         val max = LongArray(3)
         val maxDist = longArrayOf(
