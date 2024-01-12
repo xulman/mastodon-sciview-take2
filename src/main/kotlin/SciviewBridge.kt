@@ -408,8 +408,7 @@ class SciviewBridge {
             si.localize(posAuxArray)
             pos.set(posAuxArray)
             //(raw) image coords -> Mastodon coords
-            pos = (pos - pxCentre) * mastodonToImgCoordsTransfer
-            val distSq = Vector3f().distanceSquared(pos).toDouble()
+            val distSq = pos.sub(pxCentre).mul(mastodonToImgCoordsTransfer).lengthSquared()
             if (distSq <= maxDistSq) {
                 //we're within the ROI (spot)
                 val colorVal = si.get()!!.realFloat * intensityScale
