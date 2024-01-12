@@ -58,21 +58,21 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //
         c.gridx = 1
         INTENSITY_CONTRAST = SpinnerNumberModel(1.0, -100.0, 100.0, 0.5)
-        insertSpinner(INTENSITY_CONTRAST, { f: Float? -> controlledBridge!!.INTENSITY_CONTRAST = f!! }, c)
+        insertSpinner(INTENSITY_CONTRAST, { f: Float? -> controlledBridge!!.INTENSITY_CONTRAST = f!!.toDouble() }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Apply on Volume this shifting bias:", c)
         //
         c.gridx = 1
         INTENSITY_SHIFT = SpinnerNumberModel(0.0, -65535.0, 65535.0, 50.0)
-        insertSpinner(INTENSITY_SHIFT, { f: Float? -> controlledBridge!!.INTENSITY_SHIFT = f!! }, c)
+        insertSpinner(INTENSITY_SHIFT, { f: Float? -> controlledBridge!!.INTENSITY_SHIFT = f!!.toDouble() }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Apply on Volume this gamma level:", c)
         //
         c.gridx = 1
         INTENSITY_GAMMA = SpinnerNumberModel(1.0, 0.1, 3.0, 0.1)
-        insertSpinner(INTENSITY_GAMMA, { f: Float? -> controlledBridge!!.INTENSITY_GAMMA = f!! }, c)
+        insertSpinner(INTENSITY_GAMMA, { f: Float? -> controlledBridge!!.INTENSITY_GAMMA = f!!.toDouble() }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Clamp all voxels so that their values are not above:", c)
@@ -81,7 +81,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         INTENSITY_CLAMP_AT_TOP = SpinnerNumberModel(700.0, 0.0, 65535.0, 50.0)
         insertSpinner(
             INTENSITY_CLAMP_AT_TOP,
-            { f: Float? -> controlledBridge!!.INTENSITY_CLAMP_AT_TOP = f!! },
+            { f: Float? -> controlledBridge!!.INTENSITY_CLAMP_AT_TOP = f!!.toDouble() },
             c
         )
 
@@ -149,14 +149,14 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //
         c.gridx = 1
         INTENSITY_OF_COLORS = SpinnerNumberModel(2400.0, 0.0, 65535.0, 50.0)
-        insertSpinner(INTENSITY_OF_COLORS, { f: Float? -> controlledBridge!!.INTENSITY_OF_COLORS = f!! }, c)
+        insertSpinner(INTENSITY_OF_COLORS, { f: Float? -> controlledBridge!!.INTENSITY_OF_COLORS = f!!.toDouble() }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("When repainting, multiply spots radii with:", c)
         //
         c.gridx = 1
         SPOT_RADIUS_SCALE = SpinnerNumberModel(3.0, 0.0, 50.0, 1.0)
-        insertSpinner(SPOT_RADIUS_SCALE, { f: Float? -> controlledBridge!!.SPOT_RADIUS_SCALE = f!! }, c)
+        insertSpinner(SPOT_RADIUS_SCALE, { f: Float? -> controlledBridge!!.SPOT_RADIUS_SCALE = f!!.toDouble() }, c)
         c.gridy++
         INTENSITY_OF_COLORS_BOOST = JCheckBox("Enable enhancing of spot colors when repainting them into the Volume")
         insertCheckBox(INTENSITY_OF_COLORS_BOOST, c)
@@ -354,10 +354,10 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
     lateinit var INTENSITY_OF_COLORS: SpinnerModel
     val rangeSliderListener = ChangeListener {
-        controlledBridge.INTENSITY_RANGE_MIN = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toFloat()
-        controlledBridge.INTENSITY_RANGE_MAX = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toFloat()
-        controlledBridge.redVolChannelNode!!.minDisplayRange = controlledBridge.INTENSITY_RANGE_MIN
-        controlledBridge.redVolChannelNode.maxDisplayRange = controlledBridge.INTENSITY_RANGE_MAX
+        controlledBridge.INTENSITY_RANGE_MIN = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toDouble()
+        controlledBridge.INTENSITY_RANGE_MAX = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toDouble()
+        controlledBridge.redVolChannelNode!!.minDisplayRange = controlledBridge.INTENSITY_RANGE_MIN.toFloat()
+        controlledBridge.redVolChannelNode.maxDisplayRange = controlledBridge.INTENSITY_RANGE_MAX.toFloat()
     }
 
     //
