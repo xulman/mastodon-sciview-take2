@@ -4,9 +4,6 @@ import bdv.tools.brightness.ConverterSetup
 import bdv.viewer.Source
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
-import graphics.scenery.utils.extensions.minus
-import graphics.scenery.utils.extensions.times
-import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.volumes.Volume
 import net.imglib2.FinalInterval
 import net.imglib2.Interval
