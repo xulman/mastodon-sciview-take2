@@ -313,26 +313,32 @@ class SciviewBridge {
         blueCh: RandomAccessibleInterval<T>?,
         srcImg: RandomAccessibleInterval<T>?
     ) {
-        val intensityProcessor: (T, T) -> Unit = if (INTENSITY_GAMMA.toDouble() != 1.0) { src: T, tgt: T ->
-            tgt?.setReal(
-                INTENSITY_CLAMP_AT_TOP * ( //TODO, replace pow() with LUT for several gammas
+        val gammaEnabledIntensityProcessor: (T,T) -> Unit =
+            { src: T, tgt: T -> tgt!!.setReal(
+                    INTENSITY_CLAMP_AT_TOP * ( //TODO, replace pow() with LUT for several gammas
+                            min(
+                                INTENSITY_CONTRAST * src!!.realDouble + INTENSITY_SHIFT,
+                                INTENSITY_CLAMP_AT_TOP
+                            ) / INTENSITY_CLAMP_AT_TOP
+                        ).pow(INTENSITY_GAMMA)
+                    )
+            }
+        val noGammaIntensityProcessor: (T,T) -> Unit =
+            { src: T, tgt: T -> tgt!!.setReal(
                         min(
-                            (INTENSITY_CONTRAST * src!!.realFloat + INTENSITY_SHIFT).toDouble(),
-                            INTENSITY_CLAMP_AT_TOP.toDouble()
-                        ) / INTENSITY_CLAMP_AT_TOP
-                        ).pow(INTENSITY_GAMMA.toDouble())
-            )
-        } else { src: T, tgt: T ->
-            tgt?.setReal(
-                min(
-                    (INTENSITY_CONTRAST * src!!.realFloat + INTENSITY_SHIFT).toDouble(),
-                    INTENSITY_CLAMP_AT_TOP.toDouble()
-                )
-            )
-        }
+                            INTENSITY_CONTRAST * src!!.realDouble + INTENSITY_SHIFT,
+                            INTENSITY_CLAMP_AT_TOP
+                        )
+                    )
+            }
+        //choose one processor for the downstream job;
+        //it is seemingly a long code but it does the if-decision only once now
+        val intensityProcessor = if (INTENSITY_GAMMA != 1.0)
+            gammaEnabledIntensityProcessor else noGammaIntensityProcessor
+
         if (srcImg == null) println("freshNewWhiteContent(): srcImg is null !!!")
         if (redCh == null) println("freshNewWhiteContent(): redCh is null !!!")
-        //
+
         //massage input data into the red channel (LB guarantees that counterparting pixels are accessed)
         LoopBuilder.setImages(srcImg, redCh)
             .multiThreaded()
