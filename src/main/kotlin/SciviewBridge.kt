@@ -573,7 +573,7 @@ class SciviewBridge {
                 color.y = (col and 0x0000FF00 shr 8) / 255f
                 color.z = (col and 0x000000FF) / 255f
                 if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: colors spot " + s.label + " with color [" + color[0] + "," + color[1] + "," + color[2] + "](" + col + ")")
-                s.localize(spotCoord.toFloatArray())
+                s.localize(posAuxArray)
                 spreadColor(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
                     srcRAI,
