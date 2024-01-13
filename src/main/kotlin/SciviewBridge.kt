@@ -28,6 +28,7 @@ import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
 import util.SphereNodes
+import java.util.function.Consumer
 import javax.swing.JFrame
 import kotlin.math.max
 import kotlin.math.min
@@ -304,12 +305,25 @@ class SciviewBridge {
         //this.volumeParent.addChild(v);
     }
 
+    fun <T : IntegerType<T>?> autoAdjustPixelIntensityStretchingParams(
+        srcImg: RandomAccessibleInterval<T>?
+    ) {
+        var maxVal = 0.0
+        Views.iterable(srcImg).forEach(Consumer { px -> maxVal = Math.max(maxVal, px!!.realDouble) })
+        INTENSITY_CLAMP_AT_TOP = 0.9f * maxVal //very fake 90% percentile...
+        INTENSITY_OF_COLORS = 2.0f * maxVal
+        println("CLAMP at $INTENSITY_CLAMP_AT_TOP, COLORS to $INTENSITY_OF_COLORS")
+        //TODO: could possibly also adjust both INTENSITY_RANGE_MIN and INTENSITY_RANGE_MAX
+    }
+
     fun <T : IntegerType<T>?> freshNewGrayscaleContent(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
         blueCh: RandomAccessibleInterval<T>?,
         srcImg: RandomAccessibleInterval<T>?
     ) {
+        //if (someFlagIsSet) autoAdjustPixelIntensityStretchingParams(srcImg)
+
         //TODO would be great if the following two functions would be outside this function, and would therefore
         //     be created only once (not created again with every new call of this function like it is now)
         val gammaEnabledIntensityProcessor: (T,T) -> Unit =
