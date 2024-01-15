@@ -305,7 +305,7 @@ class SciviewBridge {
         //this.volumeParent.addChild(v);
     }
 
-    fun <T : IntegerType<T>?> autoAdjustPixelIntensityStretchingParams(
+    fun <T : IntegerType<T>?> audoAdjustIntensity(
         srcImg: RandomAccessibleInterval<T>?
     ) {
         var maxVal = 0.0
@@ -366,6 +366,8 @@ class SciviewBridge {
     }
 
     val posAuxArray = FloatArray(3)
+    val coloringROIMin = LongArray(3)
+    val coloringROIMax = LongArray(3) // NB: only works for single threaded coloring!
     fun <T : IntegerType<T>?> spreadColor(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
@@ -375,23 +377,18 @@ class SciviewBridge {
         maxSpatialDist: Double,
         rgbValue: Vector3f
     ) {
-        //TODO: aren't the following two lines doing allocations again and again?? isn't it a pity? :-)
-        //      I would have moved them outside this function to make it one-time created
-        //      class attr, but that is safe only as long as this method is called single-threaded!
-        //      (one has to decide if coloring spots will be called from a thread pool, I don't think it is necessary)
-        val min = LongArray(3)
-        val max = LongArray(3)
+
         val maxDist = longArrayOf(
             (maxSpatialDist / mastodonToImgCoordsTransfer!!.x).toLong(),
             (maxSpatialDist / mastodonToImgCoordsTransfer.y).toLong(),
             (maxSpatialDist / mastodonToImgCoordsTransfer.z).toLong()
         )
         for (d in 0..2) {
-            min[d] = max((pxCentre[d] - maxDist[d]).toDouble(), 0.0).toLong()
-            max[d] = min((pxCentre[d] + maxDist[d]).toDouble(), (srcImg.dimension(d) - 1).toDouble())
+            coloringROIMin[d] = max((pxCentre[d] - maxDist[d]).toDouble(), 0.0).toLong()
+            coloringROIMax[d] = min((pxCentre[d] + maxDist[d]).toDouble(), (srcImg.dimension(d) - 1).toDouble())
                 .toLong()
         }
-        val roi: Interval = FinalInterval(min, max)
+        val roi: Interval = FinalInterval(coloringROIMin, coloringROIMax)
         val rc = Views.interval(redCh, roi).cursor()
         val gc = Views.interval(greenCh, roi).cursor()
         val bc = Views.interval(blueCh, roi).cursor()
@@ -432,8 +429,8 @@ class SciviewBridge {
         if (UPDATE_VOLUME_VERBOSE_REPORTS) {
             println(
                 "  colored " + count + " pixels in the interval ["
-                        + min[0] + "," + min[1] + "," + min[2] + "] -> ["
-                        + max[0] + "," + max[1] + "," + max[2] + "] @ ["
+                        + coloringROIMin[0] + "," + coloringROIMin[1] + "," + coloringROIMin[2] + "] -> ["
+                        + coloringROIMax[0] + "," + coloringROIMax[1] + "," + coloringROIMax[2] + "] @ ["
                         + pxCentre[0] + "," + pxCentre[1] + "," + pxCentre[2] + "]"
             )
             println(
