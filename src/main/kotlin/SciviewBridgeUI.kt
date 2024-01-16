@@ -34,7 +34,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         mc.weightx = 0.6
         mc.gridx = 1
         val openBdvBtn = JButton("Open synced Mastodon BDV")
-        openBdvBtn.addActionListener { l: ActionEvent? -> controlledBridge!!.openSyncedBDV() }
+        openBdvBtn.addActionListener { controlledBridge!!.openSyncedBDV() }
         MastodonRowPlaceHolder.add(openBdvBtn, mc)
         //
         c.gridy = 0
