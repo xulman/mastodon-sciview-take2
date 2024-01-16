@@ -174,8 +174,8 @@ class SciviewBridge {
             redVolChannelNode,
             "Red.lut",
             volumeScale,
-            INTENSITY_RANGE_MIN.toDouble(),
-            INTENSITY_RANGE_MAX.toDouble()
+            INTENSITY_RANGE_MIN,
+            INTENSITY_RANGE_MAX
         )
         //TODO display range can one learn from the coloring process
         //
@@ -185,8 +185,8 @@ class SciviewBridge {
             greenVolChannelNode,
             "Green.lut",
             volumeScale,
-            INTENSITY_RANGE_MIN.toDouble(),
-            INTENSITY_RANGE_MAX.toDouble()
+            INTENSITY_RANGE_MIN,
+            INTENSITY_RANGE_MAX
         )
         //
         blueVolChannelNode =
@@ -195,8 +195,8 @@ class SciviewBridge {
             blueVolChannelNode,
             "Blue.lut",
             volumeScale,
-            INTENSITY_RANGE_MIN.toDouble(),
-            INTENSITY_RANGE_MAX.toDouble()
+            INTENSITY_RANGE_MIN,
+            INTENSITY_RANGE_MAX
         )
         //
         volNodes = listOf<Node?>(redVolChannelNode, greenVolChannelNode, blueVolChannelNode)
