@@ -443,13 +443,6 @@ class SciviewBridge {
         }
     }
 
-    fun mastodonToImgCoord(mastodonCoord: Vector3f): Vector3f {
-        //this is probably creating a new object,
-        //...which is okay given the contract/specification of the function,
-        //...but maybe also less efficient
-        return mastodonCoord / mastodonToImgCoordsTransfer
-    }
-
     fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
         //yes, ugly... but avoids new allocations, yet can be still used "inplace" or "chaining"
         destVec.set(
