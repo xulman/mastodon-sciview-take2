@@ -531,7 +531,7 @@ class SciviewBridge {
 
     //------------------------------
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
-        updateSciviewColoring(forThisBdv)
+        updateSVColoring(forThisBdv)
         sphereNodes!!.showTheseSpots(
             mastodon!!,
             forThisBdv.timepoint, forThisBdv.colorizer!!
@@ -539,69 +539,73 @@ class SciviewBridge {
     }
 
     private var lastTpWhenVolumeWasUpdated = 0
-    fun updateSciviewColoring(forThisBdv: DisplayParamsProvider) {
-        //only a wrapper that conditionally calls the workhorse method
-        if (UPDATE_VOLUME_AUTOMATICALLY) {
-            //HACK FOR NOW to prevent from redrawing of the same volumes
-            //would be better if the BdvNotifier could tell us, instead of us detecting it here
-            val currTP = forThisBdv.timepoint
-            if (currTP != lastTpWhenVolumeWasUpdated) {
-                lastTpWhenVolumeWasUpdated = currTP
-                updateSciviewColoringNow(forThisBdv)
-            }
-        }
-    }
-
     val detachedDPP_showsLastTimepoint: DisplayParamsProvider = DPP_Detached()
 
     @JvmOverloads
-    fun updateSciviewColoringNow(forThisBdv: DisplayParamsProvider = detachedDPP_showsLastTimepoint) {
-        val spotCoord = Vector3f()
-        val color = Vector3f()
-        if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: started")
-        val tp = forThisBdv.timepoint
-        val srcRAI = mastodon!!
-            .sharedBdvData.sources[SOURCE_ID]
-            .spimSource.getSource(tp, SOURCE_USED_RES_LEVEL)
-        if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: resets with new white content")
-        freshNewGrayscaleContent(
-            redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-            srcRAI as RandomAccessibleInterval<UnsignedShortType>
-        )
-        if (INTENSITY_OF_COLORS_APPLY) {
-            val colorizer = forThisBdv.colorizer
-            for (s in mastodon.model.spatioTemporalIndex.getSpatialIndex(tp)) {
-                val col = colorizer!!.color(s)
-                if (col == 0) continue  //don't imprint black spots into the volume
-                color.x = (col and 0x00FF0000 shr 16) / 255f
-                color.y = (col and 0x0000FF00 shr 8) / 255f
-                color.z = (col and 0x000000FF) / 255f
-                if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: colors spot " + s.label + " with color [" + color[0] + "," + color[1] + "," + color[2] + "](" + col + ")")
-                s.localize(posAuxArray)
-                spreadColor(
+    fun updateSVColoring(
+        forThisBdv: DisplayParamsProvider = detachedDPP_showsLastTimepoint,
+        force: Boolean = false
+    ) {
+
+        if (UPDATE_VOLUME_AUTOMATICALLY || force) {
+            val currTP = forThisBdv.timepoint
+
+            if (currTP != lastTpWhenVolumeWasUpdated) {
+                lastTpWhenVolumeWasUpdated = currTP
+
+                val spotCoord = Vector3f()
+                val color = Vector3f()
+                if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: started")
+                val tp = forThisBdv.timepoint
+                val srcRAI = mastodon!!
+                    .sharedBdvData.sources[SOURCE_ID]
+                    .spimSource.getSource(tp, SOURCE_USED_RES_LEVEL)
+                if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: resets with new white content")
+                freshNewGrayscaleContent(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-                    srcRAI,
-                    mastodonToImgCoord(posAuxArray,spotCoord),  //NB: spot drawing is driven by image intensity, and thus
-                    //dark BG doesn't get colorized too much ('cause it is dark),
-                    //and thus it doesn't hurt if the spot is considered reasonably larger
-                    SPOT_RADIUS_SCALE * sqrt(s.boundingSphereRadiusSquared),
-                    color
+                    srcRAI as RandomAccessibleInterval<UnsignedShortType>
                 )
+                if (INTENSITY_OF_COLORS_APPLY) {
+                    val colorizer = forThisBdv.colorizer
+                    for (s in mastodon.model.spatioTemporalIndex.getSpatialIndex(tp)) {
+                        val col = colorizer!!.color(s)
+                        if (col == 0) continue  //don't imprint black spots into the volume
+                        color.x = (col and 0x00FF0000 shr 16) / 255f
+                        color.y = (col and 0x0000FF00 shr 8) / 255f
+                        color.z = (col and 0x000000FF) / 255f
+                        if (UPDATE_VOLUME_VERBOSE_REPORTS)
+                            println(
+                                "COLORING: colors spot " + s.label + " with color ["
+                                        + color[0] + "," + color[1] + "," + color[2] + "](" + col + ")"
+                            )
+                        s.localize(posAuxArray)
+                        spreadColor(
+                            redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
+                            srcRAI,
+                            mastodonToImgCoord(posAuxArray, spotCoord),
+                            //NB: spot drawing is driven by image intensity, and thus
+                            //dark BG doesn't get colorized too much ('cause it is dark),
+                            //and thus it doesn't hurt if the spot is considered reasonably larger
+                            SPOT_RADIUS_SCALE * sqrt(s.boundingSphereRadiusSquared),
+                            color
+                        )
+                    }
+                }
+                try {
+                    val graceTimeForVolumeUpdatingInMS: Long = 50
+                    if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update red volume")
+                    redVolChannelNode!!.volumeManager.notifyUpdate(redVolChannelNode)
+                    Thread.sleep(graceTimeForVolumeUpdatingInMS)
+                    if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update green volume")
+                    greenVolChannelNode!!.volumeManager.notifyUpdate(greenVolChannelNode)
+                    Thread.sleep(graceTimeForVolumeUpdatingInMS)
+                    if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update blue volume")
+                    blueVolChannelNode!!.volumeManager.notifyUpdate(blueVolChannelNode)
+                } catch (e: InterruptedException) { /* do nothing */
+                }
+                if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: finished")
             }
         }
-        try {
-            val graceTimeForVolumeUpdatingInMS: Long = 50
-            if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update red volume")
-            redVolChannelNode!!.volumeManager.notifyUpdate(redVolChannelNode)
-            Thread.sleep(graceTimeForVolumeUpdatingInMS)
-            if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update green volume")
-            greenVolChannelNode!!.volumeManager.notifyUpdate(greenVolChannelNode)
-            Thread.sleep(graceTimeForVolumeUpdatingInMS)
-            if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update blue volume")
-            blueVolChannelNode!!.volumeManager.notifyUpdate(blueVolChannelNode)
-        } catch (e: InterruptedException) { /* do nothing */
-        }
-        if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: finished")
     }
 
     private fun updateSciviewCamera(forThisBdv: MamutViewBdv) {
@@ -673,7 +677,7 @@ class SciviewBridge {
         //
         handler?.addKeyBinding(desc_COLORING, key_COLORING)
         handler?.addBehaviour(desc_COLORING, ClickBehaviour { _, _ ->
-            updateSciviewColoringNow()
+            updateSVColoring(force = true)
             updateUI()
         })
         //
