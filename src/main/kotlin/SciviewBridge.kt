@@ -105,6 +105,7 @@ class SciviewBridge {
     ) {
         mastodon = mastodonMainWindow
         sciviewWin = targetSciviewWindow
+        sciviewWin?.setPushMode(true)
         detachedDPP_withOwnTime = DPP_DetachedOwnTime(
             mastodon.minTimepoint,
             mastodon.maxTimepoint
@@ -408,6 +409,8 @@ class SciviewBridge {
             rgbValue
         }
         var count = 0
+        var distSq: Float
+        var colorVal: Double
         while (si.hasNext()) {
             rc.next()
             gc.next()
@@ -416,10 +419,10 @@ class SciviewBridge {
             si.localize(posAuxArray)
             pos.set(posAuxArray)
             //(raw) image coords -> Mastodon coords
-            val distSq = pos.sub(pxCentre).mul(mastodonToImgCoordsTransfer).lengthSquared()
+            distSq = pos.sub(pxCentre).mul(mastodonToImgCoordsTransfer).lengthSquared()
             if (distSq <= maxDistSq) {
                 //we're within the ROI (spot)
-                val colorVal = si.get()!!.realFloat * intensityScale
+                colorVal = si.get()!!.realFloat * intensityScale
                 rc.get()!!.setReal(colorVal * usedColor[0])
                 gc.get()!!.setReal(colorVal * usedColor[1])
                 bc.get()!!.setReal(colorVal * usedColor[2])
