@@ -170,7 +170,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         c.gridwidth = 1
         c.insets = Insets(10, sideSpace, sideSpace, sideSpace)
         val redrawBtn = JButton("  Repaint now (the recently painted timepoint)  ")
-        redrawBtn.addActionListener { controlledBridge!!.updateSciviewColoringNow() }
+        redrawBtn.addActionListener { controlledBridge!!.updateSVColoring(force = true) }
         controlsWindowPanel.add(redrawBtn, c)
         c.gridx = 1
         c.anchor = GridBagConstraints.LINE_END
@@ -260,7 +260,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         override fun stateChanged(changeEvent: ChangeEvent) {
             val s = changeEvent.source as SpinnerNumberModel
             pushChangeToHere.accept(s.number.toFloat())
-            if (controlledBridge!!.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge!!.updateSciviewColoringNow()
+            if (controlledBridge!!.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge!!.updateSVColoring()
         }
     }
 
@@ -268,10 +268,10 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         val cb = itemEvent.source as JCheckBox
         if (cb === INTENSITY_OF_COLORS_APPLY) {
             controlledBridge.INTENSITY_OF_COLORS_APPLY = cb.isSelected
-            if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSciviewColoringNow()
+            if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSVColoring(force = true)
         } else if (cb === INTENSITY_OF_COLORS_BOOST) {
             controlledBridge.INTENSITY_OF_COLORS_BOOST = cb.isSelected
-            if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSciviewColoringNow()
+            if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSVColoring(force = true)
         } else if (cb === UPDATE_VOLUME_VERBOSE_REPORTS) {
             controlledBridge.UPDATE_VOLUME_VERBOSE_REPORTS = cb.isSelected
         }
@@ -288,7 +288,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY && !prevBridgeState) {
             //NB: a protection "if" here because this listener can be triggered even
             //when one re-chooses (re-clicks) the already chosen element
-            controlledBridge.updateSciviewColoringNow()
+            controlledBridge.updateSVColoring(force = true)
         }
     }
     val toggleSpotsVisibility = ActionListener {
