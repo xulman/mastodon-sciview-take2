@@ -621,7 +621,7 @@ class SciviewBridge {
     }
 
     private val auxTransform = AffineTransform3D()
-    private val viewMatrix = Matrix4f(1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f)
+    private val viewMatrix = Matrix4f()
     private val viewRotation = Quaternionf()
 
     // --------------------------------------------------------------------------
