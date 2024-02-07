@@ -33,6 +33,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
         val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         var node: Sphere
+        sv.blockOnNewNodes = false
         for (s in spots) {
             if (visibleNodeCount < knownNodes.size) {
                 //injecting into known nodes (already registered with sciview)
@@ -43,9 +44,10 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
             } else {
                 //adding some new nodes
                 node = Sphere()
-                sv.addNode(node, parent = parentNode)
-                addedExtraNodes.add(node)
                 node.visible = finalVisibilityState
+                sv.addNode(node, false, parentNode)
+//                parentNode.addChild(node)
+                addedExtraNodes.add(node)
             }
             setSphereNode(node, s, colorizer)
             if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == s.internalPoolIndex) {
@@ -53,6 +55,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
             }
             ++visibleNodeCount
         }
+        sv.publishNode(parentNode)
         if (addedExtraNodes.size > 0) {
             //NB: also means that the knownNodes were fully exhausted
             knownNodes.addAll(addedExtraNodes)
