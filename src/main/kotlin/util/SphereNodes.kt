@@ -42,9 +42,8 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
                 // when there were fewer spots before)
             } else {
                 //adding some new nodes
-                //todo: fix me after #497 is solved
                 node = Sphere()
-                parentNode.addChild(node)
+                sv.addNode(node, parent = parentNode)
                 addedExtraNodes.add(node)
                 node.visible = finalVisibilityState
             }
