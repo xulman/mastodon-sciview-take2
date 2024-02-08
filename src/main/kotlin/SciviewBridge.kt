@@ -79,7 +79,7 @@ class SciviewBridge {
 
     //sink scene graph structuring nodes
     val axesParent: Node?
-    val sphereParent: Sphere?
+    val sphereParent: Group?
     val volumeParent: Sphere?
     val redVolChannelNode: Volume?
     val greenVolChannelNode: Volume?
@@ -223,10 +223,9 @@ class SciviewBridge {
 
 
         //spots stuff:
-        sphereParent = sciviewWin.addSphere()
-        sphereParent.visible = false
+        sphereParent = Group()
         sphereParent.name = "SPOTS$commonNodeName"
-
+        sciviewWin.addNode(sphereParent)
         val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
         spotsScale.mul(MAGIC_ONE_TENTH * redVolChannelNode.pixelToWorldRatio)
         mastodonToImgCoordsTransfer = Vector3f(
