@@ -2,6 +2,7 @@ package util
 
 import graphics.scenery.Node
 import graphics.scenery.Sphere
+import graphics.scenery.utils.extensions.times
 import org.joml.Vector3f
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
@@ -39,8 +40,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
                 //injecting into known nodes (already registered with sciview)
                 node = knownNodes[visibleNodeCount]
                 node.visible = finalVisibilityState
-                //NB: make sure it's visible (could have got hidden
-                // when there were fewer spots before)
+                //NB: make sure it's visible (could have got hidden when there were fewer spots before)
             } else {
                 //adding some new nodes
                 node = Sphere()
@@ -115,7 +115,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         SCALE_FACTOR -= 0.5f
         if (SCALE_FACTOR < 0.4f) SCALE_FACTOR = 0.5f
         val factor = SCALE_FACTOR / oldScale
-        knownNodes.forEach { s: Sphere -> s.spatial().scale.mul(factor) }
+        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor)  }
         println("Decreasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
@@ -123,7 +123,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         val oldScale = SCALE_FACTOR
         SCALE_FACTOR += 0.5f
         val factor = SCALE_FACTOR / oldScale
-        knownNodes.forEach { s: Sphere -> s.spatial().scale.mul(factor) }
+        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor) }
         println("Increasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
