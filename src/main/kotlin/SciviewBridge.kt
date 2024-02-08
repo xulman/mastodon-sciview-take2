@@ -717,32 +717,19 @@ class SciviewBridge {
     private fun deregisterKeyboardHandlers() {
         val handler = sciviewWin?.sceneryInputHandler
         if (handler != null) {
-            handler.removeKeyBinding(desc_DEC_SPH)
-            handler.removeBehaviour(desc_DEC_SPH)
-
-            handler.removeKeyBinding(desc_INC_SPH)
-            handler.removeBehaviour(desc_INC_SPH)
-
-            handler.removeKeyBinding(desc_COLORING)
-            handler.removeBehaviour(desc_COLORING)
-
-            handler.removeKeyBinding(desc_CLRNG_AUTO)
-            handler.removeBehaviour(desc_CLRNG_AUTO)
-
-            handler.removeKeyBinding(key_CLRNG_ONOFF)
-            handler.removeBehaviour(key_CLRNG_ONOFF)
-
-            handler.removeKeyBinding(desc_CTRL_WIN)
-            handler.removeBehaviour(desc_CTRL_WIN)
-
-            handler.removeKeyBinding(desc_CTRL_INFO)
-            handler.removeBehaviour(desc_CTRL_INFO)
-
-            handler.removeKeyBinding(desc_PREV_TP)
-            handler.removeBehaviour(desc_PREV_TP)
-
-            handler.removeKeyBinding(desc_NEXT_TP)
-            handler.removeBehaviour(desc_NEXT_TP)
+            listOf(desc_DEC_SPH,
+                desc_INC_SPH,
+                desc_COLORING,
+                desc_CLRNG_AUTO,
+                key_CLRNG_ONOFF,
+                desc_CTRL_WIN,
+                desc_CTRL_INFO,
+                desc_PREV_TP,
+                desc_NEXT_TP)
+                .forEach {
+                    handler.removeKeyBinding(it)
+                    handler.removeBehaviour(it)
+                }
         }
     }
 
