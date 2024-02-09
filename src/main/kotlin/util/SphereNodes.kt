@@ -55,7 +55,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
             }
             ++visibleNodeCount
         }
-//        sv.publishNode(parentNode)
+        sv.publishNode(parentNode)
         if (addedExtraNodes.size > 0) {
             //NB: also means that the knownNodes were fully exhausted
             knownNodes.addAll(addedExtraNodes)
