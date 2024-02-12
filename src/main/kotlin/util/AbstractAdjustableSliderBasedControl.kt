@@ -210,7 +210,7 @@ abstract class AbstractAdjustableSliderBasedControl(// =========================
     }
 
     protected fun tellListenersThatSliderHasChanged(event: ChangeEvent?) {
-        listeners.forEach(Consumer { listener: ChangeListener -> listener.stateChanged(event) })
+        listeners.forEach { listener: ChangeListener -> listener.stateChanged(event) }
     }
 
     protected fun tellListenersThatWeEndedAdjustingMode() {
