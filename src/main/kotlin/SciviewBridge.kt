@@ -327,6 +327,7 @@ class SciviewBridge {
     ) {
         if (allowVolumeIntensityAutoAdjust) {
             autoAdjustIntensity(srcImg)
+            updateUI();
         }
 
         //TODO would be great if the following two functions would be outside this function, and would therefore

@@ -108,7 +108,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         visToggleSpots.addActionListener(toggleSpotsVisibility)
         visToggleVols = JButton("Toggle visibility of VOLUME")
         visToggleVols.addActionListener(toggleVolumeVisibility)
-        autoIntensityBtn = JButton("Auto Intensity")
+        autoIntensityBtn = JToggleButton("Auto Intensity", controlledBridge!!.allowVolumeIntensityAutoAdjust)
         autoIntensityBtn.addActionListener(autoAdjustIntensity)
         //
         val threeCenteredButtonsPlaceHolder = JPanel()
@@ -306,7 +306,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     }
 
     val autoAdjustIntensity = ActionListener {
-        controlledBridge.allowVolumeIntensityAutoAdjust = true
+        controlledBridge.allowVolumeIntensityAutoAdjust = autoIntensityBtn.isSelected
     }
 
     /**
@@ -341,12 +341,19 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         INTENSITY_CLAMP_AT_TOP.value = controlledBridge!!.INTENSITY_CLAMP_AT_TOP
         INTENSITY_GAMMA.value = controlledBridge!!.INTENSITY_GAMMA
         INTENSITY_OF_COLORS.value = controlledBridge!!.INTENSITY_OF_COLORS
-        INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
-            .slider
-            .setValue(controlledBridge!!.INTENSITY_RANGE_MIN.toInt())
+        var upperValBackup = controlledBridge!!.INTENSITY_RANGE_MAX
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
             .rangeSlider
-            .setUpperValue(controlledBridge!!.INTENSITY_RANGE_MAX.toInt())
+            .value = controlledBridge!!.INTENSITY_RANGE_MIN.toInt()
+        //NB: this triggers a "value changed listener" which updates _both_ the value and upperValue,
+        //    which resets the value with the new one (so no change in the end) but clears upperValue
+        //    to the value the dialog was left with (forgets the new upperValue effectively)
+        controlledBridge!!.INTENSITY_RANGE_MAX = upperValBackup
+        INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
+            .rangeSlider
+            .upperValue = controlledBridge!!.INTENSITY_RANGE_MAX.toInt()
+
+        autoIntensityBtn.isSelected = controlledBridge!!.allowVolumeIntensityAutoAdjust
         INTENSITY_OF_COLORS_APPLY.setSelected(controlledBridge!!.INTENSITY_OF_COLORS_APPLY)
         INTENSITY_OF_COLORS_BOOST.setSelected(controlledBridge!!.INTENSITY_OF_COLORS_BOOST)
         SPOT_RADIUS_SCALE.value = controlledBridge!!.SPOT_RADIUS_SCALE
@@ -373,7 +380,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     //
     lateinit var visToggleSpots: JButton
     lateinit var visToggleVols: JButton
-    lateinit var autoIntensityBtn: JButton
+    lateinit var autoIntensityBtn: JToggleButton
     lateinit var INTENSITY_OF_COLORS_APPLY: JCheckBox
     lateinit var INTENSITY_OF_COLORS_BOOST: JCheckBox
     lateinit var SPOT_RADIUS_SCALE: SpinnerModel
