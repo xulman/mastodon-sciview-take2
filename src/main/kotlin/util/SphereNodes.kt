@@ -58,9 +58,9 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
             //NB: also means that the knownNodes were fully exhausted
             knownNodes.addAll(addedExtraNodes)
             sv.publishNode(addedExtraNodes[0]) //NB: publishes only once
-            //System.out.println("Added new "+addedExtraNodes.size()+" spheres");
+            println("Added new "+addedExtraNodes.size+" spheres");
         } else {
-            //System.out.println("Hide "+(knownNodes.size()-visibleNodesAfterall)+" spheres");
+            println("Hide "+(knownNodes.size-visibleNodeCount)+" spheres");
             //NB: mark not-touched knownNodes as hidden
             var i = visibleNodeCount
             while (i < knownNodes.size) {
@@ -68,10 +68,11 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
                 knownNodes[i++].visible = false
             }
         }
-        /*
-		System.out.println("Drawing currently in total "+visibleNodesAfterall
-				+ " and there are "+(knownNodes.size()-visibleNodesAfterall)
-				+ " hidden..."); */
+/*
+		println("Drawing currently in total "+visibleNodeCount
+				+ " and there are "+(knownNodes.size-visibleNodeCount)
+				+ " hidden...");
+*/
         return visibleNodeCount
     }
 
