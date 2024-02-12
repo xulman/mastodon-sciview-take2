@@ -89,6 +89,7 @@ class SciviewBridge {
     val redVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
     val greenVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
     val blueVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
+    var allowVolumeIntensityAutoAdjust = false
     val mastodonToImgCoordsTransfer: Vector3f?
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
@@ -305,15 +306,17 @@ class SciviewBridge {
         //this.volumeParent.addChild(v);
     }
 
-    fun <T : IntegerType<T>?> audoAdjustIntensity(
+    fun <T : IntegerType<T>?> autoAdjustIntensity(
         srcImg: RandomAccessibleInterval<T>?
     ) {
         var maxVal = 0.0
-        Views.iterable(srcImg).forEach(Consumer { px -> maxVal = Math.max(maxVal, px!!.realDouble) })
+        Views.iterable(srcImg).forEach{ px -> maxVal = maxVal.coerceAtLeast(px!!.realDouble) }
         INTENSITY_CLAMP_AT_TOP = 0.9f * maxVal //very fake 90% percentile...
         INTENSITY_OF_COLORS = 2.0f * maxVal
-        println("CLAMP at $INTENSITY_CLAMP_AT_TOP, COLORS to $INTENSITY_OF_COLORS")
-        //TODO: could possibly also adjust both INTENSITY_RANGE_MIN and INTENSITY_RANGE_MAX
+        INTENSITY_RANGE_MIN = maxVal * 0.15
+        INTENSITY_RANGE_MAX = maxVal * 0.75
+        println("CLAMP at $INTENSITY_CLAMP_AT_TOP, COLORS to $INTENSITY_OF_COLORS, RANGE_MIN to $INTENSITY_RANGE_MIN and RANGE_MAX to $INTENSITY_RANGE_MAX")
+        //TODO: change MIN and MAX to proper values
     }
 
     fun <T : IntegerType<T>?> freshNewGrayscaleContent(
@@ -322,7 +325,9 @@ class SciviewBridge {
         blueCh: RandomAccessibleInterval<T>?,
         srcImg: RandomAccessibleInterval<T>?
     ) {
-        //if (someFlagIsSet) autoAdjustPixelIntensityStretchingParams(srcImg)
+        if (allowVolumeIntensityAutoAdjust) {
+            autoAdjustIntensity(srcImg)
+        }
 
         //TODO would be great if the following two functions would be outside this function, and would therefore
         //     be created only once (not created again with every new call of this function like it is now)
@@ -339,6 +344,7 @@ class SciviewBridge {
         val noGammaIntensityProcessor: (T,T) -> Unit =
             { src: T, tgt: T -> tgt!!.setReal(
                         min(
+                            // TODO This needs to incorporate INTENSITY_RANGE_MIN and MAX
                             INTENSITY_CONTRAST * src!!.realDouble + INTENSITY_SHIFT,
                             INTENSITY_CLAMP_AT_TOP
                         )

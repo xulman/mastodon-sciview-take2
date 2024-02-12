@@ -3,7 +3,6 @@ package org.mastodon.mamut
 import util.AdjustableBoundsRangeSlider
 import util.GroupLocksHandling
 import java.awt.*
-import java.awt.event.ActionEvent
 import java.awt.event.ActionListener
 import java.awt.event.ItemListener
 import java.util.function.Consumer
@@ -109,20 +108,26 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         visToggleSpots.addActionListener(toggleSpotsVisibility)
         visToggleVols = JButton("Toggle visibility of VOLUME")
         visToggleVols.addActionListener(toggleVolumeVisibility)
+        autoIntensityBtn = JButton("Auto Intensity")
+        autoIntensityBtn.addActionListener(autoAdjustIntensity)
         //
-        val twoCenteredButtonsPlaceHolder = JPanel()
-        controlsWindowPanel.add(twoCenteredButtonsPlaceHolder, c)
+        val threeCenteredButtonsPlaceHolder = JPanel()
+        controlsWindowPanel.add(threeCenteredButtonsPlaceHolder, c)
         //
-        twoCenteredButtonsPlaceHolder.setLayout(GridBagLayout())
+        threeCenteredButtonsPlaceHolder.setLayout(GridBagLayout())
         val bc = GridBagConstraints()
         bc.fill = GridBagConstraints.HORIZONTAL
         bc.weightx = 0.4
         bc.gridx = 0
-        bc.insets = Insets(0, 0, 0, 20)
-        twoCenteredButtonsPlaceHolder.add(visToggleSpots, bc)
+//        bc.insets = Insets(0, 20, 0, 0)
+        threeCenteredButtonsPlaceHolder.add(autoIntensityBtn, bc)
         bc.gridx = 1
         bc.insets = Insets(0, 20, 0, 0)
-        twoCenteredButtonsPlaceHolder.add(visToggleVols, bc)
+        threeCenteredButtonsPlaceHolder.add(visToggleSpots, bc)
+        bc.gridx = 2
+        bc.insets = Insets(0, 20, 0, 0)
+        threeCenteredButtonsPlaceHolder.add(visToggleVols, bc)
+//        bc.insets = Insets(0, 0, 0, 20)
 
         // -------------- separator --------------
         c.gridy++
@@ -300,6 +305,10 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         controlledBridge.setVisibilityOfVolume(newState)
     }
 
+    val autoAdjustIntensity = ActionListener {
+        controlledBridge.allowVolumeIntensityAutoAdjust = true
+    }
+
     /**
      * Disable all listeners to make sure that, even if this UI window would ever
      * be re-displayed, its controls could not control anything (and would throw
@@ -318,6 +327,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         UPDATE_VOLUME_AUTOMATICALLY.removeActionListener(updVolAutoListener)
         visToggleSpots.removeActionListener(toggleSpotsVisibility)
         visToggleVols.removeActionListener(toggleVolumeVisibility)
+        autoIntensityBtn.removeActionListener(autoAdjustIntensity)
         controlledBridge = null
     }
 
@@ -363,6 +373,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     //
     lateinit var visToggleSpots: JButton
     lateinit var visToggleVols: JButton
+    lateinit var autoIntensityBtn: JButton
     lateinit var INTENSITY_OF_COLORS_APPLY: JCheckBox
     lateinit var INTENSITY_OF_COLORS_BOOST: JCheckBox
     lateinit var SPOT_RADIUS_SCALE: SpinnerModel
