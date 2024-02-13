@@ -19,14 +19,13 @@ dependencies {
 
     //api("sc.iview:sciview")
     implementation("sc.iview:sciview")
-    implementation("org.yaml:snakeyaml:[1.29, 1.33]!!") //TODO: is this still needed? isn't it fixed in pom-scijava-37?
 
-    implementation("org.mastodon:mastodon:1.0.0-beta-27")
+    implementation("org.mastodon:mastodon:1.0.0-beta-28")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
 
-    val scijavaCommonVersion = "2.94.1"                 //TODO: shouldn't be updated?? look how this is done in scenery/sciview
+    val scijavaCommonVersion = "2.94.2"                 //TODO: shouldn't be updated?? look how this is done in scenery/sciview
     kapt("org.scijava:scijava-common:$scijavaCommonVersion") {
         exclude("org.lwjgl")
     }
