@@ -1,5 +1,5 @@
 plugins {
-    kotlin("kapt") version "1.9.0"                 //TODO: shouldn't be updated?? look how this is done in scenery/sciview
+    kotlin("kapt") version "1.9.21"
     kotlin("jvm") version embeddedKotlinVersion
 }
 
@@ -14,6 +14,7 @@ repositories {
 
 dependencies {
     implementation(platform("org.scijava:pom-scijava:37.0.0"))
+    implementation("org.yaml:snakeyaml:[1.29, 1.33]!!")
 
     implementation("net.imagej:imagej")
 
