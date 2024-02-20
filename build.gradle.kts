@@ -21,12 +21,18 @@ dependencies {
     //api("sc.iview:sciview")
     implementation("sc.iview:sciview")
 
+    implementation("org.slf4j:slf4j-simple:1.7.36")
+
     implementation("org.mastodon:mastodon:1.0.0-beta-28")
+
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.16.1")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.1")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
 
-    val scijavaCommonVersion = "2.94.2"                 //TODO: shouldn't be updated?? look how this is done in scenery/sciview
+    val scijavaCommonVersion = "2.97.1"                 //TODO: shouldn't be updated?? look how this is done in scenery/sciview
     kapt("org.scijava:scijava-common:$scijavaCommonVersion") {
         exclude("org.lwjgl")
     }
