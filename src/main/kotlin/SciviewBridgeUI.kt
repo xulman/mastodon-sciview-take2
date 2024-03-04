@@ -108,7 +108,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         visToggleSpots.addActionListener(toggleSpotsVisibility)
         visToggleVols = JButton("Toggle visibility of VOLUME")
         visToggleVols.addActionListener(toggleVolumeVisibility)
-        autoIntensityBtn = JToggleButton("Auto Intensity", controlledBridge!!.allowVolumeIntensityAutoAdjust)
+        autoIntensityBtn = JToggleButton("Auto Intensity", controlledBridge!!.isVolumeAutoAdjust)
         autoIntensityBtn.addActionListener(autoAdjustIntensity)
         //
         val threeCenteredButtonsPlaceHolder = JPanel()
@@ -306,7 +306,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     }
 
     val autoAdjustIntensity = ActionListener {
-        controlledBridge.allowVolumeIntensityAutoAdjust = autoIntensityBtn.isSelected
+        controlledBridge.autoAdjustIntensity()
     }
 
     /**
@@ -353,7 +353,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
             .rangeSlider
             .upperValue = controlledBridge!!.INTENSITY_RANGE_MAX.toInt()
 
-        autoIntensityBtn.isSelected = controlledBridge!!.allowVolumeIntensityAutoAdjust
+        autoIntensityBtn.isSelected = controlledBridge!!.isVolumeAutoAdjust
         INTENSITY_OF_COLORS_APPLY.setSelected(controlledBridge!!.INTENSITY_OF_COLORS_APPLY)
         INTENSITY_OF_COLORS_BOOST.setSelected(controlledBridge!!.INTENSITY_OF_COLORS_BOOST)
         SPOT_RADIUS_SCALE.value = controlledBridge!!.SPOT_RADIUS_SCALE

@@ -2,6 +2,7 @@ package org.mastodon.mamut
 
 import bdv.tools.brightness.ConverterSetup
 import bdv.viewer.Source
+import bdv.viewer.SourceAndConverter
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.volumes.Volume
@@ -28,12 +29,12 @@ import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
 import util.SphereNodes
-import java.util.function.Consumer
 import javax.swing.JFrame
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlin.reflect.jvm.internal.impl.resolve.calls.inference.CapturedType
 
 class SciviewBridge {
     //data source stuff
@@ -76,7 +77,6 @@ class SciviewBridge {
     //data sink stuff
     val sciviewWin: SciView?
     val sphereNodes: SphereNodes?
-
     //sink scene graph structuring nodes
     val axesParent: Node?
     val sphereParent: Group?
@@ -89,7 +89,8 @@ class SciviewBridge {
     val redVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
     val greenVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
     val blueVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
-    var allowVolumeIntensityAutoAdjust = false
+    var spimSource: Source<out Any>
+    var isVolumeAutoAdjust = false
     val mastodonToImgCoordsTransfer: Vector3f?
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
@@ -132,7 +133,7 @@ class SciviewBridge {
         //get necessary metadata - from image data
         SOURCE_ID = sourceID
         SOURCE_USED_RES_LEVEL = sourceResLevel
-        val spimSource = mastodon.sharedBdvData.sources[SOURCE_ID].spimSource
+        spimSource = mastodon.sharedBdvData.sources[SOURCE_ID].spimSource
         val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()
         //SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
         val volumeDimsUsedResLevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray()
@@ -306,17 +307,35 @@ class SciviewBridge {
         //this.volumeParent.addChild(v);
     }
 
-    fun <T : IntegerType<T>?> autoAdjustIntensity(
-        srcImg: RandomAccessibleInterval<T>?
-    ) {
-        var maxVal = 0.0
-        Views.iterable(srcImg).forEach{ px -> maxVal = maxVal.coerceAtLeast(px!!.realDouble) }
-        INTENSITY_CLAMP_AT_TOP = 0.9f * maxVal //very fake 90% percentile...
-        INTENSITY_OF_COLORS = 2.0f * maxVal
-        INTENSITY_RANGE_MIN = maxVal * 0.15
-        INTENSITY_RANGE_MAX = maxVal * 0.75
-        println("CLAMP at $INTENSITY_CLAMP_AT_TOP, COLORS to $INTENSITY_OF_COLORS, RANGE_MIN to $INTENSITY_RANGE_MIN and RANGE_MAX to $INTENSITY_RANGE_MAX")
-        //TODO: change MIN and MAX to proper values
+    var intensityClampBackup = INTENSITY_CLAMP_AT_TOP
+    var intensityOfColorsBackup = INTENSITY_OF_COLORS
+    var intensityRangeMinBackup = INTENSITY_RANGE_MIN
+    var intensityRangeMaxBackup = INTENSITY_RANGE_MAX
+
+    fun <T : IntegerType<T>?> autoAdjustIntensity() {
+        // toggle boolean state
+        isVolumeAutoAdjust = !isVolumeAutoAdjust
+
+        if (isVolumeAutoAdjust) {
+            var maxVal = 0.0
+            val srcImg = spimSource.getSource(0, SOURCE_USED_RES_LEVEL) as RandomAccessibleInterval<UnsignedShortType>
+            Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px!!.realDouble) }
+            INTENSITY_CLAMP_AT_TOP = 0.9f * maxVal //very fake 90% percentile...
+            INTENSITY_OF_COLORS = 2.0f * maxVal
+            INTENSITY_RANGE_MIN = maxVal * 0.15
+            INTENSITY_RANGE_MAX = maxVal * 0.75
+            println("CLAMP at $INTENSITY_CLAMP_AT_TOP, COLORS to $INTENSITY_OF_COLORS, RANGE_MIN to $INTENSITY_RANGE_MIN and RANGE_MAX to $INTENSITY_RANGE_MAX")
+            //TODO: change MIN and MAX to proper values
+            updateSVColoring(force = true)
+            updateUI()
+        } else {
+            INTENSITY_CLAMP_AT_TOP = intensityClampBackup
+            INTENSITY_OF_COLORS = intensityOfColorsBackup
+            INTENSITY_RANGE_MIN = intensityRangeMinBackup
+            INTENSITY_RANGE_MAX = intensityRangeMaxBackup
+            updateSVColoring(force = true)
+            updateUI()
+        }
     }
 
     fun <T : IntegerType<T>?> freshNewGrayscaleContent(
@@ -325,10 +344,6 @@ class SciviewBridge {
         blueCh: RandomAccessibleInterval<T>?,
         srcImg: RandomAccessibleInterval<T>?
     ) {
-        if (allowVolumeIntensityAutoAdjust) {
-            autoAdjustIntensity(srcImg)
-            updateUI();
-        }
 
         //TODO would be great if the following two functions would be outside this function, and would therefore
         //     be created only once (not created again with every new call of this function like it is now)
