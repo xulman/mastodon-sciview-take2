@@ -15,33 +15,35 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     val controlsWindowPanel: Container
 
     // -------------------------------------------------------------------------------------------
-    fun populatePane() {
+    private fun populatePane() {
+        val bridge = this.controlledBridge ?: throw IllegalStateException("The passed bridge cannot be null.")
+
         controlsWindowPanel.setLayout(GridBagLayout())
         val c = GridBagConstraints()
         c.anchor = GridBagConstraints.LINE_START
         c.fill = GridBagConstraints.HORIZONTAL
-        val MastodonRowPlaceHolder = JPanel()
-        MastodonRowPlaceHolder.setLayout(GridBagLayout())
+        val mastodonRowPlaceHolder = JPanel()
+        mastodonRowPlaceHolder.setLayout(GridBagLayout())
         val mc = GridBagConstraints()
         mc.anchor = GridBagConstraints.LINE_START
         mc.fill = GridBagConstraints.HORIZONTAL
         mc.insets = Insets(0, 0, 0, 0)
         mc.weightx = 0.2
         mc.gridx = 0
-        lockGroupHandler = GroupLocksHandling(controlledBridge!!, controlledBridge!!.mastodon!!)
-        MastodonRowPlaceHolder.add(lockGroupHandler.createAndActivate()!!, mc)
+        lockGroupHandler = GroupLocksHandling(bridge, bridge.mastodon!!)
+        mastodonRowPlaceHolder.add(lockGroupHandler.createAndActivate()!!, mc)
         mc.weightx = 0.6
         mc.gridx = 1
         val openBdvBtn = JButton("Open synced Mastodon BDV")
-        openBdvBtn.addActionListener { controlledBridge!!.openSyncedBDV() }
-        MastodonRowPlaceHolder.add(openBdvBtn, mc)
+        openBdvBtn.addActionListener { bridge.openSyncedBDV() }
+        mastodonRowPlaceHolder.add(openBdvBtn, mc)
         //
         c.gridy = 0
         c.gridwidth = 2
         c.gridx = 0
         c.weightx = 0.1
         c.insets = Insets(4, sideSpace, 8, sideSpace - 2)
-        controlsWindowPanel.add(MastodonRowPlaceHolder, c)
+        controlsWindowPanel.add(mastodonRowPlaceHolder, c)
         c.gridy++
         c.insets = Insets(2, sideSpace, 2, sideSpace)
         controlsWindowPanel.add(
@@ -57,21 +59,21 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //
         c.gridx = 1
         INTENSITY_CONTRAST = SpinnerNumberModel(1.0, -100.0, 100.0, 0.5)
-        insertSpinner(INTENSITY_CONTRAST, { f: Float? -> controlledBridge!!.INTENSITY_CONTRAST = f!!.toDouble() }, c)
+        insertSpinner(INTENSITY_CONTRAST, { f: Float? -> bridge.intensity.contrast = f!! }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Apply on Volume this shifting bias:", c)
         //
         c.gridx = 1
         INTENSITY_SHIFT = SpinnerNumberModel(0.0, -65535.0, 65535.0, 50.0)
-        insertSpinner(INTENSITY_SHIFT, { f: Float? -> controlledBridge!!.INTENSITY_SHIFT = f!!.toDouble() }, c)
+        insertSpinner(INTENSITY_SHIFT, { f: Float? -> bridge.intensity.shift = f!! }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Apply on Volume this gamma level:", c)
         //
         c.gridx = 1
         INTENSITY_GAMMA = SpinnerNumberModel(1.0, 0.1, 3.0, 0.1)
-        insertSpinner(INTENSITY_GAMMA, { f: Float? -> controlledBridge!!.INTENSITY_GAMMA = f!!.toDouble() }, c)
+        insertSpinner(INTENSITY_GAMMA, { f: Float? -> bridge.intensity.gamma = f!! }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Clamp all voxels so that their values are not above:", c)
@@ -80,7 +82,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         INTENSITY_CLAMP_AT_TOP = SpinnerNumberModel(700.0, 0.0, 65535.0, 50.0)
         insertSpinner(
             INTENSITY_CLAMP_AT_TOP,
-            { f: Float? -> controlledBridge!!.INTENSITY_CLAMP_AT_TOP = f!!.toDouble() },
+            { f: Float? -> bridge.intensity.clampTop = f!! },
             c
         )
 
@@ -97,8 +99,8 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM = AdjustableBoundsRangeSlider.createAndPlaceHere(
             sliderBarPlaceHolder,
-            controlledBridge!!.INTENSITY_RANGE_MIN.toInt(),
-            controlledBridge!!.INTENSITY_RANGE_MAX.toInt(),
+            bridge.intensity.rangeMin.toInt(),
+            bridge.intensity.rangeMax.toInt(),
             0,
             10000
         )
@@ -108,7 +110,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         visToggleSpots.addActionListener(toggleSpotsVisibility)
         visToggleVols = JButton("Toggle visibility of VOLUME")
         visToggleVols.addActionListener(toggleVolumeVisibility)
-        autoIntensityBtn = JToggleButton("Auto Intensity", controlledBridge!!.isVolumeAutoAdjust)
+        autoIntensityBtn = JToggleButton("Auto Intensity", bridge.isVolumeAutoAdjust)
         autoIntensityBtn.addActionListener(autoAdjustIntensity)
         //
         val threeCenteredButtonsPlaceHolder = JPanel()
@@ -154,14 +156,14 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //
         c.gridx = 1
         INTENSITY_OF_COLORS = SpinnerNumberModel(2400.0, 0.0, 65535.0, 50.0)
-        insertSpinner(INTENSITY_OF_COLORS, { f: Float? -> controlledBridge!!.INTENSITY_OF_COLORS = f!!.toDouble() }, c)
+        insertSpinner(INTENSITY_OF_COLORS, { f: Float? -> bridge.intensity.colorIntensity = f!! }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("When repainting, multiply spots radii with:", c)
         //
         c.gridx = 1
         SPOT_RADIUS_SCALE = SpinnerNumberModel(3.0, 0.0, 50.0, 1.0)
-        insertSpinner(SPOT_RADIUS_SCALE, { f: Float? -> controlledBridge!!.SPOT_RADIUS_SCALE = f!!.toDouble() }, c)
+        insertSpinner(SPOT_RADIUS_SCALE, { f: Float? -> bridge.intensity.spotRadiusScale = f!! }, c)
         c.gridy++
         INTENSITY_OF_COLORS_BOOST = JCheckBox("Enable enhancing of spot colors when repainting them into the Volume")
         insertCheckBox(INTENSITY_OF_COLORS_BOOST, c)
@@ -175,12 +177,12 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         c.gridwidth = 1
         c.insets = Insets(10, sideSpace, sideSpace, sideSpace)
         val redrawBtn = JButton("  Repaint now (the recently painted timepoint)  ")
-        redrawBtn.addActionListener { controlledBridge!!.updateSVColoring(force = true) }
+        redrawBtn.addActionListener { bridge.updateSVColoring(force = true) }
         controlsWindowPanel.add(redrawBtn, c)
         c.gridx = 1
         c.anchor = GridBagConstraints.LINE_END
         val closeBtn = JButton("Close")
-        closeBtn.addActionListener { controlledBridge!!.detachControllingUI() }
+        closeBtn.addActionListener { bridge.detachControllingUI() }
         insertRColumnItem(closeBtn, c)
     }
 
@@ -263,19 +265,20 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     ) : ChangeListener {
         //
         override fun stateChanged(changeEvent: ChangeEvent) {
+            val bridge = this@SciviewBridgeUI.controlledBridge ?: throw IllegalStateException("Bridge is null.")
             val s = changeEvent.source as SpinnerNumberModel
             pushChangeToHere.accept(s.number.toFloat())
-            if (controlledBridge!!.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge!!.updateSVColoring()
+            if (bridge.UPDATE_VOLUME_AUTOMATICALLY) bridge.updateSVColoring()
         }
     }
 
     var checkboxChangeListener = ItemListener { itemEvent ->
         val cb = itemEvent.source as JCheckBox
         if (cb === INTENSITY_OF_COLORS_APPLY) {
-            controlledBridge.INTENSITY_OF_COLORS_APPLY = cb.isSelected
+            controlledBridge.intensity.applyToColors = cb.isSelected
             if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSVColoring(force = true)
         } else if (cb === INTENSITY_OF_COLORS_BOOST) {
-            controlledBridge.INTENSITY_OF_COLORS_BOOST = cb.isSelected
+            controlledBridge.intensity.colorBoost = cb.isSelected
             if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSVColoring(force = true)
         } else if (cb === UPDATE_VOLUME_VERBOSE_REPORTS) {
             controlledBridge.UPDATE_VOLUME_VERBOSE_REPORTS = cb.isSelected
@@ -317,12 +320,12 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     fun deactivateAndForget() {
         //listeners tear-down here
         lockGroupHandler.deactivate()
-        spinnerModelsWithListeners.forEach(Consumer { c: OwnerAwareSpinnerChangeListener ->
+        spinnerModelsWithListeners.forEach { c: OwnerAwareSpinnerChangeListener ->
             c.observedSource.removeChangeListener(
                 c
             )
-        })
-        checkBoxesWithListeners.forEach(Consumer { c: JCheckBox -> c.removeItemListener(checkboxChangeListener) })
+        }
+        checkBoxesWithListeners.forEach { c: JCheckBox -> c.removeItemListener(checkboxChangeListener) }
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.removeChangeListener(rangeSliderListener)
         UPDATE_VOLUME_AUTOMATICALLY.removeActionListener(updVolAutoListener)
         visToggleSpots.removeActionListener(toggleSpotsVisibility)
@@ -332,34 +335,37 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     }
 
     fun updatePaneValues() {
-        val updVolAutoBackup = controlledBridge!!.UPDATE_VOLUME_AUTOMATICALLY
+        val bridge = this.controlledBridge ?: throw IllegalStateException("Bridge is null.")
+        val updVolAutoBackup = bridge.UPDATE_VOLUME_AUTOMATICALLY
         //temporarily disable because setting the controls trigger their listeners
         //that trigger (not all of them) the expensive volume updating
-        controlledBridge!!.UPDATE_VOLUME_AUTOMATICALLY = false
-        INTENSITY_CONTRAST.value = controlledBridge!!.INTENSITY_CONTRAST
-        INTENSITY_SHIFT.value = controlledBridge!!.INTENSITY_SHIFT
-        INTENSITY_CLAMP_AT_TOP.value = controlledBridge!!.INTENSITY_CLAMP_AT_TOP
-        INTENSITY_GAMMA.value = controlledBridge!!.INTENSITY_GAMMA
-        INTENSITY_OF_COLORS.value = controlledBridge!!.INTENSITY_OF_COLORS
-        val upperValBackup = controlledBridge!!.INTENSITY_RANGE_MAX
+
+        bridge.UPDATE_VOLUME_AUTOMATICALLY = false
+        INTENSITY_CONTRAST.value = bridge.intensity.contrast
+        INTENSITY_SHIFT.value = bridge.intensity.shift
+        INTENSITY_CLAMP_AT_TOP.value = bridge.intensity.clampTop
+        INTENSITY_GAMMA.value = bridge.intensity.gamma
+        INTENSITY_OF_COLORS.value = bridge.intensity.colorIntensity
+        val upperValBackup = bridge.intensity.rangeMax
+
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
             .rangeSlider
-            .value = controlledBridge!!.INTENSITY_RANGE_MIN.toInt()
+            .value = bridge.intensity.rangeMin.toInt()
         //NB: this triggers a "value changed listener" which updates _both_ the value and upperValue,
         //    which resets the value with the new one (so no change in the end) but clears upperValue
         //    to the value the dialog was left with (forgets the new upperValue effectively)
-        controlledBridge!!.INTENSITY_RANGE_MAX = upperValBackup
+        bridge.intensity.rangeMax = upperValBackup
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
             .rangeSlider
-            .upperValue = controlledBridge!!.INTENSITY_RANGE_MAX.toInt()
+            .upperValue = bridge.intensity.rangeMax.toInt()
 
-        autoIntensityBtn.isSelected = controlledBridge!!.isVolumeAutoAdjust
-        INTENSITY_OF_COLORS_APPLY.setSelected(controlledBridge!!.INTENSITY_OF_COLORS_APPLY)
-        INTENSITY_OF_COLORS_BOOST.setSelected(controlledBridge!!.INTENSITY_OF_COLORS_BOOST)
-        SPOT_RADIUS_SCALE.value = controlledBridge!!.SPOT_RADIUS_SCALE
+        autoIntensityBtn.isSelected = bridge.isVolumeAutoAdjust
+        INTENSITY_OF_COLORS_APPLY.setSelected(bridge.intensity.applyToColors)
+        INTENSITY_OF_COLORS_BOOST.setSelected(bridge.intensity.colorBoost)
+        SPOT_RADIUS_SCALE.value = bridge.intensity.spotRadiusScale
         UPDATE_VOLUME_AUTOMATICALLY.setSelectedItem(if (updVolAutoBackup) updVolMsgA else updVolMsgM)
-        UPDATE_VOLUME_VERBOSE_REPORTS.setSelected(controlledBridge!!.UPDATE_VOLUME_VERBOSE_REPORTS)
-        controlledBridge!!.UPDATE_VOLUME_AUTOMATICALLY = updVolAutoBackup
+        UPDATE_VOLUME_VERBOSE_REPORTS.setSelected(bridge.UPDATE_VOLUME_VERBOSE_REPORTS)
+        bridge.UPDATE_VOLUME_AUTOMATICALLY = updVolAutoBackup
     }
 
     //int SOURCE_ID = 0;
@@ -371,10 +377,10 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
     lateinit var INTENSITY_OF_COLORS: SpinnerModel
     val rangeSliderListener = ChangeListener {
-        controlledBridge.INTENSITY_RANGE_MIN = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toDouble()
-        controlledBridge.INTENSITY_RANGE_MAX = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toDouble()
-        controlledBridge.redVolChannelNode!!.minDisplayRange = controlledBridge.INTENSITY_RANGE_MIN.toFloat()
-        controlledBridge.redVolChannelNode.maxDisplayRange = controlledBridge.INTENSITY_RANGE_MAX.toFloat()
+        controlledBridge.intensity.rangeMin = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toFloat()
+        controlledBridge.intensity.rangeMax = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toFloat()
+        controlledBridge.redVolChannelNode!!.minDisplayRange = controlledBridge.intensity.rangeMin
+        controlledBridge.redVolChannelNode.maxDisplayRange = controlledBridge.intensity.rangeMax
     }
 
     //

@@ -2,7 +2,6 @@ package org.mastodon.mamut
 
 import bdv.tools.brightness.ConverterSetup
 import bdv.viewer.Source
-import bdv.viewer.SourceAndConverter
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.volumes.Volume
@@ -34,41 +33,44 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
-import kotlin.reflect.jvm.internal.impl.resolve.calls.inference.CapturedType
 
 class SciviewBridge {
     //data source stuff
     val mastodon: ProjectModel?
     var SOURCE_ID = 0
     var SOURCE_USED_RES_LEVEL = 0
+    /** default intensity parameters */
+    var intensity = Intensity()
 
-    //NB: defaults do not alter the raw data values
-    var INTENSITY_CONTRAST = 1.0 //raw data multiplied with this value and...
-    var INTENSITY_SHIFT = 0.0 //...then added with this value and...
-    var INTENSITY_CLAMP_AT_TOP = 65535.0 //...then assured/clamped not to be above this value and...
-    var INTENSITY_GAMMA = 1.0 //...then, finally, gamma-corrected (squeezed through exp());
-    var INTENSITY_OF_COLORS_APPLY = false //flag to enable/disable imprinting, with details just below:
-    var INTENSITY_OF_COLORS_BOOST =
-        true //flag to enable/disable boosting of rgb colors to the brightest possible, yet same hue
-    var SPOT_RADIUS_SCALE = 3.0 //the spreadColor() imprints spot this much larger than what it is in Mastodon
-    var INTENSITY_OF_COLORS = 2100.0 //and this max allowed value is used for the imprinting...
-    var INTENSITY_RANGE_MAX = 5000.0 //...because it plays nicely with this scaling range
-    var INTENSITY_RANGE_MIN = 0.0
+    /** Collection of parameters for value and color intensity mapping */
+    data class Intensity(
+        var contrast: Float = 1.0f,         // raw data multiplier
+        var shift: Float = 0.0f,            // raw data shift
+        var clampTop: Float = 65535.0f,    // upper clamp value
+        var gamma: Float = 1.0f,            // gamma correction with exp()
+        var applyToColors: Boolean = false,   // flag to enable/disable imprinting
+        var colorBoost: Boolean = true,       // flag to enable/disable boosting of rgb colors to the brightest possible
+        var colorIntensity: Float = 2100f,  // max allowed value used for the imprinting
+        var spotRadiusScale: Float = 3f,    // the spreadColor() imprints spot this much larger than what it is in Mastodon
+        var rangeMin: Float = 0f,
+        var rangeMax: Float = 5000f,
+    )
+
     var UPDATE_VOLUME_AUTOMATICALLY = true
     var UPDATE_VOLUME_VERBOSE_REPORTS = false
     override fun toString(): String {
         val sb = StringBuilder("Mastodon-sciview bridge internal settings:\n")
         sb.append("   SOURCE_ID = $SOURCE_ID\n")
         sb.append("   SOURCE_USED_RES_LEVEL = $SOURCE_USED_RES_LEVEL\n")
-        sb.append("   INTENSITY_CONTRAST = $INTENSITY_CONTRAST\n")
-        sb.append("   INTENSITY_SHIFT = $INTENSITY_SHIFT\n")
-        sb.append("   INTENSITY_CLAMP_AT_TOP = $INTENSITY_CLAMP_AT_TOP\n")
-        sb.append("   INTENSITY_GAMMA = $INTENSITY_GAMMA\n")
-        sb.append("   INTENSITY_OF_COLORS_APPLY = $INTENSITY_OF_COLORS_APPLY\n")
-        sb.append("   SPOT_RADIUS_SCALE = $SPOT_RADIUS_SCALE\n")
-        sb.append("   INTENSITY_OF_COLORS = $INTENSITY_OF_COLORS\n")
-        sb.append("   INTENSITY_RANGE_MAX = $INTENSITY_RANGE_MAX\n")
-        sb.append("   INTENSITY_RANGE_MIN = $INTENSITY_RANGE_MIN\n")
+        sb.append("   INTENSITY_CONTRAST = ${intensity.contrast}\n")
+        sb.append("   INTENSITY_SHIFT = ${intensity.shift}\n")
+        sb.append("   INTENSITY_CLAMP_AT_TOP = ${intensity.clampTop}\n")
+        sb.append("   INTENSITY_GAMMA = ${intensity.gamma}\n")
+        sb.append("   INTENSITY_OF_COLORS_APPLY = ${intensity.applyToColors}\n")
+        sb.append("   SPOT_RADIUS_SCALE = ${intensity.spotRadiusScale}\n")
+        sb.append("   INTENSITY_OF_COLORS = ${intensity.colorIntensity}\n")
+        sb.append("   INTENSITY_RANGE_MAX = ${intensity.rangeMax}\n")
+        sb.append("   INTENSITY_RANGE_MIN = ${intensity.rangeMin}\n")
         sb.append("   UPDATE_VOLUME_AUTOMATICALLY = $UPDATE_VOLUME_AUTOMATICALLY\n")
         sb.append("   UPDATE_VOLUME_VERBOSE_REPORTS = $UPDATE_VOLUME_VERBOSE_REPORTS")
         return sb.toString()
@@ -176,8 +178,8 @@ class SciviewBridge {
             redVolChannelNode,
             "Red.lut",
             volumeScale,
-            INTENSITY_RANGE_MIN,
-            INTENSITY_RANGE_MAX
+            intensity.rangeMin,
+            intensity.rangeMax
         )
         //TODO display range can one learn from the coloring process
         //
@@ -187,8 +189,8 @@ class SciviewBridge {
             greenVolChannelNode,
             "Green.lut",
             volumeScale,
-            INTENSITY_RANGE_MIN,
-            INTENSITY_RANGE_MAX
+            intensity.rangeMin,
+            intensity.rangeMax
         )
         //
         blueVolChannelNode =
@@ -197,8 +199,8 @@ class SciviewBridge {
             blueVolChannelNode,
             "Blue.lut",
             volumeScale,
-            INTENSITY_RANGE_MIN,
-            INTENSITY_RANGE_MAX
+            intensity.rangeMin,
+            intensity.rangeMax
         )
         //
         volNodes = listOf<Node?>(redVolChannelNode, greenVolChannelNode, blueVolChannelNode)
@@ -289,8 +291,8 @@ class SciviewBridge {
         v: Volume?,
         colorMapName: String,
         scale: Vector3f,
-        displayRangeMin: Double,
-        displayRangeMax: Double
+        displayRangeMin: Float,
+        displayRangeMax: Float
     ) {
         v?.let {
             sciviewWin?.setColormap(it, colorMapName)
@@ -307,32 +309,26 @@ class SciviewBridge {
         //this.volumeParent.addChild(v);
     }
 
-    var intensityClampBackup = INTENSITY_CLAMP_AT_TOP
-    var intensityOfColorsBackup = INTENSITY_OF_COLORS
-    var intensityRangeMinBackup = INTENSITY_RANGE_MIN
-    var intensityRangeMaxBackup = INTENSITY_RANGE_MAX
+    var intensityBackup = intensity.copy()
 
     fun <T : IntegerType<T>?> autoAdjustIntensity() {
         // toggle boolean state
         isVolumeAutoAdjust = !isVolumeAutoAdjust
 
         if (isVolumeAutoAdjust) {
-            var maxVal = 0.0
+            var maxVal = 0.0f
             val srcImg = spimSource.getSource(0, SOURCE_USED_RES_LEVEL) as RandomAccessibleInterval<UnsignedShortType>
-            Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px!!.realDouble) }
-            INTENSITY_CLAMP_AT_TOP = 0.9f * maxVal //very fake 90% percentile...
-            INTENSITY_OF_COLORS = 2.0f * maxVal
-            INTENSITY_RANGE_MIN = maxVal * 0.15
-            INTENSITY_RANGE_MAX = maxVal * 0.75
-            println("CLAMP at $INTENSITY_CLAMP_AT_TOP, COLORS to $INTENSITY_OF_COLORS, RANGE_MIN to $INTENSITY_RANGE_MIN and RANGE_MAX to $INTENSITY_RANGE_MAX")
+            Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px!!.realFloat) }
+            intensity.clampTop = 0.9f * maxVal //very fake 90% percentile...
+            intensity.colorIntensity = 2.0f * maxVal
+            intensity.rangeMin = maxVal * 0.15f
+            intensity.rangeMax = maxVal * 0.75f
             //TODO: change MIN and MAX to proper values
+            println("Clamp at ${intensity.clampTop}, Color intensity to ${intensity.colorIntensity}, range min to ${intensity.rangeMin} and range max to ${intensity.rangeMax}")
             updateSVColoring(force = true)
             updateUI()
         } else {
-            INTENSITY_CLAMP_AT_TOP = intensityClampBackup
-            INTENSITY_OF_COLORS = intensityOfColorsBackup
-            INTENSITY_RANGE_MIN = intensityRangeMinBackup
-            INTENSITY_RANGE_MAX = intensityRangeMaxBackup
+            intensity = intensityBackup.copy()
             updateSVColoring(force = true)
             updateUI()
         }
@@ -349,26 +345,26 @@ class SciviewBridge {
         //     be created only once (not created again with every new call of this function like it is now)
         val gammaEnabledIntensityProcessor: (T,T) -> Unit =
             { src: T, tgt: T -> tgt!!.setReal(
-                    INTENSITY_CLAMP_AT_TOP * ( //TODO, replace pow() with LUT for several gammas
+                    intensity.clampTop * ( //TODO, replace pow() with LUT for several gammas
                             min(
-                                INTENSITY_CONTRAST * src!!.realDouble + INTENSITY_SHIFT,
-                                INTENSITY_CLAMP_AT_TOP
-                            ) / INTENSITY_CLAMP_AT_TOP
-                        ).pow(INTENSITY_GAMMA)
+                                intensity.contrast * src!!.realFloat + intensity.shift,
+                                intensity.clampTop
+                            ) / intensity.clampTop
+                        ).pow(intensity.gamma)
                     )
             }
         val noGammaIntensityProcessor: (T,T) -> Unit =
             { src: T, tgt: T -> tgt!!.setReal(
                         min(
                             // TODO This needs to incorporate INTENSITY_RANGE_MIN and MAX
-                            INTENSITY_CONTRAST * src!!.realDouble + INTENSITY_SHIFT,
-                            INTENSITY_CLAMP_AT_TOP
+                            intensity.contrast * src!!.realFloat + intensity.shift,
+                            intensity.clampTop
                         )
                     )
             }
         //choose one processor for the downstream job;
         //it is seemingly a long code but it does the if-decision only once now
-        val intensityProcessor = if (INTENSITY_GAMMA != 1.0)
+        val intensityProcessor = if (intensity.gamma != 1.0f)
             gammaEnabledIntensityProcessor else noGammaIntensityProcessor
 
         if (srcImg == null) println("freshNewWhiteContent(): srcImg is null !!!")
@@ -421,9 +417,9 @@ class SciviewBridge {
         //to preserve a color, the r,g,b ratio must be kept (only mul()s, not add()s);
         //since data values are clamped to INTENSITY_NOT_ABOVE, we can stretch all
         //the way to INTENSITY_OF_COLORS (the brightest color displayed)
-        val intensityScale = INTENSITY_OF_COLORS / INTENSITY_CLAMP_AT_TOP
+        val intensityScale = intensity.colorIntensity / intensity.clampTop
 
-        val usedColor = if (INTENSITY_OF_COLORS_BOOST) {
+        val usedColor = if (intensity.colorBoost) {
             //NB: normalizes all color components so that the maximum is at 1
             rgbValue.div(rgbValue[rgbValue.maxComponent()])
         } else {
@@ -443,7 +439,7 @@ class SciviewBridge {
             distSq = pos.sub(pxCentre).mul(mastodonToImgCoordsTransfer).lengthSquared()
             if (distSq <= maxDistSq) {
                 //we're within the ROI (spot)
-                colorVal = si.get()!!.realFloat * intensityScale
+                colorVal = si.get()!!.realDouble * intensityScale
                 rc.get()!!.setReal(colorVal * usedColor[0])
                 gc.get()!!.setReal(colorVal * usedColor[1])
                 bc.get()!!.setReal(colorVal * usedColor[2])
@@ -586,7 +582,7 @@ class SciviewBridge {
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
                     srcRAI as RandomAccessibleInterval<UnsignedShortType>
                 )
-                if (INTENSITY_OF_COLORS_APPLY) {
+                if (intensity.applyToColors) {
                     val colorizer = forThisBdv.colorizer
                     for (s in mastodon.model.spatioTemporalIndex.getSpatialIndex(tp)) {
                         val col = colorizer!!.color(s)
@@ -607,7 +603,7 @@ class SciviewBridge {
                             //NB: spot drawing is driven by image intensity, and thus
                             //dark BG doesn't get colorized too much ('cause it is dark),
                             //and thus it doesn't hurt if the spot is considered reasonably larger
-                            SPOT_RADIUS_SCALE * sqrt(s.boundingSphereRadiusSquared),
+                            intensity.spotRadiusScale * sqrt(s.boundingSphereRadiusSquared),
                             color
                         )
                     }
@@ -711,8 +707,8 @@ class SciviewBridge {
         //
         handler?.addKeyBinding(key_CLRNG_ONOFF, key_CLRNG_ONOFF)
         handler?.addBehaviour(key_CLRNG_ONOFF, ClickBehaviour { _, _ ->
-            INTENSITY_OF_COLORS_APPLY = !INTENSITY_OF_COLORS_APPLY
-            println("Volume spots imprinting enabled: $INTENSITY_OF_COLORS_APPLY")
+            intensity.applyToColors = !intensity.applyToColors
+            println("Volume spots imprinting enabled: ${intensity.applyToColors}")
             updateUI()
         })
         //
