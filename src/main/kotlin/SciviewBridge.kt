@@ -56,8 +56,6 @@ class SciviewBridge {
         var rangeMax: Float = 5000f,
     )
 
-    var SPOT_RADIUS_SCALE = 3.0
-
     var UPDATE_VOLUME_AUTOMATICALLY = true
     var UPDATE_VOLUME_VERBOSE_REPORTS = false
     override fun toString(): String {
