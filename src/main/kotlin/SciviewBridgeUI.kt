@@ -57,21 +57,21 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //
         c.gridx = 1
         INTENSITY_CONTRAST = SpinnerNumberModel(1.0, -100.0, 100.0, 0.5)
-        insertSpinner(INTENSITY_CONTRAST, { f: Float? -> controlledBridge!!.INTENSITY_CONTRAST = f!!.toDouble() }, c)
+        insertSpinner(INTENSITY_CONTRAST, { f: Float? -> controlledBridge!!.intensity.contrast = f!! }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Apply on Volume this shifting bias:", c)
         //
         c.gridx = 1
         INTENSITY_SHIFT = SpinnerNumberModel(0.0, -65535.0, 65535.0, 50.0)
-        insertSpinner(INTENSITY_SHIFT, { f: Float? -> controlledBridge!!.INTENSITY_SHIFT = f!!.toDouble() }, c)
+        insertSpinner(INTENSITY_SHIFT, { f: Float? -> controlledBridge!!.intensity.shift = f!! }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Apply on Volume this gamma level:", c)
         //
         c.gridx = 1
         INTENSITY_GAMMA = SpinnerNumberModel(1.0, 0.1, 3.0, 0.1)
-        insertSpinner(INTENSITY_GAMMA, { f: Float? -> controlledBridge!!.INTENSITY_GAMMA = f!!.toDouble() }, c)
+        insertSpinner(INTENSITY_GAMMA, { f: Float? -> controlledBridge!!.intensity.gamma = f!! }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("Clamp all voxels so that their values are not above:", c)
@@ -80,7 +80,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         INTENSITY_CLAMP_AT_TOP = SpinnerNumberModel(700.0, 0.0, 65535.0, 50.0)
         insertSpinner(
             INTENSITY_CLAMP_AT_TOP,
-            { f: Float? -> controlledBridge!!.INTENSITY_CLAMP_AT_TOP = f!!.toDouble() },
+            { f: Float? -> controlledBridge!!.intensity.clampTop = f!! },
             c
         )
 
@@ -97,8 +97,8 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM = AdjustableBoundsRangeSlider.createAndPlaceHere(
             sliderBarPlaceHolder,
-            controlledBridge!!.INTENSITY_RANGE_MIN.toInt(),
-            controlledBridge!!.INTENSITY_RANGE_MAX.toInt(),
+            controlledBridge!!.intensity.rangeMin.toInt(),
+            controlledBridge!!.intensity.rangeMax.toInt(),
             0,
             10000
         )
@@ -154,14 +154,14 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //
         c.gridx = 1
         INTENSITY_OF_COLORS = SpinnerNumberModel(2400.0, 0.0, 65535.0, 50.0)
-        insertSpinner(INTENSITY_OF_COLORS, { f: Float? -> controlledBridge!!.INTENSITY_OF_COLORS = f!!.toDouble() }, c)
+        insertSpinner(INTENSITY_OF_COLORS, { f: Float? -> controlledBridge!!.intensity.colorIntensity = f!! }, c)
         c.gridy++
         c.gridx = 0
         insertLabel("When repainting, multiply spots radii with:", c)
         //
         c.gridx = 1
         SPOT_RADIUS_SCALE = SpinnerNumberModel(3.0, 0.0, 50.0, 1.0)
-        insertSpinner(SPOT_RADIUS_SCALE, { f: Float? -> controlledBridge!!.SPOT_RADIUS_SCALE = f!!.toDouble() }, c)
+        insertSpinner(SPOT_RADIUS_SCALE, { f: Float? -> controlledBridge!!.intensity.spotRadiusScale = f!! }, c)
         c.gridy++
         INTENSITY_OF_COLORS_BOOST = JCheckBox("Enable enhancing of spot colors when repainting them into the Volume")
         insertCheckBox(INTENSITY_OF_COLORS_BOOST, c)
@@ -272,10 +272,10 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     var checkboxChangeListener = ItemListener { itemEvent ->
         val cb = itemEvent.source as JCheckBox
         if (cb === INTENSITY_OF_COLORS_APPLY) {
-            controlledBridge.INTENSITY_OF_COLORS_APPLY = cb.isSelected
+            controlledBridge.intensity.applyToColors = cb.isSelected
             if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSVColoring(force = true)
         } else if (cb === INTENSITY_OF_COLORS_BOOST) {
-            controlledBridge.INTENSITY_OF_COLORS_BOOST = cb.isSelected
+            controlledBridge.intensity.colorBoost = cb.isSelected
             if (controlledBridge.UPDATE_VOLUME_AUTOMATICALLY) controlledBridge.updateSVColoring(force = true)
         } else if (cb === UPDATE_VOLUME_VERBOSE_REPORTS) {
             controlledBridge.UPDATE_VOLUME_VERBOSE_REPORTS = cb.isSelected
@@ -336,27 +336,27 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         //temporarily disable because setting the controls trigger their listeners
         //that trigger (not all of them) the expensive volume updating
         controlledBridge!!.UPDATE_VOLUME_AUTOMATICALLY = false
-        INTENSITY_CONTRAST.value = controlledBridge!!.INTENSITY_CONTRAST
-        INTENSITY_SHIFT.value = controlledBridge!!.INTENSITY_SHIFT
-        INTENSITY_CLAMP_AT_TOP.value = controlledBridge!!.INTENSITY_CLAMP_AT_TOP
-        INTENSITY_GAMMA.value = controlledBridge!!.INTENSITY_GAMMA
-        INTENSITY_OF_COLORS.value = controlledBridge!!.INTENSITY_OF_COLORS
-        var upperValBackup = controlledBridge!!.INTENSITY_RANGE_MAX
+        INTENSITY_CONTRAST.value = controlledBridge!!.intensity.contrast
+        INTENSITY_SHIFT.value = controlledBridge!!.intensity.shift
+        INTENSITY_CLAMP_AT_TOP.value = controlledBridge!!.intensity.clampTop
+        INTENSITY_GAMMA.value = controlledBridge!!.intensity.gamma
+        INTENSITY_OF_COLORS.value = controlledBridge!!.intensity.colorIntensity
+        var upperValBackup = controlledBridge!!.intensity.rangeMax
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
             .rangeSlider
-            .value = controlledBridge!!.INTENSITY_RANGE_MIN.toInt()
+            .value = controlledBridge!!.intensity.rangeMin.toInt()
         //NB: this triggers a "value changed listener" which updates _both_ the value and upperValue,
         //    which resets the value with the new one (so no change in the end) but clears upperValue
         //    to the value the dialog was left with (forgets the new upperValue effectively)
-        controlledBridge!!.INTENSITY_RANGE_MAX = upperValBackup
+        controlledBridge!!.intensity.rangeMax = upperValBackup
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
             .rangeSlider
-            .upperValue = controlledBridge!!.INTENSITY_RANGE_MAX.toInt()
+            .upperValue = controlledBridge!!.intensity.rangeMax.toInt()
 
         autoIntensityBtn.isSelected = controlledBridge!!.isVolumeAutoAdjust
-        INTENSITY_OF_COLORS_APPLY.setSelected(controlledBridge!!.INTENSITY_OF_COLORS_APPLY)
-        INTENSITY_OF_COLORS_BOOST.setSelected(controlledBridge!!.INTENSITY_OF_COLORS_BOOST)
-        SPOT_RADIUS_SCALE.value = controlledBridge!!.SPOT_RADIUS_SCALE
+        INTENSITY_OF_COLORS_APPLY.setSelected(controlledBridge!!.intensity.applyToColors)
+        INTENSITY_OF_COLORS_BOOST.setSelected(controlledBridge!!.intensity.colorBoost)
+        SPOT_RADIUS_SCALE.value = controlledBridge!!.intensity.spotRadiusScale
         UPDATE_VOLUME_AUTOMATICALLY.setSelectedItem(if (updVolAutoBackup) updVolMsgA else updVolMsgM)
         UPDATE_VOLUME_VERBOSE_REPORTS.setSelected(controlledBridge!!.UPDATE_VOLUME_VERBOSE_REPORTS)
         controlledBridge!!.UPDATE_VOLUME_AUTOMATICALLY = updVolAutoBackup
@@ -371,10 +371,10 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
     lateinit var INTENSITY_OF_COLORS: SpinnerModel
     val rangeSliderListener = ChangeListener {
-        controlledBridge.INTENSITY_RANGE_MIN = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toDouble()
-        controlledBridge.INTENSITY_RANGE_MAX = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toDouble()
-        controlledBridge.redVolChannelNode!!.minDisplayRange = controlledBridge.INTENSITY_RANGE_MIN.toFloat()
-        controlledBridge.redVolChannelNode.maxDisplayRange = controlledBridge.INTENSITY_RANGE_MAX.toFloat()
+        controlledBridge.intensity.rangeMin = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toFloat()
+        controlledBridge.intensity.rangeMax = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toFloat()
+        controlledBridge.redVolChannelNode!!.minDisplayRange = controlledBridge.intensity.rangeMin
+        controlledBridge.redVolChannelNode.maxDisplayRange = controlledBridge.intensity.rangeMax
     }
 
     //
