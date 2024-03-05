@@ -300,11 +300,11 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         }
     }
     val toggleSpotsVisibility = ActionListener {
-        val newState = !controlledBridge.sphereParent!!.visible
+        val newState = !controlledBridge.sphereParent.visible
         controlledBridge.setVisibilityOfSpots(newState)
     }
     val toggleVolumeVisibility = ActionListener {
-        val newState = !controlledBridge.redVolChannelNode!!.visible
+        val newState = !controlledBridge.redVolChannelNode.visible
         controlledBridge.setVisibilityOfVolume(newState)
     }
 
@@ -339,6 +339,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         val updVolAutoBackup = bridge.UPDATE_VOLUME_AUTOMATICALLY
         //temporarily disable because setting the controls trigger their listeners
         //that trigger (not all of them) the expensive volume updating
+
         bridge.UPDATE_VOLUME_AUTOMATICALLY = false
         INTENSITY_CONTRAST.value = bridge.intensity.contrast
         INTENSITY_SHIFT.value = bridge.intensity.shift
@@ -346,6 +347,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         INTENSITY_GAMMA.value = bridge.intensity.gamma
         INTENSITY_OF_COLORS.value = bridge.intensity.colorIntensity
         val upperValBackup = bridge.intensity.rangeMax
+
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
             .rangeSlider
             .value = bridge.intensity.rangeMin.toInt()
