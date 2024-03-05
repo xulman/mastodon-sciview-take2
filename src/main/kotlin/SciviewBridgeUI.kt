@@ -297,11 +297,11 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         }
     }
     val toggleSpotsVisibility = ActionListener {
-        val newState = !controlledBridge.sphereParent!!.visible
+        val newState = !controlledBridge.sphereParent.visible
         controlledBridge.setVisibilityOfSpots(newState)
     }
     val toggleVolumeVisibility = ActionListener {
-        val newState = !controlledBridge.redVolChannelNode!!.visible
+        val newState = !controlledBridge.redVolChannelNode.visible
         controlledBridge.setVisibilityOfVolume(newState)
     }
 
@@ -341,7 +341,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         INTENSITY_CLAMP_AT_TOP.value = controlledBridge!!.INTENSITY_CLAMP_AT_TOP
         INTENSITY_GAMMA.value = controlledBridge!!.INTENSITY_GAMMA
         INTENSITY_OF_COLORS.value = controlledBridge!!.INTENSITY_OF_COLORS
-        var upperValBackup = controlledBridge!!.INTENSITY_RANGE_MAX
+        val upperValBackup = controlledBridge!!.INTENSITY_RANGE_MAX
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
             .rangeSlider
             .value = controlledBridge!!.INTENSITY_RANGE_MIN.toInt()

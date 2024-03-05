@@ -79,11 +79,11 @@ class SciviewBridge {
     val sphereNodes: SphereNodes?
     //sink scene graph structuring nodes
     val axesParent: Node?
-    val sphereParent: Group?
+    val sphereParent: Group
     val volumeParent: Sphere?
-    val redVolChannelNode: Volume?
-    val greenVolChannelNode: Volume?
-    val blueVolChannelNode: Volume?
+    val redVolChannelNode: Volume
+    val greenVolChannelNode: Volume
+    val blueVolChannelNode: Volume
     val volNodes //shortcut for ops that operate on the three channels
             : List<Node?>?
     val redVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
@@ -615,13 +615,13 @@ class SciviewBridge {
                 try {
                     val graceTimeForVolumeUpdatingInMS: Long = 50
                     if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update red volume")
-                    redVolChannelNode!!.volumeManager.notifyUpdate(redVolChannelNode)
+                    redVolChannelNode.volumeManager.notifyUpdate(redVolChannelNode)
                     Thread.sleep(graceTimeForVolumeUpdatingInMS)
                     if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update green volume")
-                    greenVolChannelNode!!.volumeManager.notifyUpdate(greenVolChannelNode)
+                    greenVolChannelNode.volumeManager.notifyUpdate(greenVolChannelNode)
                     Thread.sleep(graceTimeForVolumeUpdatingInMS)
                     if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update blue volume")
-                    blueVolChannelNode!!.volumeManager.notifyUpdate(blueVolChannelNode)
+                    blueVolChannelNode.volumeManager.notifyUpdate(blueVolChannelNode)
                 } catch (e: InterruptedException) { /* do nothing */
                 }
                 if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: finished")
@@ -658,17 +658,17 @@ class SciviewBridge {
     }
 
     fun setVisibilityOfSpots(state: Boolean) {
-        sphereParent?.visible = state
+        sphereParent.visible = state
         if (state) {
             sphereParent
-                ?.getChildrenByName(SphereNodes.NAME_OF_NOT_USED_SPHERES)
-                ?.forEach { s: Node -> s.visible = false }
+                .getChildrenByName(SphereNodes.NAME_OF_NOT_USED_SPHERES)
+                .forEach { s: Node -> s.visible = false }
         }
     }
 
     fun focusSpot(name: String) {
-        val nodes = sphereParent?.getChildrenByName(name)
-        if (!nodes.isNullOrEmpty()) {
+        val nodes = sphereParent.getChildrenByName(name)
+        if (nodes.isNotEmpty()) {
             sciviewWin?.setActiveCenteredNode(nodes[0])
         }
     }
