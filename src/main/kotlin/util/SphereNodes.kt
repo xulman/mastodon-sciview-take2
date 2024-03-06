@@ -3,6 +3,7 @@ package util
 import graphics.scenery.Node
 import graphics.scenery.Sphere
 import graphics.scenery.utils.extensions.times
+import graphics.scenery.utils.lazyLogger
 import org.joml.Vector3f
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
@@ -15,11 +16,12 @@ import kotlin.math.sqrt
 class SphereNodes //FAILED to hook up here a 'parentNode' listener that would setVisible(false) on all children
 //of the parent node that are "not used"
     (val sv: SciView, val parentNode: Node) {
-    var SCALE_FACTOR = 1f
-    var DEFAULT_COLOR = 0x00FFFFFF
-    val knownNodes: MutableList<Sphere> = ArrayList(1000)
-    val addedExtraNodes: MutableList<Sphere> = LinkedList()
-    private var spotRef: Spot? = null
+        private val logger by lazyLogger()
+        var SCALE_FACTOR = 1f
+        var DEFAULT_COLOR = 0x00FFFFFF
+        val knownNodes: MutableList<Sphere> = ArrayList(1000)
+        val addedExtraNodes: MutableList<Sphere> = LinkedList()
+        private var spotRef: Spot? = null
     fun showTheseSpots(
         mastodonData: ProjectModel,
         timepoint: Int,
@@ -58,9 +60,9 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
             //NB: also means that the knownNodes were fully exhausted
             knownNodes.addAll(addedExtraNodes)
             sv.publishNode(addedExtraNodes[0]) //NB: publishes only once
-            println("Added new "+addedExtraNodes.size+" spheres");
+            logger.info("Added ${addedExtraNodes.size} new spheres");
         } else {
-            println("Hide "+(knownNodes.size-visibleNodeCount)+" spheres");
+            logger.debug("Hide ${(knownNodes.size-visibleNodeCount)} spheres");
             //NB: mark not-touched knownNodes as hidden
             var i = visibleNodeCount
             while (i < knownNodes.size) {
@@ -69,7 +71,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
             }
         }
 /*
-		println("Drawing currently in total "+visibleNodeCount
+		logger.debug("Drawing currently in total "+visibleNodeCount
 				+ " and there are "+(knownNodes.size-visibleNodeCount)
 				+ " hidden...");
 */
@@ -115,7 +117,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         if (SCALE_FACTOR < 0.4f) SCALE_FACTOR = 0.5f
         val factor = SCALE_FACTOR / oldScale
         knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor)  }
-        println("Decreasing scale to $SCALE_FACTOR, by factor $factor")
+        logger.debug("Decreasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
     fun increaseSphereScale() {
@@ -123,7 +125,7 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         SCALE_FACTOR += 0.5f
         val factor = SCALE_FACTOR / oldScale
         knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor) }
-        println("Increasing scale to $SCALE_FACTOR, by factor $factor")
+        logger.debug("Increasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
     companion object {

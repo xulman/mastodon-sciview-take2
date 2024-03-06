@@ -4,6 +4,7 @@ import bdv.tools.brightness.ConverterSetup
 import bdv.viewer.Source
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
+import graphics.scenery.utils.lazyLogger
 import graphics.scenery.volumes.Volume
 import net.imglib2.FinalInterval
 import net.imglib2.Interval
@@ -35,6 +36,7 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 class SciviewBridge {
+    private val logger by lazyLogger()
     //data source stuff
     val mastodon: ProjectModel?
     var SOURCE_ID = 0
@@ -144,10 +146,10 @@ class SciviewBridge {
             volumeDims[1].toFloat() / volumeDimsUsedResLevel[1].toFloat(),
             volumeDims[2].toFloat() / volumeDimsUsedResLevel[2].toFloat()
         )
-        println("downscale factors: " + volumeDownscale[0] + "x, " + volumeDownscale[1] + "x, " + volumeDownscale[2] + "x")
+        logger.info("downscale factors: ${volumeDownscale[0]} x, ${volumeDownscale[1]} x, ${volumeDownscale[2]} x")
         //
         val voxelRes = getDisplayVoxelRatio(spimSource)
-        println("pixel ratios: " + voxelRes[0] + "x, " + voxelRes[1] + "x, " + voxelRes[2] + "x")
+        logger.info("pixel ratios: ${voxelRes[0]} x, ${voxelRes[1]} x, ${voxelRes[2]} x")
         //
         val volumeScale = Vector3f(
             voxelRes[0] * voxelRes[0] * volumeDownscale[0] * volumeDownscale[0],
@@ -261,27 +263,27 @@ class SciviewBridge {
     fun close() {
         detachControllingUI()
         deregisterKeyboardHandlers()
-        println("Mastodon-sciview Bridge closing procedure: UI and keyboard handlers are removed now")
+        logger.info("Mastodon-sciview Bridge closing procedure: UI and keyboard handlers are removed now")
         sciviewWin?.setActiveNode(axesParent)
-        println("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes")
+        logger.info("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes")
 
         //first make invisible, then remove...
         setVisibilityOfVolume(false)
         setVisibilityOfSpots(false)
-        println("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
+        logger.debug("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
         val updateGraceTime = 100L // in ms
         try {
             sciviewWin?.deleteNode(redVolChannelNode, true)
-            println("Mastodon-sciview Bridge closing procedure: red volume removed")
+            logger.debug("Mastodon-sciview Bridge closing procedure: red volume removed")
             Thread.sleep(updateGraceTime)
             sciviewWin?.deleteNode(greenVolChannelNode, true)
-            println("Mastodon-sciview Bridge closing procedure: green volume removed")
+            logger.debug("Mastodon-sciview Bridge closing procedure: green volume removed")
             Thread.sleep(updateGraceTime)
             sciviewWin?.deleteNode(blueVolChannelNode, true)
-            println("Mastodon-sciview Bridge closing procedure: blue volume removed")
+            logger.debug("Mastodon-sciview Bridge closing procedure: blue volume removed")
             Thread.sleep(updateGraceTime)
             sciviewWin?.deleteNode(sphereParent, true)
-            println("Mastodon-sciview Bridge closing procedure: spots were removed")
+            logger.debug("Mastodon-sciview Bridge closing procedure: spots were removed")
         } catch (e: InterruptedException) { /* do nothing */
         }
         sciviewWin?.deleteNode(axesParent, true)
@@ -324,7 +326,8 @@ class SciviewBridge {
             intensity.rangeMin = maxVal * 0.15f
             intensity.rangeMax = maxVal * 0.75f
             //TODO: change MIN and MAX to proper values
-            println("Clamp at ${intensity.clampTop}, Color intensity to ${intensity.colorIntensity}, range min to ${intensity.rangeMin} and range max to ${intensity.rangeMax}")
+            logger.debug("Clamp at ${intensity.clampTop}, Color intensity to ${intensity.colorIntensity}," +
+                    " range min to ${intensity.rangeMin} and range max to ${intensity.rangeMax}")
             updateSVColoring(force = true)
             updateUI()
         } else {
@@ -367,8 +370,8 @@ class SciviewBridge {
         val intensityProcessor = if (intensity.gamma != 1.0f)
             gammaEnabledIntensityProcessor else noGammaIntensityProcessor
 
-        if (srcImg == null) println("freshNewWhiteContent(): srcImg is null !!!")
-        if (redCh == null) println("freshNewWhiteContent(): redCh is null !!!")
+        if (srcImg == null) logger.warn("freshNewWhiteContent(): srcImg is null !!!")
+        if (redCh == null) logger.warn("freshNewWhiteContent(): redCh is null !!!")
 
         //massage input data into the red channel (LB guarantees that counterparting pixels are accessed)
         LoopBuilder.setImages(srcImg, redCh)
@@ -446,18 +449,17 @@ class SciviewBridge {
                 ++count
             }
         }
-        if (UPDATE_VOLUME_VERBOSE_REPORTS) {
-            println(
-                "  colored " + count + " pixels in the interval ["
-                        + coloringROIMin[0] + "," + coloringROIMin[1] + "," + coloringROIMin[2] + "] -> ["
-                        + coloringROIMax[0] + "," + coloringROIMax[1] + "," + coloringROIMax[2] + "] @ ["
-                        + pxCentre[0] + "," + pxCentre[1] + "," + pxCentre[2] + "]"
-            )
-            println(
-                "  boosted [" + rgbValue[0] + "," + rgbValue[1] + "," + rgbValue[2]
-                        + "] to [" + usedColor[0] + "," + usedColor[1] + "," + usedColor[2] + "]"
-            )
-        }
+
+        logger.debug(
+            "colored $count pixels in the interval" +
+                    "[${coloringROIMin[0]}, ${coloringROIMin[1]}, ${coloringROIMin[2]}]" +
+                    " -> [${coloringROIMax[0]}, ${coloringROIMax[1]}, ${coloringROIMax[2]}]" +
+                    " @ [${pxCentre[0]}, ${pxCentre[1]}, ${pxCentre[2]}]"
+        )
+        logger.debug(
+            "boosted [${rgbValue[0]}, ${rgbValue[1]}, ${rgbValue[2]}]" +
+                    " to [${usedColor[0]}, ${usedColor[1]}, ${usedColor[2]}]"
+        )
     }
 
     fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
@@ -473,7 +475,7 @@ class SciviewBridge {
     // --------------------------------------------------------------------------
     fun openSyncedBDV(): MamutViewBdv {
         val bdvWin = mastodon!!.windowManager.createView(MamutViewBdv::class.java)
-        bdvWin.frame.setTitle("BDV linked to " + sciviewWin!!.getName())
+        bdvWin.frame.setTitle("BDV linked to ${sciviewWin!!.getName()}")
 
         //initial spots content:
         val bdvWinParamsProvider = DPP_BdvAdapter(bdvWin)
@@ -572,12 +574,12 @@ class SciviewBridge {
 
                 val spotCoord = Vector3f()
                 val color = Vector3f()
-                if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: started")
+                logger.debug("COLORING: started")
                 val tp = forThisBdv.timepoint
                 val srcRAI = mastodon!!
                     .sharedBdvData.sources[SOURCE_ID]
                     .spimSource.getSource(tp, SOURCE_USED_RES_LEVEL)
-                if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: resets with new white content")
+                logger.debug("COLORING: resets with new white content")
                 freshNewGrayscaleContent(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
                     srcRAI as RandomAccessibleInterval<UnsignedShortType>
@@ -591,9 +593,9 @@ class SciviewBridge {
                         color.y = (col and 0x0000FF00 shr 8) / 255f
                         color.z = (col and 0x000000FF) / 255f
                         if (UPDATE_VOLUME_VERBOSE_REPORTS)
-                            println(
-                                "COLORING: colors spot " + s.label + " with color ["
-                                        + color[0] + "," + color[1] + "," + color[2] + "](" + col + ")"
+                            logger.debug(
+                                "COLORING: colors spot ${s.label} with color [" +
+                                        "${color[0]}, ${color[1]}, ${color[2]}]($col)"
                             )
                         s.localize(posAuxArray)
                         spreadColor(
@@ -610,17 +612,16 @@ class SciviewBridge {
                 }
                 try {
                     val graceTimeForVolumeUpdatingInMS: Long = 50
-                    if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update red volume")
+                    logger.debug("COLORING: notified to update red volume")
                     redVolChannelNode.volumeManager.notifyUpdate(redVolChannelNode)
                     Thread.sleep(graceTimeForVolumeUpdatingInMS)
-                    if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update green volume")
+                    logger.debug("COLORING: notified to update green volume")
                     greenVolChannelNode.volumeManager.notifyUpdate(greenVolChannelNode)
                     Thread.sleep(graceTimeForVolumeUpdatingInMS)
-                    if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: notified to update blue volume")
+                    logger.debug("COLORING: notified to update blue volume")
                     blueVolChannelNode.volumeManager.notifyUpdate(blueVolChannelNode)
-                } catch (e: InterruptedException) { /* do nothing */
-                }
-                if (UPDATE_VOLUME_VERBOSE_REPORTS) println("COLORING: finished")
+                } catch (e: InterruptedException) { /* do nothing */ }
+                logger.debug("COLORING: finished")
             }
         }
     }
@@ -701,14 +702,14 @@ class SciviewBridge {
         handler?.addKeyBinding(desc_CLRNG_AUTO, key_CLRNG_AUTO)
         handler?.addBehaviour(desc_CLRNG_AUTO, ClickBehaviour { _, _ ->
             UPDATE_VOLUME_AUTOMATICALLY = !UPDATE_VOLUME_AUTOMATICALLY
-            println("Volume updating auto mode: $UPDATE_VOLUME_AUTOMATICALLY")
+            logger.info("Volume updating auto mode: $UPDATE_VOLUME_AUTOMATICALLY")
             updateUI()
         })
         //
         handler?.addKeyBinding(key_CLRNG_ONOFF, key_CLRNG_ONOFF)
         handler?.addBehaviour(key_CLRNG_ONOFF, ClickBehaviour { _, _ ->
             intensity.applyToColors = !intensity.applyToColors
-            println("Volume spots imprinting enabled: ${intensity.applyToColors}")
+            logger.info("Volume spots imprinting enabled: ${intensity.applyToColors}")
             updateUI()
         })
         //
@@ -716,7 +717,7 @@ class SciviewBridge {
         handler?.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
         //
         handler?.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO)
-        handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> println(this) })
+        handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> logger.debug(this.toString()) })
         //
         handler?.addKeyBinding(desc_PREV_TP, key_PREV_TP)
         handler?.addBehaviour(desc_PREV_TP, ClickBehaviour { _, _ ->
