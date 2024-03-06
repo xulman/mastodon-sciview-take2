@@ -38,7 +38,7 @@ import kotlin.math.sqrt
 class SciviewBridge {
     private val logger by lazyLogger()
     //data source stuff
-    val mastodon: ProjectModel?
+    val mastodon: ProjectModel
     var SOURCE_ID = 0
     var SOURCE_USED_RES_LEVEL = 0
     /** default intensity parameters */
@@ -79,8 +79,8 @@ class SciviewBridge {
     }
 
     //data sink stuff
-    val sciviewWin: SciView?
-    val sphereNodes: SphereNodes?
+    val sciviewWin: SciView
+    val sphereNodes: SphereNodes
     //sink scene graph structuring nodes
     val axesParent: Node?
     val sphereParent: Group
@@ -95,40 +95,40 @@ class SciviewBridge {
     val blueVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
     var spimSource: Source<out Any>
     var isVolumeAutoAdjust = false
-    val mastodonToImgCoordsTransfer: Vector3f?
+    val mastodonToImgCoordsTransfer: Vector3f
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
 
     constructor(
         mastodonMainWindow: ProjectModel,
-        targetSciviewWindow: SciView?
+        targetSciviewWindow: SciView
     ) : this(mastodonMainWindow, 0, 0, targetSciviewWindow)
 
     constructor(
         mastodonMainWindow: ProjectModel,
         sourceID: Int, sourceResLevel: Int,
-        targetSciviewWindow: SciView?
+        targetSciviewWindow: SciView
     ) {
         mastodon = mastodonMainWindow
         sciviewWin = targetSciviewWindow
-        sciviewWin?.setPushMode(true)
+        sciviewWin.setPushMode(true)
         detachedDPP_withOwnTime = DPP_DetachedOwnTime(
             mastodon.minTimepoint,
             mastodon.maxTimepoint
         )
 
         //adjust the default scene's settings
-        sciviewWin!!.applicationName = ("sciview for Mastodon: " + mastodon.projectName)
+        sciviewWin.applicationName = ("sciview for Mastodon: " + mastodon.projectName)
         sciviewWin.toggleSidebar()
-        sciviewWin.floor!!.visible = false
-        sciviewWin.lights!!.forEach { l: PointLight ->
+        sciviewWin.floor?.visible = false
+        sciviewWin.lights?.forEach { l: PointLight ->
             if (l.name.startsWith("headli")) adjustHeadLight(l) else l.visible = false
         }
-        sciviewWin.camera!!.children.forEach { l: Node ->
+        sciviewWin.camera?.children?.forEach { l: Node ->
             if (l.name.startsWith("headli") && l is PointLight) adjustHeadLight(l)
         }
         sciviewWin.addNode(AmbientLight(0.05f, Vector3f(1f, 1f, 1f)))
-        sciviewWin.camera!!.spatial().move(30f, 2)
+        sciviewWin.camera?.spatial()?.move(30f, 2)
 
         //add "root" with data axes
         axesParent = addDataAxes()
@@ -258,13 +258,13 @@ class SciviewBridge {
     }
 
     val eventService: EventService?
-        get() = sciviewWin?.scijavaContext?.getService(EventService::class.java)
+        get() = sciviewWin.scijavaContext?.getService(EventService::class.java)
 
     fun close() {
         detachControllingUI()
         deregisterKeyboardHandlers()
         logger.info("Mastodon-sciview Bridge closing procedure: UI and keyboard handlers are removed now")
-        sciviewWin?.setActiveNode(axesParent)
+        sciviewWin.setActiveNode(axesParent)
         logger.info("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes")
 
         //first make invisible, then remove...
@@ -273,20 +273,20 @@ class SciviewBridge {
         logger.debug("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
         val updateGraceTime = 100L // in ms
         try {
-            sciviewWin?.deleteNode(redVolChannelNode, true)
+            sciviewWin.deleteNode(redVolChannelNode, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: red volume removed")
             Thread.sleep(updateGraceTime)
-            sciviewWin?.deleteNode(greenVolChannelNode, true)
+            sciviewWin.deleteNode(greenVolChannelNode, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: green volume removed")
             Thread.sleep(updateGraceTime)
-            sciviewWin?.deleteNode(blueVolChannelNode, true)
+            sciviewWin.deleteNode(blueVolChannelNode, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: blue volume removed")
             Thread.sleep(updateGraceTime)
-            sciviewWin?.deleteNode(sphereParent, true)
+            sciviewWin.deleteNode(sphereParent, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: spots were removed")
         } catch (e: InterruptedException) { /* do nothing */
         }
-        sciviewWin?.deleteNode(axesParent, true)
+        sciviewWin.deleteNode(axesParent, true)
     }
 
     private fun adjustAndPlaceVolumeIntoTheScene(
@@ -297,10 +297,10 @@ class SciviewBridge {
         displayRangeMax: Float
     ) {
         v?.let {
-            sciviewWin?.setColormap(it, colorMapName)
+            sciviewWin.setColormap(it, colorMapName)
             it.spatial().scale = scale
-            it.minDisplayRange = displayRangeMin.toFloat()
-            it.maxDisplayRange = displayRangeMax.toFloat()
+            it.minDisplayRange = displayRangeMin
+            it.maxDisplayRange = displayRangeMax
             //make Bounding Box Grid invisible
             it.children.forEach { n: Node -> n.visible = false }
         }
@@ -311,16 +311,16 @@ class SciviewBridge {
         //this.volumeParent.addChild(v);
     }
 
-    var intensityBackup = intensity.copy()
+    private var intensityBackup = intensity.copy()
 
-    fun <T : IntegerType<T>?> autoAdjustIntensity() {
+    fun autoAdjustIntensity() {
         // toggle boolean state
         isVolumeAutoAdjust = !isVolumeAutoAdjust
 
         if (isVolumeAutoAdjust) {
             var maxVal = 0.0f
             val srcImg = spimSource.getSource(0, SOURCE_USED_RES_LEVEL) as RandomAccessibleInterval<UnsignedShortType>
-            Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px!!.realFloat) }
+            Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px.realFloat) }
             intensity.clampTop = 0.9f * maxVal //very fake 90% percentile...
             intensity.colorIntensity = 2.0f * maxVal
             intensity.rangeMin = maxVal * 0.15f
@@ -347,7 +347,7 @@ class SciviewBridge {
         //TODO would be great if the following two functions would be outside this function, and would therefore
         //     be created only once (not created again with every new call of this function like it is now)
         val gammaEnabledIntensityProcessor: (T,T) -> Unit =
-            { src: T, tgt: T -> tgt!!.setReal(
+            { src: T, tgt: T -> tgt?.setReal(
                     intensity.clampTop * ( //TODO, replace pow() with LUT for several gammas
                             min(
                                 intensity.contrast * src!!.realFloat + intensity.shift,
@@ -357,7 +357,7 @@ class SciviewBridge {
                     )
             }
         val noGammaIntensityProcessor: (T,T) -> Unit =
-            { src: T, tgt: T -> tgt!!.setReal(
+            { src: T, tgt: T -> tgt?.setReal(
                         min(
                             // TODO This needs to incorporate INTENSITY_RANGE_MIN and MAX
                             intensity.contrast * src!!.realFloat + intensity.shift,
@@ -381,8 +381,8 @@ class SciviewBridge {
         LoopBuilder.setImages(redCh, greenCh, blueCh)
             .multiThreaded()
             .forEachPixel(LoopBuilder.TriConsumer { r: T, g: T, b: T ->
-                g!!.set(r)
-                b!!.set(r)
+                g?.set(r)
+                b?.set(r)
             })
     }
 
@@ -400,7 +400,7 @@ class SciviewBridge {
     ) {
 
         val maxDist = longArrayOf(
-            (maxSpatialDist / mastodonToImgCoordsTransfer!!.x).toLong(),
+            (maxSpatialDist / mastodonToImgCoordsTransfer.x).toLong(),
             (maxSpatialDist / mastodonToImgCoordsTransfer.y).toLong(),
             (maxSpatialDist / mastodonToImgCoordsTransfer.z).toLong()
         )
@@ -442,10 +442,10 @@ class SciviewBridge {
             distSq = pos.sub(pxCentre).mul(mastodonToImgCoordsTransfer).lengthSquared()
             if (distSq <= maxDistSq) {
                 //we're within the ROI (spot)
-                colorVal = si.get()!!.realDouble * intensityScale
-                rc.get()!!.setReal(colorVal * usedColor[0])
-                gc.get()!!.setReal(colorVal * usedColor[1])
-                bc.get()!!.setReal(colorVal * usedColor[2])
+                colorVal = si.get().realDouble * intensityScale
+                rc.get().setReal(colorVal * usedColor[0])
+                gc.get().setReal(colorVal * usedColor[1])
+                bc.get().setReal(colorVal * usedColor[2])
                 ++count
             }
         }
@@ -465,7 +465,7 @@ class SciviewBridge {
     fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
         //yes, ugly... but avoids new allocations, yet can be still used "inplace" or "chaining"
         destVec.set(
-            inputMastodonCoord[0] / mastodonToImgCoordsTransfer!!.x,
+            inputMastodonCoord[0] / mastodonToImgCoordsTransfer.x,
             inputMastodonCoord[1] / mastodonToImgCoordsTransfer.y,
             inputMastodonCoord[2] / mastodonToImgCoordsTransfer.z
         )
@@ -474,8 +474,8 @@ class SciviewBridge {
 
     // --------------------------------------------------------------------------
     fun openSyncedBDV(): MamutViewBdv {
-        val bdvWin = mastodon!!.windowManager.createView(MamutViewBdv::class.java)
-        bdvWin.frame.setTitle("BDV linked to ${sciviewWin!!.getName()}")
+        val bdvWin = mastodon.windowManager.createView(MamutViewBdv::class.java)
+        bdvWin.frame.setTitle("BDV linked to ${sciviewWin.getName()}")
 
         //initial spots content:
         val bdvWinParamsProvider = DPP_BdvAdapter(bdvWin)
@@ -493,15 +493,15 @@ class SciviewBridge {
     private var recentTagSet: TagSetStructure.TagSet? = null
     private var recentColorizer: GraphColorGenerator<Spot, Link>? = null
     private val noTSColorizer = DefaultGraphColorGenerator<Spot, Link>()
-    private fun getCurrentColorizer(forThisBdv: MamutViewBdv): GraphColorGenerator<Spot, Link>? {
+    private fun getCurrentColorizer(forThisBdv: MamutViewBdv): GraphColorGenerator<Spot, Link> {
         //NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending
-        val colorizer: GraphColorGenerator<Spot, Link>?
+        val colorizer: GraphColorGenerator<Spot, Link>
         val ts = forThisBdv.coloringModel.tagSet
         if (ts != null) {
             if (ts !== recentTagSet) {
-                recentColorizer = TagSetGraphColorGenerator(mastodon!!.model.tagSetModel, ts)
+                recentColorizer = TagSetGraphColorGenerator(mastodon.model.tagSetModel, ts)
             }
-            colorizer = recentColorizer
+            colorizer = recentColorizer!!
         } else {
             colorizer = noTSColorizer
         }
@@ -512,21 +512,21 @@ class SciviewBridge {
     //------------------------------
     interface DisplayParamsProvider {
         val timepoint: Int
-        val colorizer: GraphColorGenerator<Spot, Link>?
+        val colorizer: GraphColorGenerator<Spot, Link>
     }
 
     internal inner class DPP_BdvAdapter(val ofThisBdv: MamutViewBdv) : DisplayParamsProvider {
         override val timepoint: Int
             get() = ofThisBdv.viewerPanelMamut.state().currentTimepoint
-        override val colorizer: GraphColorGenerator<Spot, Link>?
+        override val colorizer: GraphColorGenerator<Spot, Link>
             get() = getCurrentColorizer(ofThisBdv)
     }
 
     internal inner class DPP_Detached : DisplayParamsProvider {
         override val timepoint: Int
             get() = lastTpWhenVolumeWasUpdated
-        override val colorizer: GraphColorGenerator<Spot, Link>?
-            get() = if (recentColorizer != null) recentColorizer else noTSColorizer
+        override val colorizer: GraphColorGenerator<Spot, Link>
+            get() = recentColorizer ?: noTSColorizer
     }
 
     inner class DPP_DetachedOwnTime(val min: Int, val max: Int) : DisplayParamsProvider {
@@ -544,16 +544,16 @@ class SciviewBridge {
             timepoint = min(max.toDouble(), (timepoint + 1).toDouble()).toInt()
         }
 
-        override val colorizer: GraphColorGenerator<Spot, Link>?
-            get() = if (recentColorizer != null) recentColorizer else noTSColorizer
+        override val colorizer: GraphColorGenerator<Spot, Link>
+            get() = recentColorizer ?: noTSColorizer
     }
 
     //------------------------------
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateSVColoring(forThisBdv)
-        sphereNodes!!.showTheseSpots(
-            mastodon!!,
-            forThisBdv.timepoint, forThisBdv.colorizer!!
+        sphereNodes.showTheseSpots(
+            mastodon,
+            forThisBdv.timepoint, forThisBdv.colorizer
         )
     }
 
@@ -576,7 +576,7 @@ class SciviewBridge {
                 val color = Vector3f()
                 logger.debug("COLORING: started")
                 val tp = forThisBdv.timepoint
-                val srcRAI = mastodon!!
+                val srcRAI = mastodon
                     .sharedBdvData.sources[SOURCE_ID]
                     .spimSource.getSource(tp, SOURCE_USED_RES_LEVEL)
                 logger.debug("COLORING: resets with new white content")
@@ -587,7 +587,7 @@ class SciviewBridge {
                 if (intensity.applyToColors) {
                     val colorizer = forThisBdv.colorizer
                     for (s in mastodon.model.spatioTemporalIndex.getSpatialIndex(tp)) {
-                        val col = colorizer!!.color(s)
+                        val col = colorizer.color(s)
                         if (col == 0) continue  //don't imprint black spots into the volume
                         color.x = (col and 0x00FF0000 shr 16) / 255f
                         color.y = (col and 0x0000FF00 shr 8) / 255f
@@ -630,12 +630,12 @@ class SciviewBridge {
         forThisBdv.viewerPanelMamut.state().getViewerTransform(auxTransform)
         for (r in 0..2) for (c in 0..3) viewMatrix[c, r] = auxTransform[r, c].toFloat()
         viewMatrix.getUnnormalizedRotation(viewRotation)
-        val camSpatial = sciviewWin!!.camera!!.spatial()
+        val camSpatial = sciviewWin.camera?.spatial() ?: return
         viewRotation.y *= -1f
         viewRotation.z *= -1f
         camSpatial.rotation = viewRotation
-        val dist: Float = camSpatial.position.length()
-        camSpatial.position = sciviewWin.camera!!.forward.normalize().mul(-1f * dist)
+        val dist = camSpatial.position.length()
+        camSpatial.position = sciviewWin.camera?.forward!!.normalize().mul(-1f * dist)
     }
 
     private val auxTransform = AffineTransform3D()
@@ -666,7 +666,7 @@ class SciviewBridge {
     fun focusSpot(name: String) {
         val nodes = sphereParent.getChildrenByName(name)
         if (nodes.isNotEmpty()) {
-            sciviewWin?.setActiveCenteredNode(nodes[0])
+            sciviewWin.setActiveCenteredNode(nodes[0])
         }
     }
 
@@ -680,16 +680,16 @@ class SciviewBridge {
         //handlers
 
         //register them
-        val handler = sciviewWin?.sceneryInputHandler
+        val handler = sciviewWin.sceneryInputHandler
         handler?.addKeyBinding(desc_DEC_SPH, key_DEC_SPH)
         handler?.addBehaviour(desc_DEC_SPH, ClickBehaviour { _, _ ->
-            sphereNodes!!.decreaseSphereScale()
+            sphereNodes.decreaseSphereScale()
             updateUI()
         })
         //
         handler?.addKeyBinding(desc_INC_SPH, key_INC_SPH)
         handler?.addBehaviour(desc_INC_SPH, ClickBehaviour { _, _ ->
-            sphereNodes!!.increaseSphereScale()
+            sphereNodes.increaseSphereScale()
             updateUI()
         })
         //
@@ -733,7 +733,7 @@ class SciviewBridge {
     }
 
     private fun deregisterKeyboardHandlers() {
-        val handler = sciviewWin?.sceneryInputHandler
+        val handler = sciviewWin.sceneryInputHandler
         if (handler != null) {
             listOf(desc_DEC_SPH,
                 desc_INC_SPH,
@@ -752,7 +752,7 @@ class SciviewBridge {
     }
 
     @JvmOverloads
-    fun createAndShowControllingUI(windowTitle: String? = "Controls for " + sciviewWin!!.getName()): JFrame {
+    fun createAndShowControllingUI(windowTitle: String? = "Controls for " + sciviewWin.getName()): JFrame {
         return JFrame(windowTitle).apply {
             setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE)
             associatedUI = SciviewBridgeUI(this@SciviewBridge, contentPane)
