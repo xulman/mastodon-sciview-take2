@@ -1,5 +1,6 @@
 package org.mastodon.mamut
 
+import graphics.scenery.utils.lazyLogger
 import mpicbg.spim.data.SpimDataException
 import org.mastodon.mamut.io.ProjectLoader
 import org.scijava.Context
@@ -9,6 +10,7 @@ import java.io.IOException
 import javax.swing.WindowConstants
 
 object StartSciviewBridgeDirectly {
+    private val logger by lazyLogger()
 
     @Throws(IOException::class, SpimDataException::class)
     fun giveMeMastodonOfThisProject(scijavaCtx: Context?, projectPath: String?): ProjectModel {
@@ -44,7 +46,7 @@ object StartSciviewBridgeDirectly {
             val bridge = SciviewBridge(mastodon, 0, 2, sv)
             //bridge.openSyncedBDV();
             mastodon.projectClosedListeners().add(CloseListener {
-                println("Mastodon project was closed, cleaning up in sciview:")
+                logger.debug("Mastodon project was closed, cleaning up in sciview:")
                 bridge.close() //calls also bridge.detachControllingUI();
             })
         } catch (e: Exception) {

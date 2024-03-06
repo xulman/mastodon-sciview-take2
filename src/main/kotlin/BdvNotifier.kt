@@ -2,6 +2,7 @@ package org.mastodon.mamut
 
 import bdv.viewer.TimePointListener
 import bdv.viewer.TransformListener
+import graphics.scenery.utils.lazyLogger
 import net.imglib2.realtransform.AffineTransform3D
 import org.mastodon.graph.GraphChangeListener
 import org.mastodon.mamut.model.Spot
@@ -31,6 +32,7 @@ class BdvNotifier(
     mastodon: ProjectModel,
     bdvWindow: MamutViewBdv
 ) {
+    private val logger by lazyLogger()
 
     init {
         //create a listener for it (which will _immediately_ collect updates from BDV)
@@ -54,7 +56,7 @@ class BdvNotifier(
         mastodon.model.graph.addGraphChangeListener(bdvUpdateListener)
         cumulatingEventsHandlerThread.start()
         bdvWindow.onClose {
-            println("Cleaning up while BDV window is closing.")
+            logger.debug("Cleaning up while BDV window is closing.")
             bdvWindow.viewerPanelMamut.renderTransformListeners().remove(bdvUpdateListener)
             bdvWindow.viewerPanelMamut.timePointListeners().remove(bdvUpdateListener)
             bdvWindow.viewerPanelMamut.removePropertyChangeListener(bdvUpdateListener)
@@ -134,17 +136,17 @@ class BdvNotifier(
         }
 
         override fun run() {
-            println("$SERVICE_NAME started")
+            logger.debug("$SERVICE_NAME started")
             try {
                 while (keepWatching) {
                     if (eventsSource.isLastContentEventValid || eventsSource.isLastViewEventValid && System.currentTimeMillis() - eventsSource.timeStampOfLastEvent > updateInterval) {
                         if (eventsSource.isLastContentEventValid) {
-                            //System.out.println(SERVICE_NAME+": content event and silence detected -> processing it now");
+                            logger.debug("$SERVICE_NAME: content event and silence detected -> processing it now");
                             eventsSource.isLastContentEventValid = false
                             contentEventProcessor.run()
                         }
                         if (eventsSource.isLastViewEventValid) {
-                            //System.out.println(SERVICE_NAME+": view event and silence detected -> processing it now");
+                            logger.debug("$SERVICE_NAME: view event and silence detected -> processing it now");
                             eventsSource.isLastViewEventValid = false
                             viewEventProcessor.run()
                         }
@@ -152,7 +154,7 @@ class BdvNotifier(
                 }
             } catch (e: InterruptedException) { /* do nothing, silently stop */
             }
-            println(SERVICE_NAME + " stopped")
+            logger.debug("$SERVICE_NAME stopped")
         }
     }
 }

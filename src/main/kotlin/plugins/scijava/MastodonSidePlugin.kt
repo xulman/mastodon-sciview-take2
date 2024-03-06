@@ -1,5 +1,6 @@
 package plugins.scijava
 
+import graphics.scenery.utils.lazyLogger
 import org.mastodon.mamut.CloseListener
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.SciviewBridge
@@ -14,7 +15,7 @@ import sc.iview.SciViewService
 @Plugin(type = Command::class, name = "Mastodon to Sciview")
 class MastodonSidePlugin : DynamicCommand() {
     @Parameter
-    private var mastodon: ProjectModel? = null
+    private lateinit var mastodon: ProjectModel
 
     @Parameter(label = "Try to reuse existing sciview window:")
     var tryToReuseExistingSciviewWindow = true
@@ -27,9 +28,9 @@ class MastodonSidePlugin : DynamicCommand() {
     lateinit var channelNames: MutableList<String>
 
     fun volumeParams() {
-        val sources = mastodon!!.sharedBdvData.sources.size
+        val sources = mastodon.sharedBdvData.sources.size
         channelNames = ArrayList(sources)
-        mastodon!!.sharedBdvData.sources.forEach{ channelNames.add(it.spimSource.name) }
+        mastodon.sharedBdvData.sources.forEach{ channelNames.add(it.spimSource.name) }
         getInfo()
             .getMutableInput("useThisChannel", String::class.java).choices = channelNames
     }
@@ -56,14 +57,16 @@ class MastodonSidePlugin : DynamicCommand() {
     // =============================================================================
     @Plugin(type = Command::class, name = "Mastodon to Sciview: Levels")
     class MastodonSidePluginResLevels : DynamicCommand() {
+        private val logger by lazyLogger()
+
         @Parameter
         private var logService: LogService? = null
 
         @Parameter
-        private var sciViewService: SciViewService? = null
+        private lateinit var sciViewService: SciViewService
 
         @Parameter
-        private var mastodon: ProjectModel? = null
+        private lateinit var mastodon: ProjectModel
 
         @Parameter(persist = false)
         private var channelIdx = 0
@@ -78,8 +81,7 @@ class MastodonSidePlugin : DynamicCommand() {
         var useThisResolutionDownscale = "[1,1,1]"
         lateinit var levelNames: MutableList<String>
         fun levelParams() {
-            val chSource = mastodon!!
-                .sharedBdvData.sources[channelIdx].spimSource
+            val chSource = mastodon.sharedBdvData.sources[channelIdx].spimSource
             val levels = chSource.numMipmapLevels
             levelNames = ArrayList(levels)
             val baseLevelDims = LongArray(3)
@@ -102,21 +104,20 @@ class MastodonSidePlugin : DynamicCommand() {
             ) ++chosenLevel
             //NB: theoretically the channel should be always found...
             if (chosenLevel == levelNames.size) return  // !?
-            logService!!.info(
-                "Selected volume from channel " + channelIdx + " of "
-                        + (chosenLevel + 1) + "-best resolution level..."
+            logger.info(
+                "Selected volume from channel $channelIdx of ${chosenLevel + 1}-best resolution level..."
             )
             try {
-                if (!tryToReuseExistingSciviewWindow) sciViewService!!.createSciView()
-                val sv = sciViewService!!.getOrCreateActiveSciView()
-                val bridge = SciviewBridge(mastodon!!, channelIdx, chosenLevel, sv)
+                if (!tryToReuseExistingSciviewWindow) sciViewService.createSciView()
+                val sv = sciViewService.getOrCreateActiveSciView()
+                val bridge = SciviewBridge(mastodon, channelIdx, chosenLevel, sv)
                 if (openBridgeUI) bridge.createAndShowControllingUI()
-                mastodon!!.projectClosedListeners().add(CloseListener {
-                    println("Mastodon project was closed, cleaning up in sciview:")
+                mastodon.projectClosedListeners().add(CloseListener {
+                    logger.debug("Mastodon project was closed, cleaning up in sciview:")
                     bridge.close() //calls also bridge.detachControllingUI();
                 })
             } catch (e: Exception) {
-                logService!!.error("MastodonSciview plugin error: " + e.message)
+                logger.error("MastodonSciview plugin error: " + e.message)
                 e.printStackTrace()
             }
         }
