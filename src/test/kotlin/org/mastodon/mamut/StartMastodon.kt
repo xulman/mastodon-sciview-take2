@@ -1,10 +1,12 @@
 package org.mastodon.mamut
 
 import graphics.scenery.SceneryBase
+import graphics.scenery.utils.lazyLogger
 import net.imagej.ImageJ
 import org.mastodon.mamut.launcher.MastodonLauncher
 
 object StartMastodon {
+    private val logger by lazyLogger()
     @JvmStatic
     fun main(args: Array<String>) {
         try {
@@ -24,7 +26,7 @@ object StartMastodon {
             launcher.setLocationRelativeTo(null)
             launcher.isVisible = true
         } catch (e: Exception) {
-            println("Got this exception: " + e.message)
+            logger.error("Got this exception: ${e.message}")
         }
     }
 }

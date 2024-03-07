@@ -39,8 +39,8 @@ class SciviewBridge {
     private val logger by lazyLogger()
     //data source stuff
     val mastodon: ProjectModel
-    var SOURCE_ID = 0
-    var SOURCE_USED_RES_LEVEL = 0
+    var sourceID = 0
+    var sourceResLevel = 0
     /** default intensity parameters */
     var intensity = Intensity()
 
@@ -58,12 +58,11 @@ class SciviewBridge {
         var rangeMax: Float = 5000f,
     )
 
-    var UPDATE_VOLUME_AUTOMATICALLY = true
-    var UPDATE_VOLUME_VERBOSE_REPORTS = false
+    var updateVolAutomatically = true
     override fun toString(): String {
         val sb = StringBuilder("Mastodon-sciview bridge internal settings:\n")
-        sb.append("   SOURCE_ID = $SOURCE_ID\n")
-        sb.append("   SOURCE_USED_RES_LEVEL = $SOURCE_USED_RES_LEVEL\n")
+        sb.append("   SOURCE_ID = $sourceID\n")
+        sb.append("   SOURCE_USED_RES_LEVEL = $sourceResLevel\n")
         sb.append("   INTENSITY_CONTRAST = ${intensity.contrast}\n")
         sb.append("   INTENSITY_SHIFT = ${intensity.shift}\n")
         sb.append("   INTENSITY_CLAMP_AT_TOP = ${intensity.clampTop}\n")
@@ -73,8 +72,7 @@ class SciviewBridge {
         sb.append("   INTENSITY_OF_COLORS = ${intensity.colorIntensity}\n")
         sb.append("   INTENSITY_RANGE_MAX = ${intensity.rangeMax}\n")
         sb.append("   INTENSITY_RANGE_MIN = ${intensity.rangeMin}\n")
-        sb.append("   UPDATE_VOLUME_AUTOMATICALLY = $UPDATE_VOLUME_AUTOMATICALLY\n")
-        sb.append("   UPDATE_VOLUME_VERBOSE_REPORTS = $UPDATE_VOLUME_VERBOSE_REPORTS")
+        sb.append("   UPDATE_VOLUME_AUTOMATICALLY = $updateVolAutomatically\n")
         return sb.toString()
     }
 
@@ -135,12 +133,12 @@ class SciviewBridge {
         sciviewWin.addNode<Node?>(axesParent)
 
         //get necessary metadata - from image data
-        SOURCE_ID = sourceID
-        SOURCE_USED_RES_LEVEL = sourceResLevel
-        spimSource = mastodon.sharedBdvData.sources[SOURCE_ID].spimSource
+        this.sourceID = sourceID
+        this.sourceResLevel = sourceResLevel
+        spimSource = mastodon.sharedBdvData.sources[this.sourceID].spimSource
         val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()
         //SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
-        val volumeDimsUsedResLevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray()
+        val volumeDimsUsedResLevel = spimSource.getSource(0, this.sourceResLevel).dimensionsAsLongArray()
         val volumeDownscale = floatArrayOf(
             volumeDims[0].toFloat() / volumeDimsUsedResLevel[0].toFloat(),
             volumeDims[1].toFloat() / volumeDimsUsedResLevel[1].toFloat(),
@@ -169,7 +167,7 @@ class SciviewBridge {
         //
         freshNewGrayscaleContent(
             redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-            spimSource.getSource(0, SOURCE_USED_RES_LEVEL) as RandomAccessibleInterval<UnsignedShortType>
+            spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
         )
         volumeParent = null //sciviewWin.addSphere();
         //volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
@@ -206,7 +204,7 @@ class SciviewBridge {
         )
         //
         volNodes = listOf<Node?>(redVolChannelNode, greenVolChannelNode, blueVolChannelNode)
-        val converterSetupID = if (SOURCE_ID < redVolChannelNode.converterSetups.size) SOURCE_ID else 0
+        val converterSetupID = if (this.sourceID < redVolChannelNode.converterSetups.size) this.sourceID else 0
         //setup intensity display listeners that keep the ranges of the three volumes in sync
         // (but the change of one triggers listeners of the others (making each volume its ranges
         //  adjusted 3x times... luckily it doesn't start cycling/looping; perhaps switch to cascade?)
@@ -319,7 +317,7 @@ class SciviewBridge {
 
         if (isVolumeAutoAdjust) {
             var maxVal = 0.0f
-            val srcImg = spimSource.getSource(0, SOURCE_USED_RES_LEVEL) as RandomAccessibleInterval<UnsignedShortType>
+            val srcImg = spimSource.getSource(0, sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
             Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px.realFloat) }
             intensity.clampTop = 0.9f * maxVal //very fake 90% percentile...
             intensity.colorIntensity = 2.0f * maxVal
@@ -566,7 +564,7 @@ class SciviewBridge {
         force: Boolean = false
     ) {
 
-        if (UPDATE_VOLUME_AUTOMATICALLY || force) {
+        if (updateVolAutomatically || force) {
             val currTP = forThisBdv.timepoint
 
             if (currTP != lastTpWhenVolumeWasUpdated) {
@@ -577,8 +575,8 @@ class SciviewBridge {
                 logger.debug("COLORING: started")
                 val tp = forThisBdv.timepoint
                 val srcRAI = mastodon
-                    .sharedBdvData.sources[SOURCE_ID]
-                    .spimSource.getSource(tp, SOURCE_USED_RES_LEVEL)
+                    .sharedBdvData.sources[sourceID]
+                    .spimSource.getSource(tp, sourceResLevel)
                 logger.debug("COLORING: resets with new white content")
                 freshNewGrayscaleContent(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
@@ -592,10 +590,9 @@ class SciviewBridge {
                         color.x = (col and 0x00FF0000 shr 16) / 255f
                         color.y = (col and 0x0000FF00 shr 8) / 255f
                         color.z = (col and 0x000000FF) / 255f
-                        if (UPDATE_VOLUME_VERBOSE_REPORTS)
-                            logger.debug(
-                                "COLORING: colors spot ${s.label} with color [" +
-                                        "${color[0]}, ${color[1]}, ${color[2]}]($col)"
+                        logger.debug(
+                            "COLORING: colors spot ${s.label} with color [" +
+                                    "${color[0]}, ${color[1]}, ${color[2]}]($col)"
                             )
                         s.localize(posAuxArray)
                         spreadColor(
@@ -701,8 +698,8 @@ class SciviewBridge {
         //
         handler?.addKeyBinding(desc_CLRNG_AUTO, key_CLRNG_AUTO)
         handler?.addBehaviour(desc_CLRNG_AUTO, ClickBehaviour { _, _ ->
-            UPDATE_VOLUME_AUTOMATICALLY = !UPDATE_VOLUME_AUTOMATICALLY
-            logger.info("Volume updating auto mode: $UPDATE_VOLUME_AUTOMATICALLY")
+            updateVolAutomatically = !updateVolAutomatically
+            logger.info("Volume updating auto mode: $updateVolAutomatically")
             updateUI()
         })
         //
@@ -717,7 +714,7 @@ class SciviewBridge {
         handler?.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
         //
         handler?.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO)
-        handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> logger.debug(this.toString()) })
+        handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> logger.info(this.toString()) })
         //
         handler?.addKeyBinding(desc_PREV_TP, key_PREV_TP)
         handler?.addBehaviour(desc_PREV_TP, ClickBehaviour { _, _ ->
