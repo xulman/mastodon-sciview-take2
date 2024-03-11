@@ -167,7 +167,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         c.gridy++
         INTENSITY_OF_COLORS_BOOST = JCheckBox("Enable enhancing of spot colors when repainting them into the Volume")
         insertCheckBox(INTENSITY_OF_COLORS_BOOST, c)
-        c.gridy++
+//        c.gridy++
 //        UPDATE_VOLUME_VERBOSE_REPORTS = JCheckBox("Verbose/debug reporting during Volume repainting")
 //        insertCheckBox(UPDATE_VOLUME_VERBOSE_REPORTS, c)
 
