@@ -60,9 +60,6 @@ class MastodonSidePlugin : DynamicCommand() {
         private val logger by lazyLogger()
 
         @Parameter
-        private var logService: LogService? = null
-
-        @Parameter
         private lateinit var sciViewService: SciViewService
 
         @Parameter
@@ -80,6 +77,7 @@ class MastodonSidePlugin : DynamicCommand() {
         @Parameter(label = "Choose resolution level:", choices = [], initializer = "levelParams")
         var useThisResolutionDownscale = "[1,1,1]"
         lateinit var levelNames: MutableList<String>
+
         fun levelParams() {
             val chSource = mastodon.sharedBdvData.sources[channelIdx].spimSource
             val levels = chSource.numMipmapLevels
@@ -92,8 +90,7 @@ class MastodonSidePlugin : DynamicCommand() {
                 chSource.getSource(0, level).dimensions(curLevelDims)
                 levelNames.add("[" + baseLevelDims[0] / curLevelDims[0] + "," + baseLevelDims[1] / curLevelDims[1] + "," + baseLevelDims[2] / curLevelDims[2] + "]")
             }
-            getInfo()
-                .getMutableInput("useThisResolutionDownscale", String::class.java).choices = levelNames
+            info.getMutableInput("useThisResolutionDownscale", String::class.java).choices = levelNames
         }
 
         override fun run() {
