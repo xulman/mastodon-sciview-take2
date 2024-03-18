@@ -28,7 +28,7 @@ import org.mastodon.ui.coloring.TagSetGraphColorGenerator
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
-import util.SphereNodes
+import util.SphereLinkNodes
 import javax.swing.JFrame
 import kotlin.math.max
 import kotlin.math.min
@@ -78,7 +78,7 @@ class SciviewBridge {
 
     //data sink stuff
     val sciviewWin: SciView
-    val sphereNodes: SphereNodes
+    val sphereLinkNodes: SphereLinkNodes
     //sink scene graph structuring nodes
     val axesParent: Node?
     val sphereParent: Group
@@ -248,8 +248,8 @@ class SciviewBridge {
             .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
 
         //add the sciview-side displaying handler for the spots
-        sphereNodes = SphereNodes(sciviewWin, sphereParent)
-        sphereNodes.showTheseSpots(mastodon, 0, noTSColorizer)
+        sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
+        sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
 
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
@@ -549,7 +549,7 @@ class SciviewBridge {
     //------------------------------
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateSVColoring(forThisBdv)
-        sphereNodes.showTheseSpots(
+        sphereLinkNodes.showTheseSpots(
             mastodon,
             forThisBdv.timepoint, forThisBdv.colorizer
         )
@@ -655,7 +655,7 @@ class SciviewBridge {
         sphereParent.visible = state
         if (state) {
             sphereParent
-                .getChildrenByName(SphereNodes.NAME_OF_NOT_USED_SPHERES)
+                .getChildrenByName(SphereLinkNodes.NAME_OF_NOT_USED_SPHERES)
                 .forEach { s: Node -> s.visible = false }
         }
     }
@@ -680,13 +680,13 @@ class SciviewBridge {
         val handler = sciviewWin.sceneryInputHandler
         handler?.addKeyBinding(desc_DEC_SPH, key_DEC_SPH)
         handler?.addBehaviour(desc_DEC_SPH, ClickBehaviour { _, _ ->
-            sphereNodes.decreaseSphereScale()
+            sphereLinkNodes.decreaseSphereScale()
             updateUI()
         })
         //
         handler?.addKeyBinding(desc_INC_SPH, key_INC_SPH)
         handler?.addBehaviour(desc_INC_SPH, ClickBehaviour { _, _ ->
-            sphereNodes.increaseSphereScale()
+            sphereLinkNodes.increaseSphereScale()
             updateUI()
         })
         //

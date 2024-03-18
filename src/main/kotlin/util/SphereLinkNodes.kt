@@ -1,9 +1,12 @@
 package util
 
 import graphics.scenery.Node
+import graphics.scenery.RichNode
 import graphics.scenery.Sphere
+import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
+import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
@@ -13,8 +16,10 @@ import sc.iview.SciView
 import java.util.*
 import kotlin.math.sqrt
 
-class SphereNodes //FAILED to hook up here a 'parentNode' listener that would setVisible(false) on all children
-//of the parent node that are "not used"
+
+//TODO FAILED to hook up here a 'parentNode' listener that would setVisible(false) on all children
+// of the parent node that are "not used"
+class SphereLinkNodes
     (val sv: SciView, val parentNode: Node) {
         private val logger by lazyLogger()
         var SCALE_FACTOR = 1f
@@ -128,7 +133,121 @@ class SphereNodes //FAILED to hook up here a 'parentNode' listener that would se
         logger.debug("Increasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
+
+    val linkSize = 1.0
+
+    var linksNodesHub: Node? = null // gathering node in sciview -- a links node associated to its spots node
+    var links: MutableList<LinkNode>? = null // list of links of this spot
+
+    var selectionStorage: Node = RichNode()
+    var refSpot: Spot? = null
+    var minTP = 0
+    var maxTP = 0
+
+    var linkRadius: Float = 0.01f
+    private val pos = FloatArray(3)
+    private val posF = Vector3f()
+    private val posT = Vector3f()
+
+    fun addLink(from: Spot, to: Spot) {
+        from.localize(pos)
+        to.localize(pos)
+
+        posT.sub(posF)
+
+        //NB: posF is base of the "vector" link, posT is the "vector" link itself
+        val node = Cylinder(linkRadius, posT.length(), 8)
+        node.spatial().scale.set(linkSize * 100, 1.0, linkSize * 100)
+        node.spatial().rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posT).normalize()
+        node.spatial().position = Vector3f(posF)
+
+        node.name = from.label + " --> " + to.label
+        //node.setMaterial( linksNodesHub.getMaterial() );
+        println("add node : " + node.name)
+        linksNodesHub?.addChild(node)
+        links?.addLast(LinkNode(node, from.timepoint, to.timepoint))
+
+        minTP = Math.min(minTP, from.timepoint)
+        maxTP = Math.max(maxTP, to.timepoint)
+    }
+
+    private fun forwardSearch(spot: Spot, toTP: Int) {
+        println("spot.getTimepoint():" + spot.timepoint)
+        println("TPtill:$toTP")
+
+        if (spot.timepoint >= toTP) return
+        println("forward search!")
+        //enumerate all forward links
+        val s = spot.modelGraph.vertexRef()
+        for (l in spot.incomingEdges()) {
+            println("forward search: incoming edges")
+            if (l.getSource(s).timepoint > spot.timepoint && s.timepoint <= toTP) {
+                addLink(spot, s)
+                forwardSearch(s, toTP)
+            }
+        }
+        for (l in spot.outgoingEdges()) {
+            println("forward search: outgoing edges")
+            if (l.getTarget(s).timepoint > spot.timepoint && s.timepoint <= toTP) {
+                addLink(spot, s)
+                forwardSearch(s, toTP)
+            }
+        }
+        spot.modelGraph.releaseRef(s)
+    }
+
+    private fun backwardSearch(spot: Spot, fromTP: Int) {
+        if (spot.timepoint <= fromTP) return
+        //enumerate all backward links
+        val s = spot.modelGraph.vertexRef()
+        for (l in spot.incomingEdges()) {
+            println("backward search: incoming edges")
+            if (l.getSource(s).timepoint < spot.timepoint && s.timepoint >= fromTP) {
+                addLink(s, spot)
+                backwardSearch(s, fromTP)
+            }
+        }
+        for (l in spot.outgoingEdges()) {
+            println("backward search: outgoing edges")
+            if (l.getTarget(s).timepoint < spot.timepoint && s.timepoint >= fromTP) {
+                addLink(s, spot)
+                backwardSearch(s, fromTP)
+            }
+        }
+        spot.modelGraph.releaseRef(s)
+    }
+
+    fun clearLinksOutsideRange(fromTP: Int, toTP: Int) {
+        links?.iterator().let {
+            while (it?.hasNext() == true) {
+                val link = it.next()
+                if (link.fromTP < fromTP || link.toTP > toTP) {
+                    linksNodesHub?.removeChild(link.node)
+                    it.remove()
+                }
+            }
+        }
+        minTP = fromTP
+        maxTP = toTP
+    }
+
+    fun clearAllLinks() {
+        linksNodesHub!!.children.removeIf { f: Node? -> true }
+        links?.clear()
+        minTP = 999999
+        maxTP = -1
+    }
+
+    fun setupEmptyLinks() {
+        linksNodesHub = RichNode()
+        links = LinkedList()
+        minTP = 999999
+        maxTP = -1
+    }
+
     companion object {
         const val NAME_OF_NOT_USED_SPHERES = "not used now"
     }
 }
+
+class LinkNode (var node: Cylinder, var fromTP: Int, var toTP: Int)
