@@ -65,9 +65,9 @@ class SphereLinkNodes
             //NB: also means that the knownNodes were fully exhausted
             knownNodes.addAll(addedExtraNodes)
             sv.publishNode(addedExtraNodes[0]) //NB: publishes only once
-            logger.info("Added ${addedExtraNodes.size} new spheres");
+            logger.info("Added ${addedExtraNodes.size} new spheres")
         } else {
-            logger.debug("Hide ${(knownNodes.size-visibleNodeCount)} spheres");
+            logger.debug("Hide ${(knownNodes.size-visibleNodeCount)} spheres")
             //NB: mark not-touched knownNodes as hidden
             var i = visibleNodeCount
             while (i < knownNodes.size) {
@@ -163,31 +163,31 @@ class SphereLinkNodes
 
         node.name = from.label + " --> " + to.label
         //node.setMaterial( linksNodesHub.getMaterial() );
-        println("add node : " + node.name)
+        logger.debug("add node : " + node.name)
         linksNodesHub?.addChild(node)
         links?.addLast(LinkNode(node, from.timepoint, to.timepoint))
 
-        minTP = Math.min(minTP, from.timepoint)
-        maxTP = Math.max(maxTP, to.timepoint)
+        minTP = minTP.coerceAtMost(from.timepoint)
+        maxTP = maxTP.coerceAtLeast(to.timepoint)
     }
 
     private fun forwardSearch(spot: Spot, toTP: Int) {
-        println("spot.getTimepoint():" + spot.timepoint)
-        println("TPtill:$toTP")
+        logger.debug("spot.getTimepoint():" + spot.timepoint)
+        logger.debug("TPtill:$toTP")
 
         if (spot.timepoint >= toTP) return
-        println("forward search!")
+        logger.debug("forward search!")
         //enumerate all forward links
         val s = spot.modelGraph.vertexRef()
         for (l in spot.incomingEdges()) {
-            println("forward search: incoming edges")
+            logger.debug("forward search: incoming edges")
             if (l.getSource(s).timepoint > spot.timepoint && s.timepoint <= toTP) {
                 addLink(spot, s)
                 forwardSearch(s, toTP)
             }
         }
         for (l in spot.outgoingEdges()) {
-            println("forward search: outgoing edges")
+            logger.debug("forward search: outgoing edges")
             if (l.getTarget(s).timepoint > spot.timepoint && s.timepoint <= toTP) {
                 addLink(spot, s)
                 forwardSearch(s, toTP)
@@ -201,14 +201,14 @@ class SphereLinkNodes
         //enumerate all backward links
         val s = spot.modelGraph.vertexRef()
         for (l in spot.incomingEdges()) {
-            println("backward search: incoming edges")
+            logger.debug("backward search: incoming edges")
             if (l.getSource(s).timepoint < spot.timepoint && s.timepoint >= fromTP) {
                 addLink(s, spot)
                 backwardSearch(s, fromTP)
             }
         }
         for (l in spot.outgoingEdges()) {
-            println("backward search: outgoing edges")
+            logger.debug("backward search: outgoing edges")
             if (l.getTarget(s).timepoint < spot.timepoint && s.timepoint >= fromTP) {
                 addLink(s, spot)
                 backwardSearch(s, fromTP)
