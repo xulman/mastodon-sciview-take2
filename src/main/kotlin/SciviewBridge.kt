@@ -251,6 +251,7 @@ class SciviewBridge {
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
         sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
 
+
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }

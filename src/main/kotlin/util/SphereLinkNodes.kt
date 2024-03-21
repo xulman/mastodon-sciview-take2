@@ -12,7 +12,9 @@ import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
 import org.mastodon.ui.coloring.GraphColorGenerator
+import org.scijava.event.EventService
 import sc.iview.SciView
+import sc.iview.event.NodeChangedEvent
 import java.util.*
 import kotlin.math.sqrt
 
@@ -27,6 +29,12 @@ class SphereLinkNodes
         val knownNodes: MutableList<Sphere> = ArrayList(1000)
         val addedExtraNodes: MutableList<Sphere> = LinkedList()
         private var spotRef: Spot? = null
+        var events: EventService? = null
+
+    init {
+        events = sv.scijavaContext?.getService(EventService::class.java)
+    }
+
     fun showTheseSpots(
         mastodonData: ProjectModel,
         timepoint: Int,
@@ -59,6 +67,11 @@ class SphereLinkNodes
             if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == s.internalPoolIndex) {
                 node.material().wireframe = true
             }
+
+            setupEmptyLinks()
+            registerNewSpot(s)
+            updateLinks(30, 30)
+
             ++visibleNodeCount
         }
         if (addedExtraNodes.size > 0) {
@@ -149,6 +162,14 @@ class SphereLinkNodes
     private val posF = Vector3f()
     private val posT = Vector3f()
 
+    fun registerNewSpot(spot: Spot) {
+        if (refSpot != null) refSpot!!.modelGraph.releaseRef(refSpot)
+        refSpot = spot.modelGraph.vertexRef()
+        refSpot?.refTo(spot)
+        minTP = spot.timepoint
+        maxTP = minTP
+    }
+
     fun addLink(from: Spot, to: Spot) {
         from.localize(pos)
         to.localize(pos)
@@ -171,23 +192,33 @@ class SphereLinkNodes
         maxTP = maxTP.coerceAtLeast(to.timepoint)
     }
 
+    fun updateLinks(TPsInPast: Int, TPsAhead: Int) {
+        logger.info("updatelinks!")
+        refSpot?.let {
+            clearLinksOutsideRange(it.timepoint, it.timepoint)
+            backwardSearch(it, it.timepoint - TPsInPast)
+            forwardSearch(it, it.timepoint + TPsAhead)
+        }
+        events?.publish(NodeChangedEvent(linksNodesHub))
+    }
+
     private fun forwardSearch(spot: Spot, toTP: Int) {
-        logger.debug("spot.getTimepoint():" + spot.timepoint)
-        logger.debug("TPtill:$toTP")
+        logger.info("spot.getTimepoint():" + spot.timepoint)
+        logger.info("TPtill:$toTP")
 
         if (spot.timepoint >= toTP) return
-        logger.debug("forward search!")
+        logger.info("forward search!")
         //enumerate all forward links
         val s = spot.modelGraph.vertexRef()
         for (l in spot.incomingEdges()) {
-            logger.debug("forward search: incoming edges")
+            logger.info("forward search: incoming edges")
             if (l.getSource(s).timepoint > spot.timepoint && s.timepoint <= toTP) {
                 addLink(spot, s)
                 forwardSearch(s, toTP)
             }
         }
         for (l in spot.outgoingEdges()) {
-            logger.debug("forward search: outgoing edges")
+            logger.info("forward search: outgoing edges")
             if (l.getTarget(s).timepoint > spot.timepoint && s.timepoint <= toTP) {
                 addLink(spot, s)
                 forwardSearch(s, toTP)
@@ -201,14 +232,14 @@ class SphereLinkNodes
         //enumerate all backward links
         val s = spot.modelGraph.vertexRef()
         for (l in spot.incomingEdges()) {
-            logger.debug("backward search: incoming edges")
+            logger.info("backward search: incoming edges")
             if (l.getSource(s).timepoint < spot.timepoint && s.timepoint >= fromTP) {
                 addLink(s, spot)
                 backwardSearch(s, fromTP)
             }
         }
         for (l in spot.outgoingEdges()) {
-            logger.debug("backward search: outgoing edges")
+            logger.info("backward search: outgoing edges")
             if (l.getTarget(s).timepoint < spot.timepoint && s.timepoint >= fromTP) {
                 addLink(s, spot)
                 backwardSearch(s, fromTP)
