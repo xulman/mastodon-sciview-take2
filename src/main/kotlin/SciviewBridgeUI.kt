@@ -343,6 +343,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         INTENSITY_SHIFT.value = bridge.intensity.shift
         INTENSITY_CLAMP_AT_TOP.value = bridge.intensity.clampTop
         INTENSITY_GAMMA.value = bridge.intensity.gamma
+        bridge.setIntensityProcessor()
         INTENSITY_OF_COLORS.value = bridge.intensity.colorIntensity
         val upperValBackup = bridge.intensity.rangeMax
 

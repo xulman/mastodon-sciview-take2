@@ -43,6 +43,7 @@ class SciviewBridge {
     var sourceResLevel = 0
     /** default intensity parameters */
     var intensity = Intensity()
+    lateinit var intensityProcessor: (UnsignedShortType, UnsignedShortType) -> Unit
 
     /** Collection of parameters for value and color intensity mapping */
     data class Intensity(
@@ -165,6 +166,8 @@ class SciviewBridge {
         greenVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
         blueVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
         //
+        setIntensityProcessor()
+
         freshNewGrayscaleContent(
             redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
             spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
@@ -335,38 +338,34 @@ class SciviewBridge {
         }
     }
 
-    fun <T : IntegerType<T>?> freshNewGrayscaleContent(
+    //choose one processor for the downstream job;
+    //it is seemingly a long code but it does the if-decision only once now
+    fun setIntensityProcessor() {
+        intensityProcessor = if (intensity.gamma != 1.0f) { src, tgt ->
+            tgt.setReal(
+                intensity.clampTop * (
+                        min(
+                            intensity.contrast * src.realFloat + intensity.shift,
+                            intensity.clampTop
+                        ) / intensity.clampTop
+                        ).pow(intensity.gamma)
+            )
+        } else { src, tgt ->
+            tgt.setReal(
+                min(
+                    intensity.contrast * src.realFloat + intensity.shift,
+                    intensity.clampTop
+                )
+            )
+        }
+    }
+
+    fun <T : UnsignedShortType> freshNewGrayscaleContent(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
         blueCh: RandomAccessibleInterval<T>?,
         srcImg: RandomAccessibleInterval<T>?
     ) {
-
-        //TODO would be great if the following two functions would be outside this function, and would therefore
-        //     be created only once (not created again with every new call of this function like it is now)
-        val gammaEnabledIntensityProcessor: (T,T) -> Unit =
-            { src: T, tgt: T -> tgt?.setReal(
-                    intensity.clampTop * ( //TODO, replace pow() with LUT for several gammas
-                            min(
-                                intensity.contrast * src!!.realFloat + intensity.shift,
-                                intensity.clampTop
-                            ) / intensity.clampTop
-                        ).pow(intensity.gamma)
-                    )
-            }
-        val noGammaIntensityProcessor: (T,T) -> Unit =
-            { src: T, tgt: T -> tgt?.setReal(
-                        min(
-                            // TODO This needs to incorporate INTENSITY_RANGE_MIN and MAX
-                            intensity.contrast * src!!.realFloat + intensity.shift,
-                            intensity.clampTop
-                        )
-                    )
-            }
-        //choose one processor for the downstream job;
-        //it is seemingly a long code but it does the if-decision only once now
-        val intensityProcessor = if (intensity.gamma != 1.0f)
-            gammaEnabledIntensityProcessor else noGammaIntensityProcessor
 
         if (srcImg == null) logger.warn("freshNewWhiteContent(): srcImg is null !!!")
         if (redCh == null) logger.warn("freshNewWhiteContent(): redCh is null !!!")
@@ -379,8 +378,8 @@ class SciviewBridge {
         LoopBuilder.setImages(redCh, greenCh, blueCh)
             .multiThreaded()
             .forEachPixel(LoopBuilder.TriConsumer { r: T, g: T, b: T ->
-                g?.set(r)
-                b?.set(r)
+                g.set(r)
+                b.set(r)
             })
     }
 
