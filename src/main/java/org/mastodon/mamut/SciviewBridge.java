@@ -20,6 +20,7 @@ import net.imglib2.loops.LoopBuilder;
 import net.imglib2.realtransform.AffineTransform3D;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.util.Util;
 import net.imglib2.view.Views;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -43,7 +44,7 @@ import java.util.function.BiConsumer;
 public class SciviewBridge {
 
 	//data source stuff
-	final WindowManager mastodonWin;
+	final ProjectModel mastodonWin;
 	int SOURCE_ID = 0;
 	int SOURCE_USED_RES_LEVEL = 0;
 
@@ -129,15 +130,15 @@ public class SciviewBridge {
 		this(mastodonMainWindow,0,0,targetSciviewWindow);
 	}
 
-	public SciviewBridge(final WindowManager mastodonMainWindow,
+	public SciviewBridge(final ProjectModel mastodonMainWindow,
 	                     final int sourceID, final int sourceResLevel,
 	                     final SciView targetSciviewWindow)
 	{
 		this.mastodonWin = mastodonMainWindow;
 		this.sciviewWin = targetSciviewWindow;
 		detachedDPP_withOwnTime = new DPP_DetachedOwnTime(
-				mastodonWin.getAppModel().getMinTimepoint(),
-				mastodonWin.getAppModel().getMaxTimepoint() );
+				mastodonWin.getMinTimepoint(),
+				mastodonWin.getMaxTimepoint() );
 
 		//adjust the default scene's settings
 		sciviewWin.setApplicationName("sciview for Mastodon: "
@@ -164,7 +165,9 @@ public class SciviewBridge {
 		//get necessary metadata - from image data
 		SOURCE_ID = sourceID;
 		SOURCE_USED_RES_LEVEL = sourceResLevel;
-		final Source<?> spimSource = mastodonWin.getAppModel().getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource();
+		final Source<?> spimSource = mastodonWin.getSharedBdvData().getSources().get(SOURCE_ID).getSpimSource();
+		Object t = spimSource.getType();
+		Object b = Util.getTypeFromInterval(spimSource.getSource(0, 0));
 		final long[] volumeDims = spimSource.getSource(0,0).dimensionsAsLongArray();
 		//SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
 		final long[] volumeDims_usedResLevel = spimSource.getSource(0, SOURCE_USED_RES_LEVEL).dimensionsAsLongArray();
