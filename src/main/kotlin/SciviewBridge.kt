@@ -13,7 +13,7 @@ import net.imglib2.img.planar.PlanarImgs
 import net.imglib2.loops.LoopBuilder
 import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
-import net.imglib2.type.numeric.integer.UnsignedShortType
+import net.imglib2.type.numeric.RealType
 import net.imglib2.view.Views
 import org.joml.Matrix4f
 import org.joml.Quaternionf
@@ -88,9 +88,9 @@ class SciviewBridge {
     val blueVolChannelNode: Volume
     val volNodes //shortcut for ops that operate on the three channels
             : List<Node?>?
-    val redVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
-    val greenVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
-    val blueVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
+    val redVolChannelImg: RandomAccessibleInterval<out RealType<*>>?
+    val greenVolChannelImg: RandomAccessibleInterval<out RealType<*>>?
+    val blueVolChannelImg: RandomAccessibleInterval<out RealType<*>>?
     var spimSource: Source<out Any>
     var isVolumeAutoAdjust = false
     val mastodonToImgCoordsTransfer: Vector3f
@@ -167,7 +167,7 @@ class SciviewBridge {
         //
         freshNewGrayscaleContent(
             redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-            spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
+            spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<RealType<*>>
         )
         volumeParent = null //sciviewWin.addSphere();
         //volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
@@ -317,7 +317,7 @@ class SciviewBridge {
 
         if (isVolumeAutoAdjust) {
             var maxVal = 0.0f
-            val srcImg = spimSource.getSource(0, sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
+            val srcImg = spimSource.getSource(0, sourceResLevel) as RandomAccessibleInterval<*>
             Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px.realFloat) }
             intensity.clampTop = 0.9f * maxVal //very fake 90% percentile...
             intensity.colorIntensity = 2.0f * maxVal
@@ -335,15 +335,13 @@ class SciviewBridge {
         }
     }
 
-    fun <T : IntegerType<T>?> freshNewGrayscaleContent(
+    fun <T> freshNewGrayscaleContent(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
         blueCh: RandomAccessibleInterval<T>?,
-        srcImg: RandomAccessibleInterval<T>?
+        srcImg: RandomAccessibleInterval<RealType<*>>
     ) {
 
-        //TODO would be great if the following two functions would be outside this function, and would therefore
-        //     be created only once (not created again with every new call of this function like it is now)
         val gammaEnabledIntensityProcessor: (T,T) -> Unit =
             { src: T, tgt: T -> tgt?.setReal(
                     intensity.clampTop * ( //TODO, replace pow() with LUT for several gammas
@@ -580,7 +578,7 @@ class SciviewBridge {
                 logger.debug("COLORING: resets with new white content")
                 freshNewGrayscaleContent(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-                    srcRAI as RandomAccessibleInterval<UnsignedShortType>
+                    srcRAI as RandomAccessibleInterval<RealType<*>>
                 )
                 if (intensity.applyToColors) {
                     val colorizer = forThisBdv.colorizer
