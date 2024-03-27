@@ -14,6 +14,7 @@ import net.imglib2.loops.LoopBuilder
 import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
 import net.imglib2.type.numeric.RealType
+import net.imglib2.type.numeric.integer.UnsignedShortType
 import net.imglib2.view.Views
 import org.joml.Matrix4f
 import org.joml.Quaternionf
@@ -88,9 +89,9 @@ class SciviewBridge {
     val blueVolChannelNode: Volume
     val volNodes //shortcut for ops that operate on the three channels
             : List<Node?>?
-    val redVolChannelImg: RandomAccessibleInterval<out RealType<*>>?
-    val greenVolChannelImg: RandomAccessibleInterval<out RealType<*>>?
-    val blueVolChannelImg: RandomAccessibleInterval<out RealType<*>>?
+    val redVolChannelImg: RandomAccessibleInterval<UnsignedShortType> //RandomAccessibleInterval<RealType<*>>?
+    val greenVolChannelImg: RandomAccessibleInterval<UnsignedShortType>//RandomAccessibleInterval<RealType<*>>?
+    val blueVolChannelImg: RandomAccessibleInterval<UnsignedShortType>//RandomAccessibleInterval<RealType<*>>?
     var spimSource: Source<out Any>
     var isVolumeAutoAdjust = false
     val mastodonToImgCoordsTransfer: Vector3f
@@ -167,7 +168,7 @@ class SciviewBridge {
         //
         freshNewGrayscaleContent(
             redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-            spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<RealType<*>>
+            spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
         )
         volumeParent = null //sciviewWin.addSphere();
         //volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
@@ -317,7 +318,7 @@ class SciviewBridge {
 
         if (isVolumeAutoAdjust) {
             var maxVal = 0.0f
-            val srcImg = spimSource.getSource(0, sourceResLevel) as RandomAccessibleInterval<*>
+            val srcImg = spimSource.getSource(0, sourceResLevel) as RandomAccessibleInterval<RealType <*>>
             Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px.realFloat) }
             intensity.clampTop = 0.9f * maxVal //very fake 90% percentile...
             intensity.colorIntensity = 2.0f * maxVal
@@ -335,34 +336,34 @@ class SciviewBridge {
         }
     }
 
-    fun <T> freshNewGrayscaleContent(
+    fun <T: RealType<T>> freshNewGrayscaleContent(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
         blueCh: RandomAccessibleInterval<T>?,
-        srcImg: RandomAccessibleInterval<RealType<*>>
+        srcImg: RandomAccessibleInterval<T>?
     ) {
 
-        val gammaEnabledIntensityProcessor: (T,T) -> Unit =
-            { src: T, tgt: T -> tgt?.setReal(
+        val gammaEnabledIntensityProcessor =
+            { src: T, tgt: T -> tgt.setReal(
                     intensity.clampTop * ( //TODO, replace pow() with LUT for several gammas
                             min(
-                                intensity.contrast * src!!.realFloat + intensity.shift,
+                                intensity.contrast * src.realFloat + intensity.shift,
                                 intensity.clampTop
                             ) / intensity.clampTop
                         ).pow(intensity.gamma)
                     )
             }
-        val noGammaIntensityProcessor: (T,T) -> Unit =
-            { src: T, tgt: T -> tgt?.setReal(
+        val noGammaIntensityProcessor =
+            { src: T, tgt: T -> tgt.setReal(
                         min(
                             // TODO This needs to incorporate INTENSITY_RANGE_MIN and MAX
-                            intensity.contrast * src!!.realFloat + intensity.shift,
+                            intensity.contrast * src.realFloat + intensity.shift,
                             intensity.clampTop
                         )
                     )
             }
         //choose one processor for the downstream job;
-        //it is seemingly a long code but it does the if-decision only once now
+        //it is seemingly a long code, but it does the if-decision only once now
         val intensityProcessor = if (intensity.gamma != 1.0f)
             gammaEnabledIntensityProcessor else noGammaIntensityProcessor
 
@@ -376,10 +377,10 @@ class SciviewBridge {
         //clone the red channel into the remaining two
         LoopBuilder.setImages(redCh, greenCh, blueCh)
             .multiThreaded()
-            .forEachPixel(LoopBuilder.TriConsumer { r: T, g: T, b: T ->
-                g?.set(r)
-                b?.set(r)
-            })
+            .forEachPixel { r: T, g: T, b: T ->
+                g.set(r)
+                b.set(r)
+            }
     }
 
     val posAuxArray = FloatArray(3)
@@ -578,7 +579,7 @@ class SciviewBridge {
                 logger.debug("COLORING: resets with new white content")
                 freshNewGrayscaleContent(
                     redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-                    srcRAI as RandomAccessibleInterval<RealType<*>>
+                    srcRAI as RandomAccessibleInterval<UnsignedShortType>
                 )
                 if (intensity.applyToColors) {
                     val colorizer = forThisBdv.colorizer
