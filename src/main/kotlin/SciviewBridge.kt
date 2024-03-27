@@ -386,7 +386,7 @@ class SciviewBridge {
     val posAuxArray = FloatArray(3)
     val coloringROIMin = LongArray(3)
     val coloringROIMax = LongArray(3) // NB: only works for single threaded coloring!
-    fun <T : IntegerType<T>?> spreadColor(
+    fun <T : RealType<T>?> spreadColor(
         redCh: RandomAccessibleInterval<T>?,
         greenCh: RandomAccessibleInterval<T>?,
         blueCh: RandomAccessibleInterval<T>?,
