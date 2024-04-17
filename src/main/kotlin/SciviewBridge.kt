@@ -206,6 +206,8 @@ class SciviewBridge {
         sciviewWin.deleteNode(axesParent, true)
     }
 
+    /** Adds a volume to the sciview scene, adjusts the transfer function to a ramp from [0, 0] to [1, 1]
+     * and sets the node children visibility to false. */
     private fun addVolumeToScene(
         v: Volume?,
         colorMapName: String,
@@ -234,6 +236,7 @@ class SciviewBridge {
 
     private var intensityBackup = intensity.copy()
 
+    /** Makes an educated guess about the value range of the volume and adjusts the min/max range values accordingly. */
     fun autoAdjustIntensity() {
         // toggle boolean state
         isVolumeAutoAdjust = !isVolumeAutoAdjust
@@ -257,6 +260,7 @@ class SciviewBridge {
         }
     }
 
+    /** Change voxel values based on the intensity values like contrast, shift, gamma, etc. */
     fun <T : IntegerType<T>?> volumeIntensityProcessing(
         srcImg: RandomAccessibleInterval<T>?
     ) {
@@ -304,6 +308,7 @@ class SciviewBridge {
     }
 
     // --------------------------------------------------------------------------
+    /** Create a BDV window and launch a [BdvNotifier] instance to synchronize time point and viewing direction. */
     fun openSyncedBDV(): MamutViewBdv {
         val bdvWin = mastodon.windowManager.createView(MamutViewBdv::class.java)
         bdvWin.frame.setTitle("BDV linked to ${sciviewWin.getName()}")
@@ -380,6 +385,7 @@ class SciviewBridge {
     }
 
     //------------------------------
+    /** Calls [updateVolume] and [SphereNodes.showTheseSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
         sphereNodes.showTheseSpots(
@@ -391,6 +397,8 @@ class SciviewBridge {
     private var lastTpWhenVolumeWasUpdated = 0
     val detachedDPP_showsLastTimepoint: DisplayParamsProvider = DPP_Detached()
 
+    /** Fetch the volume state at the current time point,
+     * then call [volumeIntensityProcessing] to adjust the intensity values*/
     @JvmOverloads
     fun updateVolume(
         forThisBdv: DisplayParamsProvider = detachedDPP_showsLastTimepoint,
@@ -465,35 +473,32 @@ class SciviewBridge {
     }
 
     private fun registerKeyboardHandlers() {
-        //handlers
 
-        //register them
         val handler = sciviewWin.sceneryInputHandler
         handler?.addKeyBinding(desc_DEC_SPH, key_DEC_SPH)
         handler?.addBehaviour(desc_DEC_SPH, ClickBehaviour { _, _ ->
             sphereNodes.decreaseSphereScale()
             updateUI()
         })
-        //
+
         handler?.addKeyBinding(desc_INC_SPH, key_INC_SPH)
         handler?.addBehaviour(desc_INC_SPH, ClickBehaviour { _, _ ->
             sphereNodes.increaseSphereScale()
             updateUI()
         })
 
-        //
         handler?.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN)
         handler?.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
-        //
+
         handler?.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO)
         handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> logger.info(this.toString()) })
-        //
+
         handler?.addKeyBinding(desc_PREV_TP, key_PREV_TP)
         handler?.addBehaviour(desc_PREV_TP, ClickBehaviour { _, _ ->
             detachedDPP_withOwnTime.prevTimepoint()
             updateSciviewContent(detachedDPP_withOwnTime)
         })
-        //
+
         handler?.addKeyBinding(desc_NEXT_TP, key_NEXT_TP)
         handler?.addBehaviour(desc_NEXT_TP, ClickBehaviour { _, _ ->
             detachedDPP_withOwnTime.nextTimepoint()
