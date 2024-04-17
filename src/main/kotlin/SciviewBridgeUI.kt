@@ -131,55 +131,10 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         threeCenteredButtonsPlaceHolder.add(visToggleVols, bc)
 //        bc.insets = Insets(0, 0, 0, 20)
 
-        // -------------- separator --------------
-        c.gridy++
-        insertSeparator(c)
-        c.gridy++
-        insertNote("Parameters of the spots in-painting into the Volume", c)
-        c.gridy++
-        INTENSITY_OF_COLORS_APPLY =
-            JCheckBox("Enable spots in-painting into the Volume (visible only on next repainting of Volume)")
-        insertCheckBox(INTENSITY_OF_COLORS_APPLY, c)
-        c.gridy++
-        c.gridx = 0
-        insertLabel("Next repainting of Volume will be triggered:", c)
-        //
-        c.gridx = 1
-        UPDATE_VOLUME_AUTOMATICALLY = JComboBox(arrayOf(updVolMsgA, updVolMsgM))
-        UPDATE_VOLUME_AUTOMATICALLY.addActionListener(updVolAutoListener)
-        c.anchor = GridBagConstraints.LINE_END
-        insertRColumnItem(UPDATE_VOLUME_AUTOMATICALLY, c)
-        c.anchor = GridBagConstraints.LINE_START
-        c.gridy++
-        c.gridx = 0
-        insertLabel("When repainting, draw colors at this nominal intensity:", c)
-        //
-        c.gridx = 1
-        INTENSITY_OF_COLORS = SpinnerNumberModel(2400.0, 0.0, 65535.0, 50.0)
-        insertSpinner(INTENSITY_OF_COLORS, { f: Float -> bridge.intensity.colorIntensity = f }, c)
-        c.gridy++
-        c.gridx = 0
-        insertLabel("When repainting, multiply spots radii with:", c)
-        //
-        c.gridx = 1
-        SPOT_RADIUS_SCALE = SpinnerNumberModel(3.0, 0.0, 50.0, 1.0)
-        insertSpinner(SPOT_RADIUS_SCALE, { f: Float -> bridge.intensity.spotRadiusScale = f }, c)
-        c.gridy++
-        INTENSITY_OF_COLORS_BOOST = JCheckBox("Enable enhancing of spot colors when repainting them into the Volume")
-        insertCheckBox(INTENSITY_OF_COLORS_BOOST, c)
-//        c.gridy++
-//        UPDATE_VOLUME_VERBOSE_REPORTS = JCheckBox("Verbose/debug reporting during Volume repainting")
-//        insertCheckBox(UPDATE_VOLUME_VERBOSE_REPORTS, c)
-
         // -------------- button row --------------
         c.gridy++
         c.gridx = 0
         c.gridwidth = 1
-        c.insets = Insets(10, sideSpace, sideSpace, sideSpace)
-        val redrawBtn = JButton("  Repaint now (the recently painted timepoint)  ")
-        redrawBtn.addActionListener { bridge.updateSVColoring(force = true) }
-        controlsWindowPanel.add(redrawBtn, c)
-        c.gridx = 1
         c.anchor = GridBagConstraints.LINE_END
         val closeBtn = JButton("Close")
         closeBtn.addActionListener { bridge.detachControllingUI() }
@@ -231,7 +186,6 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     fun insertCheckBox(cbox: JCheckBox, c: GridBagConstraints) {
         val prevFill = c.fill
         val prevGridW = c.gridwidth
-        cbox.addItemListener(checkboxChangeListener)
         checkBoxesWithListeners.add(cbox)
         c.fill = GridBagConstraints.HORIZONTAL
         c.gridwidth = 2
@@ -268,41 +222,19 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
             val bridge = this@SciviewBridgeUI.controlledBridge ?: throw IllegalStateException("Bridge is null.")
             val s = changeEvent.source as SpinnerNumberModel
             pushChangeToHere.accept(s.number.toFloat())
-            if (bridge.updateVolAutomatically) bridge.updateSVColoring()
+            if (bridge.updateVolAutomatically) bridge.updateVolume()
         }
     }
 
-    var checkboxChangeListener = ItemListener { itemEvent ->
-        val cb = itemEvent.source as JCheckBox
-        if (cb === INTENSITY_OF_COLORS_APPLY) {
-            controlledBridge.intensity.applyToColors = cb.isSelected
-            if (controlledBridge.updateVolAutomatically) controlledBridge.updateSVColoring(force = true)
-        } else if (cb === INTENSITY_OF_COLORS_BOOST) {
-            controlledBridge.intensity.colorBoost = cb.isSelected
-            if (controlledBridge.updateVolAutomatically) controlledBridge.updateSVColoring(force = true)
-        }
-    }
     val spinnerModelsWithListeners: MutableList<OwnerAwareSpinnerChangeListener> = ArrayList(10)
     val checkBoxesWithListeners: MutableList<JCheckBox> = ArrayList(10)
 
-    //
-    //below is also defined: rangeSliderListener
-    //
-    val updVolAutoListener = ActionListener {
-        val prevBridgeState = controlledBridge.updateVolAutomatically
-        controlledBridge.updateVolAutomatically = UPDATE_VOLUME_AUTOMATICALLY.getSelectedIndex() == 0
-        if (controlledBridge.updateVolAutomatically && !prevBridgeState) {
-            //NB: a protection "if" here because this listener can be triggered even
-            //when one re-chooses (re-clicks) the already chosen element
-            controlledBridge.updateSVColoring(force = true)
-        }
-    }
     val toggleSpotsVisibility = ActionListener {
         val newState = !controlledBridge.sphereParent.visible
         controlledBridge.setVisibilityOfSpots(newState)
     }
     val toggleVolumeVisibility = ActionListener {
-        val newState = !controlledBridge.redVolChannelNode.visible
+        val newState = !controlledBridge.volChannelNode.visible
         controlledBridge.setVisibilityOfVolume(newState)
     }
 
@@ -323,9 +255,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
                 c
             )
         }
-        checkBoxesWithListeners.forEach { c: JCheckBox -> c.removeItemListener(checkboxChangeListener) }
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.removeChangeListener(rangeSliderListener)
-        UPDATE_VOLUME_AUTOMATICALLY.removeActionListener(updVolAutoListener)
         visToggleSpots.removeActionListener(toggleSpotsVisibility)
         visToggleVols.removeActionListener(toggleVolumeVisibility)
         autoIntensityBtn.removeActionListener(autoAdjustIntensity)
@@ -343,7 +273,6 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         INTENSITY_SHIFT.value = bridge.intensity.shift
         INTENSITY_CLAMP_AT_TOP.value = bridge.intensity.clampTop
         INTENSITY_GAMMA.value = bridge.intensity.gamma
-        INTENSITY_OF_COLORS.value = bridge.intensity.colorIntensity
         val upperValBackup = bridge.intensity.rangeMax
 
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
@@ -358,10 +287,6 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
             .upperValue = bridge.intensity.rangeMax.toInt()
 
         autoIntensityBtn.isSelected = bridge.isVolumeAutoAdjust
-        INTENSITY_OF_COLORS_APPLY.setSelected(bridge.intensity.applyToColors)
-        INTENSITY_OF_COLORS_BOOST.setSelected(bridge.intensity.colorBoost)
-        SPOT_RADIUS_SCALE.value = bridge.intensity.spotRadiusScale
-        UPDATE_VOLUME_AUTOMATICALLY.setSelectedItem(if (updVolAutoBackup) updVolMsgA else updVolMsgM)
         bridge.updateVolAutomatically = updVolAutoBackup
     }
 
@@ -372,22 +297,17 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var INTENSITY_CLAMP_AT_TOP: SpinnerModel
     lateinit var INTENSITY_GAMMA: SpinnerModel
     lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
-    lateinit var INTENSITY_OF_COLORS: SpinnerModel
     val rangeSliderListener = ChangeListener {
         controlledBridge.intensity.rangeMin = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toFloat()
         controlledBridge.intensity.rangeMax = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toFloat()
-        controlledBridge.redVolChannelNode.minDisplayRange = controlledBridge.intensity.rangeMin
-        controlledBridge.redVolChannelNode.maxDisplayRange = controlledBridge.intensity.rangeMax
+        controlledBridge.volChannelNode.minDisplayRange = controlledBridge.intensity.rangeMin
+        controlledBridge.volChannelNode.maxDisplayRange = controlledBridge.intensity.rangeMax
     }
 
     //
     lateinit var visToggleSpots: JButton
     lateinit var visToggleVols: JButton
     lateinit var autoIntensityBtn: JToggleButton
-    lateinit var INTENSITY_OF_COLORS_APPLY: JCheckBox
-    lateinit var INTENSITY_OF_COLORS_BOOST: JCheckBox
-    lateinit var SPOT_RADIUS_SCALE: SpinnerModel
-    lateinit var UPDATE_VOLUME_AUTOMATICALLY: JComboBox<String>
     lateinit var lockGroupHandler: GroupLocksHandling
 
     init {
