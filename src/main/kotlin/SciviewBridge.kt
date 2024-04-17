@@ -565,10 +565,10 @@ class SciviewBridge {
 
         fun addDataAxes(): Node {
             //add the data axes
-            val AXES_LINE_WIDTHS = 0.25f
-            val AXES_LINE_LENGTHS = 5f
+            val AXES_LINE_WIDTHS = 0.04f
+            val AXES_LINE_LENGTHS = 0.7f
             //
-            val axesParent: Node = Box(Vector3f(0.1f))
+            val axesParent = Group()
             axesParent.name = "Data Axes"
             //
             var c = Cylinder(AXES_LINE_WIDTHS / 2.0f, AXES_LINE_LENGTHS, 12)
