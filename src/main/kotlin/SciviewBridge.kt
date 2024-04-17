@@ -61,7 +61,6 @@ class SciviewBridge {
         sb.append("   INTENSITY_GAMMA = ${intensity.gamma}\n")
         sb.append("   INTENSITY_RANGE_MAX = ${intensity.rangeMax}\n")
         sb.append("   INTENSITY_RANGE_MIN = ${intensity.rangeMin}\n")
-        sb.append("   UPDATE_VOLUME_AUTOMATICALLY = $updateVolAutomatically\n")
         return sb.toString()
     }
 
