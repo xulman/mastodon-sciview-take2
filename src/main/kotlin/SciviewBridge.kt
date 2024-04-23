@@ -118,11 +118,12 @@ class SciviewBridge {
         spimSource = mastodon.sharedBdvData.sources[this.sourceID].spimSource
         val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()
         //SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
-        val volumeDimsUsedResLevel = spimSource.getSource(0, this.sourceResLevel).dimensionsAsLongArray()
+        // absolute number of pixels for each dimension of the volume
+        val volumeNumPixels = spimSource.getSource(0, this.sourceResLevel).dimensionsAsLongArray()
         val volumeDownscale = floatArrayOf(
-            volumeDims[0].toFloat() / volumeDimsUsedResLevel[0].toFloat(),
-            volumeDims[1].toFloat() / volumeDimsUsedResLevel[1].toFloat(),
-            volumeDims[2].toFloat() / volumeDimsUsedResLevel[2].toFloat()
+            volumeDims[0].toFloat() / volumeNumPixels[0].toFloat(),
+            volumeDims[1].toFloat() / volumeNumPixels[1].toFloat(),
+            volumeDims[2].toFloat() / volumeNumPixels[2].toFloat()
         )
         logger.info("downscale factors: ${volumeDownscale[0]} x, ${volumeDownscale[1]} x, ${volumeDownscale[2]} x")
         //
@@ -163,9 +164,9 @@ class SciviewBridge {
         )
         sphereParent.spatial().scale = spotsScale
         sphereParent.spatial().position = Vector3f(
-            volumeDimsUsedResLevel[0].toFloat(),
-            volumeDimsUsedResLevel[1].toFloat(),
-            volumeDimsUsedResLevel[2].toFloat()
+            volumeNumPixels[0].toFloat(),
+            volumeNumPixels[1].toFloat(),
+            volumeNumPixels[2].toFloat()
         )
             .mul(-0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
             .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
@@ -174,7 +175,6 @@ class SciviewBridge {
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
         sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
-
 
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
@@ -388,12 +388,11 @@ class SciviewBridge {
     /** Calls [updateVolume] and [SphereNodes.showTheseSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
-        sphereNodes.showTheseSpots(
-        updateSVColoring(forThisBdv)
         sphereLinkNodes.showTheseSpots(
             mastodon,
             forThisBdv.timepoint, forThisBdv.colorizer
         )
+//        sphereLinkNodes.initializeSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
     }
 
     private var lastTpWhenVolumeWasUpdated = 0
