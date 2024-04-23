@@ -1,15 +1,12 @@
 package org.mastodon.mamut
 
-import bdv.tools.brightness.ConverterSetup
 import bdv.viewer.Source
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.lazyLogger
+import graphics.scenery.volumes.TransferFunction
 import graphics.scenery.volumes.Volume
-import net.imglib2.FinalInterval
-import net.imglib2.Interval
 import net.imglib2.RandomAccessibleInterval
-import net.imglib2.img.planar.PlanarImgs
 import net.imglib2.loops.LoopBuilder
 import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
@@ -33,7 +30,6 @@ import javax.swing.JFrame
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.sqrt
 
 class SciviewBridge {
     private val logger by lazyLogger()
@@ -50,10 +46,6 @@ class SciviewBridge {
         var shift: Float = 0.0f,            // raw data shift
         var clampTop: Float = 65535.0f,    // upper clamp value
         var gamma: Float = 1.0f,            // gamma correction with exp()
-        var applyToColors: Boolean = false,   // flag to enable/disable imprinting
-        var colorBoost: Boolean = true,       // flag to enable/disable boosting of rgb colors to the brightest possible
-        var colorIntensity: Float = 2100f,  // max allowed value used for the imprinting
-        var spotRadiusScale: Float = 3f,    // the spreadColor() imprints spot this much larger than what it is in Mastodon
         var rangeMin: Float = 0f,
         var rangeMax: Float = 5000f,
     )
@@ -67,12 +59,8 @@ class SciviewBridge {
         sb.append("   INTENSITY_SHIFT = ${intensity.shift}\n")
         sb.append("   INTENSITY_CLAMP_AT_TOP = ${intensity.clampTop}\n")
         sb.append("   INTENSITY_GAMMA = ${intensity.gamma}\n")
-        sb.append("   INTENSITY_OF_COLORS_APPLY = ${intensity.applyToColors}\n")
-        sb.append("   SPOT_RADIUS_SCALE = ${intensity.spotRadiusScale}\n")
-        sb.append("   INTENSITY_OF_COLORS = ${intensity.colorIntensity}\n")
         sb.append("   INTENSITY_RANGE_MAX = ${intensity.rangeMax}\n")
         sb.append("   INTENSITY_RANGE_MIN = ${intensity.rangeMin}\n")
-        sb.append("   UPDATE_VOLUME_AUTOMATICALLY = $updateVolAutomatically\n")
         return sb.toString()
     }
 
@@ -82,15 +70,7 @@ class SciviewBridge {
     //sink scene graph structuring nodes
     val axesParent: Node?
     val sphereParent: Group
-    val volumeParent: Sphere?
-    val redVolChannelNode: Volume
-    val greenVolChannelNode: Volume
-    val blueVolChannelNode: Volume
-    val volNodes //shortcut for ops that operate on the three channels
-            : List<Node?>?
-    val redVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
-    val greenVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
-    val blueVolChannelImg: RandomAccessibleInterval<UnsignedShortType>?
+    var volChannelNode: Volume
     var spimSource: Source<out Any>
     var isVolumeAutoAdjust = false
     val mastodonToImgCoordsTransfer: Vector3f
@@ -160,78 +140,22 @@ class SciviewBridge {
             volumeDims[2] * voxelRes[2]
         )
 
-        //volume stuff:
-        redVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
-        greenVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
-        blueVolChannelImg = PlanarImgs.unsignedShorts(*volumeDimsUsedResLevel)
-        //
-        freshNewGrayscaleContent(
-            redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-            spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
-        )
-        volumeParent = null //sciviewWin.addSphere();
-        //volumeParent.setName( "VOLUME: "+mastodonMainWindow.projectManager.getProject().getProjectRoot().toString() );
-        //
         val commonNodeName = ": " + mastodon.projectName
-        redVolChannelNode = sciviewWin.addVolume(redVolChannelImg, "RED VOL$commonNodeName", floatArrayOf(1f, 1f, 1f))
-        adjustAndPlaceVolumeIntoTheScene(
-            redVolChannelNode,
-            "Red.lut",
+        volChannelNode = sciviewWin.addVolume(spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>, "Volume$commonNodeName", floatArrayOf(1f, 1f, 1f))
+        addVolumeToScene(
+            volChannelNode,
+            "Grays.lut",
             volumeScale,
             intensity.rangeMin,
             intensity.rangeMax
         )
-        //TODO display range can one learn from the coloring process
-        //
-        greenVolChannelNode =
-            sciviewWin.addVolume(greenVolChannelImg, "GREEN VOL$commonNodeName", floatArrayOf(1f, 1f, 1f))
-        adjustAndPlaceVolumeIntoTheScene(
-            greenVolChannelNode,
-            "Green.lut",
-            volumeScale,
-            intensity.rangeMin,
-            intensity.rangeMax
-        )
-        //
-        blueVolChannelNode =
-            sciviewWin.addVolume(blueVolChannelImg, "BLUE VOL$commonNodeName", floatArrayOf(1f, 1f, 1f))
-        adjustAndPlaceVolumeIntoTheScene(
-            blueVolChannelNode,
-            "Blue.lut",
-            volumeScale,
-            intensity.rangeMin,
-            intensity.rangeMax
-        )
-        //
-        volNodes = listOf<Node?>(redVolChannelNode, greenVolChannelNode, blueVolChannelNode)
-        val converterSetupID = if (this.sourceID < redVolChannelNode.converterSetups.size) this.sourceID else 0
-        //setup intensity display listeners that keep the ranges of the three volumes in sync
-        // (but the change of one triggers listeners of the others (making each volume its ranges
-        //  adjusted 3x times... luckily it doesn't start cycling/looping; perhaps switch to cascade?)
-        fun setupChangeListenerForNode(node: Volume, other1: Volume, other2: Volume): (ConverterSetup) -> Unit {
-            return { t: ConverterSetup ->
-                node.minDisplayRange = t.displayRangeMin.toFloat()
-                node.maxDisplayRange = t.displayRangeMax.toFloat()
-                other1.minDisplayRange = t.displayRangeMin.toFloat()
-                other1.maxDisplayRange = t.displayRangeMax.toFloat()
-                other2.minDisplayRange = t.displayRangeMin.toFloat()
-                other2.maxDisplayRange = t.displayRangeMax.toFloat()
-            }
-        }
-
-        val setupChangeListener = setupChangeListenerForNode(greenVolChannelNode, redVolChannelNode, blueVolChannelNode)
-
-        redVolChannelNode.converterSetups[converterSetupID].setupChangeListeners().add(setupChangeListener)
-        greenVolChannelNode.converterSetups[converterSetupID].setupChangeListeners().add(setupChangeListener)
-        blueVolChannelNode.converterSetups[converterSetupID].setupChangeListeners().add(setupChangeListener)
-
 
         //spots stuff:
         sphereParent = Group()
         sphereParent.name = "SPOTS$commonNodeName"
         sciviewWin.addNode(sphereParent)
         val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
-        spotsScale.mul(MAGIC_ONE_TENTH * redVolChannelNode.pixelToWorldRatio)
+        spotsScale.mul(MAGIC_ONE_TENTH * volChannelNode.pixelToWorldRatio)
         mastodonToImgCoordsTransfer = Vector3f(
             voxelRes[0] * volumeDownscale[0],
             voxelRes[1] * volumeDownscale[1],
@@ -272,14 +196,8 @@ class SciviewBridge {
         logger.debug("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
         val updateGraceTime = 100L // in ms
         try {
-            sciviewWin.deleteNode(redVolChannelNode, true)
+            sciviewWin.deleteNode(volChannelNode, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: red volume removed")
-            Thread.sleep(updateGraceTime)
-            sciviewWin.deleteNode(greenVolChannelNode, true)
-            logger.debug("Mastodon-sciview Bridge closing procedure: green volume removed")
-            Thread.sleep(updateGraceTime)
-            sciviewWin.deleteNode(blueVolChannelNode, true)
-            logger.debug("Mastodon-sciview Bridge closing procedure: blue volume removed")
             Thread.sleep(updateGraceTime)
             sciviewWin.deleteNode(sphereParent, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: spots were removed")
@@ -288,7 +206,9 @@ class SciviewBridge {
         sciviewWin.deleteNode(axesParent, true)
     }
 
-    private fun adjustAndPlaceVolumeIntoTheScene(
+    /** Adds a volume to the sciview scene, adjusts the transfer function to a ramp from [0, 0] to [1, 1]
+     * and sets the node children visibility to false. */
+    private fun addVolumeToScene(
         v: Volume?,
         colorMapName: String,
         scale: Vector3f,
@@ -300,6 +220,10 @@ class SciviewBridge {
             it.spatial().scale = scale
             it.minDisplayRange = displayRangeMin
             it.maxDisplayRange = displayRangeMax
+            val tf = TransferFunction()
+            tf.addControlPoint(0f, 0f)
+            tf.addControlPoint(1f, 1f)
+            it.transferFunction = tf
             //make Bounding Box Grid invisible
             it.children.forEach { n: Node -> n.visible = false }
         }
@@ -312,6 +236,7 @@ class SciviewBridge {
 
     private var intensityBackup = intensity.copy()
 
+    /** Makes an educated guess about the value range of the volume and adjusts the min/max range values accordingly. */
     fun autoAdjustIntensity() {
         // toggle boolean state
         isVolumeAutoAdjust = !isVolumeAutoAdjust
@@ -321,45 +246,39 @@ class SciviewBridge {
             val srcImg = spimSource.getSource(0, sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
             Views.iterable(srcImg).forEach { px -> maxVal = maxVal.coerceAtLeast(px.realFloat) }
             intensity.clampTop = 0.9f * maxVal //very fake 90% percentile...
-            intensity.colorIntensity = 2.0f * maxVal
             intensity.rangeMin = maxVal * 0.15f
             intensity.rangeMax = maxVal * 0.75f
             //TODO: change MIN and MAX to proper values
-            logger.debug("Clamp at ${intensity.clampTop}, Color intensity to ${intensity.colorIntensity}," +
+            logger.debug("Clamp at ${intensity.clampTop}," +
                     " range min to ${intensity.rangeMin} and range max to ${intensity.rangeMax}")
-            updateSVColoring(force = true)
+            updateVolume(force = true)
             updateUI()
         } else {
             intensity = intensityBackup.copy()
-            updateSVColoring(force = true)
+            updateVolume(force = true)
             updateUI()
         }
     }
 
-    fun <T : IntegerType<T>?> freshNewGrayscaleContent(
-        redCh: RandomAccessibleInterval<T>?,
-        greenCh: RandomAccessibleInterval<T>?,
-        blueCh: RandomAccessibleInterval<T>?,
+    /** Change voxel values based on the intensity values like contrast, shift, gamma, etc. */
+    fun <T : IntegerType<T>?> volumeIntensityProcessing(
         srcImg: RandomAccessibleInterval<T>?
     ) {
-
-        //TODO would be great if the following two functions would be outside this function, and would therefore
-        //     be created only once (not created again with every new call of this function like it is now)
-        val gammaEnabledIntensityProcessor: (T,T) -> Unit =
-            { src: T, tgt: T -> tgt?.setReal(
+        val gammaEnabledIntensityProcessor: (T) -> Unit =
+            { src: T -> src?.setReal(
                     intensity.clampTop * ( //TODO, replace pow() with LUT for several gammas
                             min(
-                                intensity.contrast * src!!.realFloat + intensity.shift,
+                                intensity.contrast * src.realFloat + intensity.shift,
                                 intensity.clampTop
                             ) / intensity.clampTop
                         ).pow(intensity.gamma)
                     )
             }
-        val noGammaIntensityProcessor: (T,T) -> Unit =
-            { src: T, tgt: T -> tgt?.setReal(
+        val noGammaIntensityProcessor: (T) -> Unit =
+            { src: T -> src?.setReal(
                         min(
                             // TODO This needs to incorporate INTENSITY_RANGE_MIN and MAX
-                            intensity.contrast * src!!.realFloat + intensity.shift,
+                            intensity.contrast * src.realFloat + intensity.shift,
                             intensity.clampTop
                         )
                     )
@@ -369,96 +288,13 @@ class SciviewBridge {
         val intensityProcessor = if (intensity.gamma != 1.0f)
             gammaEnabledIntensityProcessor else noGammaIntensityProcessor
 
-        if (srcImg == null) logger.warn("freshNewWhiteContent(): srcImg is null !!!")
-        if (redCh == null) logger.warn("freshNewWhiteContent(): redCh is null !!!")
+        if (srcImg == null) logger.warn("volumeIntensityProcessing: srcImg is null !!!")
 
         //massage input data into the red channel (LB guarantees that counterparting pixels are accessed)
-        LoopBuilder.setImages(srcImg, redCh)
+        LoopBuilder.setImages(srcImg)
             .multiThreaded()
             .forEachPixel(intensityProcessor)
-        //clone the red channel into the remaining two
-        LoopBuilder.setImages(redCh, greenCh, blueCh)
-            .multiThreaded()
-            .forEachPixel(LoopBuilder.TriConsumer { r: T, g: T, b: T ->
-                g?.set(r)
-                b?.set(r)
-            })
-    }
 
-    val posAuxArray = FloatArray(3)
-    val coloringROIMin = LongArray(3)
-    val coloringROIMax = LongArray(3) // NB: only works for single threaded coloring!
-    fun <T : IntegerType<T>?> spreadColor(
-        redCh: RandomAccessibleInterval<T>?,
-        greenCh: RandomAccessibleInterval<T>?,
-        blueCh: RandomAccessibleInterval<T>?,
-        srcImg: RandomAccessibleInterval<T>,
-        pxCentre: Vector3f,
-        maxSpatialDist: Double,
-        rgbValue: Vector3f
-    ) {
-
-        val maxDist = longArrayOf(
-            (maxSpatialDist / mastodonToImgCoordsTransfer.x).toLong(),
-            (maxSpatialDist / mastodonToImgCoordsTransfer.y).toLong(),
-            (maxSpatialDist / mastodonToImgCoordsTransfer.z).toLong()
-        )
-        for (d in 0..2) {
-            coloringROIMin[d] = max((pxCentre[d] - maxDist[d]).toDouble(), 0.0).toLong()
-            coloringROIMax[d] = min((pxCentre[d] + maxDist[d]).toDouble(), (srcImg.dimension(d) - 1).toDouble())
-                .toLong()
-        }
-        val roi: Interval = FinalInterval(coloringROIMin, coloringROIMax)
-        val rc = Views.interval(redCh, roi).cursor()
-        val gc = Views.interval(greenCh, roi).cursor()
-        val bc = Views.interval(blueCh, roi).cursor()
-        val si = Views.interval(srcImg, roi).localizingCursor()
-        val pos = Vector3f()
-        val maxDistSq = (maxSpatialDist * maxSpatialDist).toFloat()
-
-        //to preserve a color, the r,g,b ratio must be kept (only mul()s, not add()s);
-        //since data values are clamped to INTENSITY_NOT_ABOVE, we can stretch all
-        //the way to INTENSITY_OF_COLORS (the brightest color displayed)
-        val intensityScale = intensity.colorIntensity / intensity.clampTop
-
-        val usedColor = if (intensity.colorBoost) {
-            //NB: normalizes all color components so that the maximum is at 1
-            rgbValue.div(rgbValue[rgbValue.maxComponent()])
-        } else {
-            rgbValue
-        }
-        var count = 0
-        var distSq: Float
-        var colorVal: Double
-        while (si.hasNext()) {
-            rc.next()
-            gc.next()
-            bc.next()
-            si.next()
-            si.localize(posAuxArray)
-            pos.set(posAuxArray)
-            //(raw) image coords -> Mastodon coords
-            distSq = pos.sub(pxCentre).mul(mastodonToImgCoordsTransfer).lengthSquared()
-            if (distSq <= maxDistSq) {
-                //we're within the ROI (spot)
-                colorVal = si.get().realDouble * intensityScale
-                rc.get().setReal(colorVal * usedColor[0])
-                gc.get().setReal(colorVal * usedColor[1])
-                bc.get().setReal(colorVal * usedColor[2])
-                ++count
-            }
-        }
-
-        logger.debug(
-            "colored $count pixels in the interval" +
-                    "[${coloringROIMin[0]}, ${coloringROIMin[1]}, ${coloringROIMin[2]}]" +
-                    " -> [${coloringROIMax[0]}, ${coloringROIMax[1]}, ${coloringROIMax[2]}]" +
-                    " @ [${pxCentre[0]}, ${pxCentre[1]}, ${pxCentre[2]}]"
-        )
-        logger.debug(
-            "boosted [${rgbValue[0]}, ${rgbValue[1]}, ${rgbValue[2]}]" +
-                    " to [${usedColor[0]}, ${usedColor[1]}, ${usedColor[2]}]"
-        )
     }
 
     fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
@@ -472,6 +308,7 @@ class SciviewBridge {
     }
 
     // --------------------------------------------------------------------------
+    /** Create a BDV window and launch a [BdvNotifier] instance to synchronize time point and viewing direction. */
     fun openSyncedBDV(): MamutViewBdv {
         val bdvWin = mastodon.windowManager.createView(MamutViewBdv::class.java)
         bdvWin.frame.setTitle("BDV linked to ${sciviewWin.getName()}")
@@ -548,7 +385,10 @@ class SciviewBridge {
     }
 
     //------------------------------
+    /** Calls [updateVolume] and [SphereNodes.showTheseSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
+        updateVolume(forThisBdv)
+        sphereNodes.showTheseSpots(
         updateSVColoring(forThisBdv)
         sphereLinkNodes.showTheseSpots(
             mastodon,
@@ -559,8 +399,10 @@ class SciviewBridge {
     private var lastTpWhenVolumeWasUpdated = 0
     val detachedDPP_showsLastTimepoint: DisplayParamsProvider = DPP_Detached()
 
+    /** Fetch the volume state at the current time point,
+     * then call [volumeIntensityProcessing] to adjust the intensity values*/
     @JvmOverloads
-    fun updateSVColoring(
+    fun updateVolume(
         forThisBdv: DisplayParamsProvider = detachedDPP_showsLastTimepoint,
         force: Boolean = false
     ) {
@@ -578,48 +420,8 @@ class SciviewBridge {
                 val srcRAI = mastodon
                     .sharedBdvData.sources[sourceID]
                     .spimSource.getSource(tp, sourceResLevel)
-                logger.debug("COLORING: resets with new white content")
-                freshNewGrayscaleContent(
-                    redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-                    srcRAI as RandomAccessibleInterval<UnsignedShortType>
+                volumeIntensityProcessing(srcRAI as RandomAccessibleInterval<UnsignedShortType>
                 )
-                if (intensity.applyToColors) {
-                    val colorizer = forThisBdv.colorizer
-                    for (s in mastodon.model.spatioTemporalIndex.getSpatialIndex(tp)) {
-                        val col = colorizer.color(s)
-                        if (col == 0) continue  //don't imprint black spots into the volume
-                        color.x = (col and 0x00FF0000 shr 16) / 255f
-                        color.y = (col and 0x0000FF00 shr 8) / 255f
-                        color.z = (col and 0x000000FF) / 255f
-                        logger.debug(
-                            "COLORING: colors spot ${s.label} with color [" +
-                                    "${color[0]}, ${color[1]}, ${color[2]}]($col)"
-                            )
-                        s.localize(posAuxArray)
-                        spreadColor(
-                            redVolChannelImg, greenVolChannelImg, blueVolChannelImg,
-                            srcRAI,
-                            mastodonToImgCoord(posAuxArray, spotCoord),
-                            //NB: spot drawing is driven by image intensity, and thus
-                            //dark BG doesn't get colorized too much ('cause it is dark),
-                            //and thus it doesn't hurt if the spot is considered reasonably larger
-                            intensity.spotRadiusScale * sqrt(s.boundingSphereRadiusSquared),
-                            color
-                        )
-                    }
-                }
-                try {
-                    val graceTimeForVolumeUpdatingInMS: Long = 50
-                    logger.debug("COLORING: notified to update red volume")
-                    redVolChannelNode.volumeManager.notifyUpdate(redVolChannelNode)
-                    Thread.sleep(graceTimeForVolumeUpdatingInMS)
-                    logger.debug("COLORING: notified to update green volume")
-                    greenVolChannelNode.volumeManager.notifyUpdate(greenVolChannelNode)
-                    Thread.sleep(graceTimeForVolumeUpdatingInMS)
-                    logger.debug("COLORING: notified to update blue volume")
-                    blueVolChannelNode.volumeManager.notifyUpdate(blueVolChannelNode)
-                } catch (e: InterruptedException) { /* do nothing */ }
-                logger.debug("COLORING: finished")
             }
         }
     }
@@ -642,13 +444,11 @@ class SciviewBridge {
 
     // --------------------------------------------------------------------------
     fun setVisibilityOfVolume(state: Boolean) {
-        volNodes?.forEach { v: Node? ->
-            v?.visible = state
-            if (state) {
-                v?.children?.stream()
-                    ?.filter { c: Node -> c.name.startsWith("Bounding") }
-                    ?.forEach { c: Node -> c.visible = false }
-            }
+        volChannelNode.visible = state
+        if (state) {
+            volChannelNode.children.stream()
+                .filter { c: Node -> c.name.startsWith("Bounding") }
+                .forEach { c: Node -> c.visible = false }
         }
     }
 
@@ -675,54 +475,32 @@ class SciviewBridge {
     }
 
     private fun registerKeyboardHandlers() {
-        //handlers
 
-        //register them
         val handler = sciviewWin.sceneryInputHandler
         handler?.addKeyBinding(desc_DEC_SPH, key_DEC_SPH)
         handler?.addBehaviour(desc_DEC_SPH, ClickBehaviour { _, _ ->
             sphereLinkNodes.decreaseSphereScale()
             updateUI()
         })
-        //
+
         handler?.addKeyBinding(desc_INC_SPH, key_INC_SPH)
         handler?.addBehaviour(desc_INC_SPH, ClickBehaviour { _, _ ->
             sphereLinkNodes.increaseSphereScale()
             updateUI()
         })
-        //
-        handler?.addKeyBinding(desc_COLORING, key_COLORING)
-        handler?.addBehaviour(desc_COLORING, ClickBehaviour { _, _ ->
-            updateSVColoring(force = true)
-            updateUI()
-        })
-        //
-        handler?.addKeyBinding(desc_CLRNG_AUTO, key_CLRNG_AUTO)
-        handler?.addBehaviour(desc_CLRNG_AUTO, ClickBehaviour { _, _ ->
-            updateVolAutomatically = !updateVolAutomatically
-            logger.info("Volume updating auto mode: $updateVolAutomatically")
-            updateUI()
-        })
-        //
-        handler?.addKeyBinding(key_CLRNG_ONOFF, key_CLRNG_ONOFF)
-        handler?.addBehaviour(key_CLRNG_ONOFF, ClickBehaviour { _, _ ->
-            intensity.applyToColors = !intensity.applyToColors
-            logger.info("Volume spots imprinting enabled: ${intensity.applyToColors}")
-            updateUI()
-        })
-        //
+
         handler?.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN)
         handler?.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
-        //
+
         handler?.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO)
         handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> logger.info(this.toString()) })
-        //
+
         handler?.addKeyBinding(desc_PREV_TP, key_PREV_TP)
         handler?.addBehaviour(desc_PREV_TP, ClickBehaviour { _, _ ->
             detachedDPP_withOwnTime.prevTimepoint()
             updateSciviewContent(detachedDPP_withOwnTime)
         })
-        //
+
         handler?.addKeyBinding(desc_NEXT_TP, key_NEXT_TP)
         handler?.addBehaviour(desc_NEXT_TP, ClickBehaviour { _, _ ->
             detachedDPP_withOwnTime.nextTimepoint()
@@ -735,9 +513,6 @@ class SciviewBridge {
         if (handler != null) {
             listOf(desc_DEC_SPH,
                 desc_INC_SPH,
-                desc_COLORING,
-                desc_CLRNG_AUTO,
-                key_CLRNG_ONOFF,
                 desc_CTRL_WIN,
                 desc_CTRL_INFO,
                 desc_PREV_TP,
@@ -793,10 +568,10 @@ class SciviewBridge {
 
         fun addDataAxes(): Node {
             //add the data axes
-            val AXES_LINE_WIDTHS = 0.25f
-            val AXES_LINE_LENGTHS = 5f
+            val AXES_LINE_WIDTHS = 0.04f
+            val AXES_LINE_LENGTHS = 0.7f
             //
-            val axesParent: Node = Box(Vector3f(0.1f))
+            val axesParent = Group()
             axesParent.name = "Data Axes"
             //
             var c = Cylinder(AXES_LINE_WIDTHS / 2.0f, AXES_LINE_LENGTHS, 12)
@@ -823,18 +598,12 @@ class SciviewBridge {
         // --------------------------------------------------------------------------
         const val key_DEC_SPH = "O"
         const val key_INC_SPH = "shift O"
-        const val key_COLORING = "G"
-        const val key_CLRNG_AUTO = "shift G"
-        const val key_CLRNG_ONOFF = "ctrl G"
         const val key_CTRL_WIN = "ctrl I"
         const val key_CTRL_INFO = "shift I"
         const val key_PREV_TP = "T"
         const val key_NEXT_TP = "shift T"
         const val desc_DEC_SPH = "decrease_initial_spheres_size"
         const val desc_INC_SPH = "increase_initial_spheres_size"
-        const val desc_COLORING = "recolor_volume_now"
-        const val desc_CLRNG_AUTO = "recolor_automatically"
-        const val desc_CLRNG_ONOFF = "recolor_enabled"
         const val desc_CTRL_WIN = "controlling_window"
         const val desc_CTRL_INFO = "controlling_info"
         const val desc_PREV_TP = "show_previous_timepoint"

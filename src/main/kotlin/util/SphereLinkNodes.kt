@@ -1,5 +1,6 @@
 package util
 
+import graphics.scenery.Blending
 import graphics.scenery.Node
 import graphics.scenery.RichNode
 import graphics.scenery.Sphere
@@ -126,13 +127,15 @@ class SphereLinkNodes
         val g = (intColor shr 8 and 0x000000FF) / 255f
         val b = (intColor and 0x000000FF) / 255f
         node.material().diffuse[r, g] = b
+//        node.material().diffuse = Vector3f(r, g, b)
+//        node.material().blending = Blending(transparent = true, opacity = 0.2f)
         node.material().wireframe = false
     }
 
     fun decreaseSphereScale() {
         val oldScale = SCALE_FACTOR
-        SCALE_FACTOR -= 0.5f
-        if (SCALE_FACTOR < 0.4f) SCALE_FACTOR = 0.5f
+        SCALE_FACTOR -= 0.1f
+        if (SCALE_FACTOR < 0.1f) SCALE_FACTOR = 0.1f
         val factor = SCALE_FACTOR / oldScale
         knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor)  }
         logger.debug("Decreasing scale to $SCALE_FACTOR, by factor $factor")
@@ -140,7 +143,7 @@ class SphereLinkNodes
 
     fun increaseSphereScale() {
         val oldScale = SCALE_FACTOR
-        SCALE_FACTOR += 0.5f
+        SCALE_FACTOR += 0.1f
         val factor = SCALE_FACTOR / oldScale
         knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor) }
         logger.debug("Increasing scale to $SCALE_FACTOR, by factor $factor")

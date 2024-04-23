@@ -62,9 +62,6 @@ class SciviewPlugin : Command {
         rows.add(arrayOf(SciviewBridge.key_INC_SPH, SciviewBridge.desc_INC_SPH))
         rows.add(arrayOf(SciviewBridge.key_PREV_TP, SciviewBridge.desc_PREV_TP))
         rows.add(arrayOf(SciviewBridge.key_NEXT_TP, SciviewBridge.desc_NEXT_TP))
-        rows.add(arrayOf(SciviewBridge.key_COLORING, SciviewBridge.desc_COLORING))
-        rows.add(arrayOf(SciviewBridge.key_CLRNG_AUTO, SciviewBridge.desc_CLRNG_AUTO))
-        rows.add(arrayOf(SciviewBridge.key_CLRNG_ONOFF, SciviewBridge.desc_CLRNG_ONOFF))
         rows.add(arrayOf(SciviewBridge.key_CTRL_WIN, SciviewBridge.desc_CTRL_WIN))
         rows.add(arrayOf(SciviewBridge.key_CTRL_INFO, SciviewBridge.desc_CTRL_INFO))
         return rows
