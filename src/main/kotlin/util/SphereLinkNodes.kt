@@ -1,9 +1,6 @@
 package util
 
-import graphics.scenery.Blending
-import graphics.scenery.Node
-import graphics.scenery.RichNode
-import graphics.scenery.Sphere
+import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
@@ -34,6 +31,32 @@ class SphereLinkNodes
 
     init {
         events = sv.scijavaContext?.getService(EventService::class.java)
+    }
+
+    val sphere = Icosphere(1f, 2)
+    val sphereInstance = InstancedNode(sphere)
+    val sphereParent = Group()
+
+    fun initializeSpots(
+        mastodonData: ProjectModel,
+        timepoint: Int,
+        colorizer: GraphColorGenerator<Spot, Link>
+    ) {
+        if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
+        val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
+        val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
+        sv.blockOnNewNodes = false
+
+        var inst: InstancedNode.Instance
+        for (s in spots) {
+            inst = sphereInstance.addInstance()
+            s.localize(auxSpatialPos)
+            inst.spatial().setPosition(auxSpatialPos)
+            inst.spatial().scale = Vector3f(
+                SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
+            )
+        }
+        sv.addNode(sphereInstance)
     }
 
     fun showTheseSpots(
@@ -69,9 +92,9 @@ class SphereLinkNodes
                 node.material().wireframe = true
             }
 
-            setupEmptyLinks()
-            registerNewSpot(s)
-            updateLinks(30, 30)
+//            setupEmptyLinks()
+//            registerNewSpot(s)
+//            updateLinks(30, 30)
 
             ++visibleNodeCount
         }
@@ -89,11 +112,6 @@ class SphereLinkNodes
                 knownNodes[i++].visible = false
             }
         }
-/*
-		logger.debug("Drawing currently in total "+visibleNodeCount
-				+ " and there are "+(knownNodes.size-visibleNodeCount)
-				+ " hidden...");
-*/
         return visibleNodeCount
     }
 
