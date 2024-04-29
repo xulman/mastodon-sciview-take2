@@ -174,8 +174,8 @@ class SciviewBridge {
 
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
-        sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
-
+//        sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
+        sphereLinkNodes.initializeSpots(mastodon, 0, noTSColorizer)
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }
@@ -388,10 +388,10 @@ class SciviewBridge {
     /** Calls [updateVolume] and [SphereNodes.showTheseSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
-        sphereLinkNodes.showTheseSpots(
-            mastodon,
-            forThisBdv.timepoint, forThisBdv.colorizer
-        )
+//        sphereLinkNodes.showTheseSpots(
+//            mastodon,
+//            forThisBdv.timepoint, forThisBdv.colorizer
+//        )
 //        sphereLinkNodes.initializeSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
     }
 

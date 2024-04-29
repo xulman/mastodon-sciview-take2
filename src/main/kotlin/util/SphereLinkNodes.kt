@@ -47,16 +47,16 @@ class SphereLinkNodes
         val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         sv.blockOnNewNodes = false
 
+        sv.addNode(sphereInstance)
         var inst: InstancedNode.Instance
         for (s in spots) {
             inst = sphereInstance.addInstance()
             s.localize(auxSpatialPos)
-            inst.spatial().setPosition(auxSpatialPos)
+            inst.spatial().position = Vector3f(auxSpatialPos) / 100f
             inst.spatial().scale = Vector3f(
                 SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
             )
         }
-        sv.addNode(sphereInstance)
     }
 
     fun showTheseSpots(
