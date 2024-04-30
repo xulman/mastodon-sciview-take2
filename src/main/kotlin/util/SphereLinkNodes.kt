@@ -1,7 +1,11 @@
 package util
 
 import graphics.scenery.*
+import graphics.scenery.attribute.material.Material
+import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
+import graphics.scenery.utils.extensions.minus
+import graphics.scenery.utils.extensions.plus
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import org.joml.Quaternionf
@@ -13,7 +17,9 @@ import org.mastodon.ui.coloring.GraphColorGenerator
 import org.scijava.event.EventService
 import sc.iview.SciView
 import sc.iview.event.NodeChangedEvent
+import java.lang.Math.random
 import java.util.*
+import kotlin.math.floor
 import kotlin.math.sqrt
 
 
@@ -34,28 +40,42 @@ class SphereLinkNodes
     }
 
     val sphere = Icosphere(1f, 2)
-    val sphereInstance = InstancedNode(sphere)
-    val sphereParent = Group()
 
     fun initializeSpots(
         mastodonData: ProjectModel,
         timepoint: Int,
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
+        logger.debug("Initializing Spots")
+        sphere.setMaterial(ShaderMaterial.fromFiles("DefaultDeferredInstanced.vert", "DefaultDeferred.frag")) {
+            diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+            ambient = Vector3f(1.0f, 1.0f, 1.0f)
+            specular = Vector3f(.0f, 1.0f, 1.0f)
+            metallic = 0.0f
+            roughness = 1.0f
+        }
+        val sphereInstance = InstancedNode(sphere)
+
         if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
         val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
         val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         sv.blockOnNewNodes = false
+        logger.info("got ${spots.size()} spots from mastodon timepoint $timepoint")
 
-        sv.addNode(sphereInstance)
+        sv.addNode(sphereInstance, parent = parentNode)
         var inst: InstancedNode.Instance
         for (s in spots) {
             inst = sphereInstance.addInstance()
+            inst.name = "inst_${s.internalPoolIndex}"
+            inst.addAttribute(Material::class.java, sphere.material())
             s.localize(auxSpatialPos)
-            inst.spatial().position = Vector3f(auxSpatialPos) / 100f
+            inst.spatial {
+                position = Vector3f(auxSpatialPos) / parentNode.spatialOrNull()!!.scale - parentNode.spatialOrNull()!!.position
+            }
             inst.spatial().scale = Vector3f(
                 SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
-            )
+            ) / parentNode.spatialOrNull()!!.scale
+
         }
     }
 

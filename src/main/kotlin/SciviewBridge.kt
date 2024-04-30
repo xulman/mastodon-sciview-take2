@@ -74,6 +74,7 @@ class SciviewBridge {
     var spimSource: Source<out Any>
     var isVolumeAutoAdjust = false
     val mastodonToImgCoordsTransfer: Vector3f
+    val sceneScale: Float = 10f
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
 
@@ -116,7 +117,7 @@ class SciviewBridge {
         this.sourceID = sourceID
         this.sourceResLevel = sourceResLevel
         spimSource = mastodon.sharedBdvData.sources[this.sourceID].spimSource
-        val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()
+        val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()     // TODO rename to something more meaningful
         //SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
         // absolute number of pixels for each dimension of the volume
         val volumeNumPixels = spimSource.getSource(0, this.sourceResLevel).dimensionsAsLongArray()
@@ -130,23 +131,27 @@ class SciviewBridge {
         val voxelRes = getDisplayVoxelRatio(spimSource)
         logger.info("pixel ratios: ${voxelRes[0]} x, ${voxelRes[1]} x, ${voxelRes[2]} x")
         //
-        val volumeScale = Vector3f(
-            voxelRes[0] * voxelRes[0] * volumeDownscale[0] * volumeDownscale[0],
-            voxelRes[1] * voxelRes[1] * volumeDownscale[1] * volumeDownscale[1],
-            voxelRes[2] * voxelRes[2] * volumeDownscale[2] * volumeDownscale[2] * -1.0f
-        )
+//        val volumeScale = Vector3f(
+//            voxelRes[0] * volumeDownscale[0],
+//            voxelRes[1] * volumeDownscale[1],
+//            voxelRes[2] * volumeDownscale[2] * -1.0f
+//        )
         val spotsScale = Vector3f(
             volumeDims[0] * voxelRes[0],
             volumeDims[1] * voxelRes[1],
             volumeDims[2] * voxelRes[2]
         )
+        logger.info("spotsScale is $spotsScale")
 
         val commonNodeName = ": " + mastodon.projectName
-        volChannelNode = sciviewWin.addVolume(spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>, "Volume$commonNodeName", floatArrayOf(1f, 1f, 1f))
-        addVolumeToScene(
+        volChannelNode = sciviewWin.addVolume(
+            spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>,
+            "Volume$commonNodeName",
+            floatArrayOf(1f, 1f, 1f))
+        setVolumeRanges(
             volChannelNode,
             "Grays.lut",
-            volumeScale,
+//            volumeScale,
             intensity.rangeMin,
             intensity.rangeMax
         )
@@ -162,6 +167,7 @@ class SciviewBridge {
             voxelRes[1] * volumeDownscale[1],
             voxelRes[2] * volumeDownscale[2]
         )
+        logger.info("mastodonToImgCoordsTransfer is $mastodonToImgCoordsTransfer")
         sphereParent.spatial().scale = spotsScale
         sphereParent.spatial().position = Vector3f(
             volumeNumPixels[0].toFloat(),
@@ -170,7 +176,7 @@ class SciviewBridge {
         )
             .mul(-0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
             .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
-            .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
+//            .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
 
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
@@ -208,16 +214,17 @@ class SciviewBridge {
 
     /** Adds a volume to the sciview scene, adjusts the transfer function to a ramp from [0, 0] to [1, 1]
      * and sets the node children visibility to false. */
-    private fun addVolumeToScene(
+    private fun setVolumeRanges(
         v: Volume?,
         colorMapName: String,
-        scale: Vector3f,
+//        scale: Vector3f,
         displayRangeMin: Float,
         displayRangeMax: Float
     ) {
         v?.let {
             sciviewWin.setColormap(it, colorMapName)
-            it.spatial().scale = scale
+//            it.spatial().scale = scale
+            it.spatial().scale = Vector3f(sceneScale)
             it.minDisplayRange = displayRangeMin
             it.maxDisplayRange = displayRangeMax
             val tf = TransferFunction()
@@ -297,15 +304,15 @@ class SciviewBridge {
 
     }
 
-    fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
-        //yes, ugly... but avoids new allocations, yet can be still used "inplace" or "chaining"
-        destVec.set(
-            inputMastodonCoord[0] / mastodonToImgCoordsTransfer.x,
-            inputMastodonCoord[1] / mastodonToImgCoordsTransfer.y,
-            inputMastodonCoord[2] / mastodonToImgCoordsTransfer.z
-        )
-        return destVec
-    }
+//    fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
+//        //yes, ugly... but avoids new allocations, yet can be still used "inplace" or "chaining"
+//        destVec.set(
+//            inputMastodonCoord[0] / mastodonToImgCoordsTransfer.x,
+//            inputMastodonCoord[1] / mastodonToImgCoordsTransfer.y,
+//            inputMastodonCoord[2] / mastodonToImgCoordsTransfer.z
+//        )
+//        return destVec
+//    }
 
     // --------------------------------------------------------------------------
     /** Create a BDV window and launch a [BdvNotifier] instance to synchronize time point and viewing direction. */
@@ -567,8 +574,8 @@ class SciviewBridge {
 
         fun addDataAxes(): Node {
             //add the data axes
-            val AXES_LINE_WIDTHS = 0.04f
-            val AXES_LINE_LENGTHS = 0.7f
+            val AXES_LINE_WIDTHS = 0.01f
+            val AXES_LINE_LENGTHS = 0.1f
             //
             val axesParent = Group()
             axesParent.name = "Data Axes"
