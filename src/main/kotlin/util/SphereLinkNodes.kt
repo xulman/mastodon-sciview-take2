@@ -39,7 +39,8 @@ class SphereLinkNodes
         events = sv.scijavaContext?.getService(EventService::class.java)
     }
 
-    val sphere = Icosphere(1f, 2)
+    val sphere = Icosphere(0.01f, 2)
+    lateinit var sphereInstance: InstancedNode
 
     fun initializeSpots(
         mastodonData: ProjectModel,
@@ -54,7 +55,7 @@ class SphereLinkNodes
             metallic = 0.0f
             roughness = 1.0f
         }
-        val sphereInstance = InstancedNode(sphere)
+        sphereInstance = InstancedNode(sphere)
 
         if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
         val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
@@ -70,12 +71,11 @@ class SphereLinkNodes
             inst.addAttribute(Material::class.java, sphere.material())
             s.localize(auxSpatialPos)
             inst.spatial {
-                position = Vector3f(auxSpatialPos) / parentNode.spatialOrNull()!!.scale - parentNode.spatialOrNull()!!.position
+                position = Vector3f(auxSpatialPos) * parentNode.spatialOrNull()!!.scale - parentNode.spatialOrNull()!!.position
             }
             inst.spatial().scale = Vector3f(
                 SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
-            ) / parentNode.spatialOrNull()!!.scale
-
+            )
         }
     }
 
@@ -175,7 +175,8 @@ class SphereLinkNodes
         SCALE_FACTOR -= 0.1f
         if (SCALE_FACTOR < 0.1f) SCALE_FACTOR = 0.1f
         val factor = SCALE_FACTOR / oldScale
-        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor)  }
+//        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor)  }
+        sphereInstance.instances.forEach { s -> s.spatial().scale = Vector3f(factor) }
         logger.debug("Decreasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
@@ -183,7 +184,8 @@ class SphereLinkNodes
         val oldScale = SCALE_FACTOR
         SCALE_FACTOR += 0.1f
         val factor = SCALE_FACTOR / oldScale
-        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor) }
+//        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor) }
+        sphereInstance.instances.forEach { s -> s.spatial().scale = Vector3f(factor) }
         logger.debug("Increasing scale to $SCALE_FACTOR, by factor $factor")
     }
 

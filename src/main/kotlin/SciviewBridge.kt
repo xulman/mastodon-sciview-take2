@@ -3,6 +3,8 @@ package org.mastodon.mamut
 import bdv.viewer.Source
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
+import graphics.scenery.utils.extensions.minus
+import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import graphics.scenery.volumes.TransferFunction
 import graphics.scenery.volumes.Volume
@@ -27,6 +29,7 @@ import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
 import util.SphereLinkNodes
 import javax.swing.JFrame
+import kotlin.math.log
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -117,9 +120,9 @@ class SciviewBridge {
         this.sourceID = sourceID
         this.sourceResLevel = sourceResLevel
         spimSource = mastodon.sharedBdvData.sources[this.sourceID].spimSource
+        // number of pixels for each dimension at the highest res level
         val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()     // TODO rename to something more meaningful
-        //SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
-        // absolute number of pixels for each dimension of the volume
+        // number of pixels for each dimension of the volume at current res level
         val volumeNumPixels = spimSource.getSource(0, this.sourceResLevel).dimensionsAsLongArray()
         val volumeDownscale = floatArrayOf(
             volumeDims[0].toFloat() / volumeNumPixels[0].toFloat(),
@@ -131,17 +134,16 @@ class SciviewBridge {
         val voxelRes = getDisplayVoxelRatio(spimSource)
         logger.info("pixel ratios: ${voxelRes[0]} x, ${voxelRes[1]} x, ${voxelRes[2]} x")
         //
-//        val volumeScale = Vector3f(
-//            voxelRes[0] * volumeDownscale[0],
-//            voxelRes[1] * volumeDownscale[1],
-//            voxelRes[2] * volumeDownscale[2] * -1.0f
-//        )
+        val volumeScale = Vector3f(
+            voxelRes[0] * volumeDownscale[0],
+            voxelRes[1] * volumeDownscale[1],
+            voxelRes[2] * volumeDownscale[2] * -1.0f
+        )
         val spotsScale = Vector3f(
             volumeDims[0] * voxelRes[0],
             volumeDims[1] * voxelRes[1],
             volumeDims[2] * voxelRes[2]
         )
-        logger.info("spotsScale is $spotsScale")
 
         val commonNodeName = ": " + mastodon.projectName
         volChannelNode = sciviewWin.addVolume(
@@ -151,7 +153,7 @@ class SciviewBridge {
         setVolumeRanges(
             volChannelNode,
             "Grays.lut",
-//            volumeScale,
+            volumeScale * sceneScale,
             intensity.rangeMin,
             intensity.rangeMax
         )
@@ -162,6 +164,8 @@ class SciviewBridge {
         sciviewWin.addNode(sphereParent)
         val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
         spotsScale.mul(MAGIC_ONE_TENTH * volChannelNode.pixelToWorldRatio)
+        logger.info("pixelToWorldRatio is ${volChannelNode.pixelToWorldRatio}")
+        logger.info("spotsScale is $spotsScale")
         mastodonToImgCoordsTransfer = Vector3f(
             voxelRes[0] * volumeDownscale[0],
             voxelRes[1] * volumeDownscale[1],
@@ -169,15 +173,18 @@ class SciviewBridge {
         )
         logger.info("mastodonToImgCoordsTransfer is $mastodonToImgCoordsTransfer")
         sphereParent.spatial().scale = spotsScale
+        // initialize the base position
         sphereParent.spatial().position = Vector3f(
             volumeNumPixels[0].toFloat(),
             volumeNumPixels[1].toFloat(),
             volumeNumPixels[2].toFloat()
         )
-            .mul(-0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
+            .mul(0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
             .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
-//            .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
-
+            .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
+        sphereParent.spatial().position = Vector3f(0f)
+        logger.info("position of sphereParent is now ${sphereParent.spatial().position}")
+        logger.info("volume size is ${volChannelNode.boundingBox!!.max - volChannelNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
 //        sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
@@ -217,14 +224,14 @@ class SciviewBridge {
     private fun setVolumeRanges(
         v: Volume?,
         colorMapName: String,
-//        scale: Vector3f,
+        scale: Vector3f,
         displayRangeMin: Float,
         displayRangeMax: Float
     ) {
         v?.let {
             sciviewWin.setColormap(it, colorMapName)
 //            it.spatial().scale = scale
-            it.spatial().scale = Vector3f(sceneScale)
+            it.spatial().scale = scale
             it.minDisplayRange = displayRangeMin
             it.maxDisplayRange = displayRangeMax
             val tf = TransferFunction()
