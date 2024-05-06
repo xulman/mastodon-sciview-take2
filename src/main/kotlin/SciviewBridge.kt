@@ -28,6 +28,7 @@ import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
 import util.SphereLinkNodes
+import java.util.Vector
 import javax.swing.JFrame
 import kotlin.math.log
 import kotlin.math.max
@@ -132,14 +133,14 @@ class SciviewBridge {
         logger.info("downscale factors: ${volumeDownscale[0]} x, ${volumeDownscale[1]} x, ${volumeDownscale[2]} x")
         //
         val voxelRes = getDisplayVoxelRatio(spimSource)
-        logger.info("pixel ratios: ${voxelRes[0]} x, ${voxelRes[1]} x, ${voxelRes[2]} x")
+        logger.info("voxel res is: ${voxelRes[0]} x, ${voxelRes[1]} x, ${voxelRes[2]} x")
         //
         val volumeScale = Vector3f(
             voxelRes[0] * volumeDownscale[0],
             voxelRes[1] * volumeDownscale[1],
             voxelRes[2] * volumeDownscale[2] * -1.0f
         )
-        val spotsScale = Vector3f(
+        var spotsScale = Vector3f(
             volumeDims[0] * voxelRes[0],
             volumeDims[1] * voxelRes[1],
             volumeDims[2] * voxelRes[2]
@@ -153,7 +154,7 @@ class SciviewBridge {
         setVolumeRanges(
             volChannelNode,
             "Grays.lut",
-            volumeScale * sceneScale,
+            Vector3f(sceneScale),
             intensity.rangeMin,
             intensity.rangeMax
         )
@@ -172,6 +173,7 @@ class SciviewBridge {
             voxelRes[2] * volumeDownscale[2]
         )
         logger.info("mastodonToImgCoordsTransfer is $mastodonToImgCoordsTransfer")
+        spotsScale = Vector3f(0.01f)
         sphereParent.spatial().scale = spotsScale
         // initialize the base position
         sphereParent.spatial().position = Vector3f(
@@ -179,10 +181,9 @@ class SciviewBridge {
             volumeNumPixels[1].toFloat(),
             volumeNumPixels[2].toFloat()
         )
-            .mul(0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
-            .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
+//            .mul(0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
+//            .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
             .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
-        sphereParent.spatial().position = Vector3f(0f)
         logger.info("position of sphereParent is now ${sphereParent.spatial().position}")
         logger.info("volume size is ${volChannelNode.boundingBox!!.max - volChannelNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
@@ -407,6 +408,7 @@ class SciviewBridge {
 //            forThisBdv.timepoint, forThisBdv.colorizer
 //        )
 //        sphereLinkNodes.initializeSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
+        sphereLinkNodes.setInstancedSphereColors(forThisBdv.colorizer)
     }
 
     private var lastTpWhenVolumeWasUpdated = 0

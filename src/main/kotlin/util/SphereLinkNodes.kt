@@ -10,16 +10,21 @@ import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import org.joml.Quaternionf
 import org.joml.Vector3f
+import org.joml.Vector4f
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
+import org.mastodon.spatial.SpatialIndex
 import org.mastodon.ui.coloring.GraphColorGenerator
 import org.scijava.event.EventService
 import sc.iview.SciView
 import sc.iview.event.NodeChangedEvent
 import java.lang.Math.random
 import java.util.*
+import kotlin.concurrent.thread
+import kotlin.math.PI
 import kotlin.math.floor
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 
@@ -41,6 +46,7 @@ class SphereLinkNodes
 
     val sphere = Icosphere(0.01f, 2)
     lateinit var sphereInstance: InstancedNode
+    lateinit var spots: SpatialIndex<Spot>
 
     fun initializeSpots(
         mastodonData: ProjectModel,
@@ -48,7 +54,7 @@ class SphereLinkNodes
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
         logger.debug("Initializing Spots")
-        sphere.setMaterial(ShaderMaterial.fromFiles("DefaultDeferredInstanced.vert", "DefaultDeferred.frag")) {
+        sphere.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
             diffuse = Vector3f(1.0f, 1.0f, 1.0f)
             ambient = Vector3f(1.0f, 1.0f, 1.0f)
             specular = Vector3f(.0f, 1.0f, 1.0f)
@@ -56,27 +62,32 @@ class SphereLinkNodes
             roughness = 1.0f
         }
         sphereInstance = InstancedNode(sphere)
-
+        // Instanced properties should be aligned to 4*32bit boundaries, hence the use of Vector4f instead of Vector3f here
+        sphereInstance.instancedProperties["Color"] = { Vector4f(1f) }
         if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
         val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
-        val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
+        spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         sv.blockOnNewNodes = false
         logger.info("got ${spots.size()} spots from mastodon timepoint $timepoint")
 
         sv.addNode(sphereInstance, parent = parentNode)
         var inst: InstancedNode.Instance
+
         for (s in spots) {
             inst = sphereInstance.addInstance()
-            inst.name = "inst_${s.internalPoolIndex}"
+            inst.name = "${s.internalPoolIndex}"
             inst.addAttribute(Material::class.java, sphere.material())
             s.localize(auxSpatialPos)
             inst.spatial {
-                position = Vector3f(auxSpatialPos) * parentNode.spatialOrNull()!!.scale - parentNode.spatialOrNull()!!.position
+                position =
+                    Vector3f(auxSpatialPos) * parentNode.spatialOrNull()!!.scale// - parentNode.spatialOrNull()!!.position
             }
             inst.spatial().scale = Vector3f(
                 SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
             )
         }
+
+        setInstancedSphereColors(colorizer)
     }
 
     fun showTheseSpots(
@@ -143,6 +154,24 @@ class SphereLinkNodes
         minusThisOffset[2] = center.z
     }
 
+    fun setInstancedSphereColors(colorizer: GraphColorGenerator<Spot, Link>) {
+        var intColor: Int
+        var r: Float
+        var g: Float
+        var b: Float
+        var inst: InstancedNode.Instance?
+        for (s in spots) {
+            inst = sphereInstance.instances.find { it.name == s.internalPoolIndex.toString() }
+            intColor = colorizer.color(s)
+            if (intColor == 0x00000000) intColor = DEFAULT_COLOR
+            r = (intColor shr 16 and 0x000000FF) / 255f
+            g = (intColor shr 8 and 0x000000FF) / 255f
+            b = (intColor and 0x000000FF) / 255f
+            inst?.instancedProperties?.set("Color") { Vector4f(r, g, b, 1.0f) }
+        }
+
+    }
+
     private fun setSphereNode(
         node: Sphere,
         s: Spot,
@@ -176,7 +205,7 @@ class SphereLinkNodes
         if (SCALE_FACTOR < 0.1f) SCALE_FACTOR = 0.1f
         val factor = SCALE_FACTOR / oldScale
 //        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor)  }
-        sphereInstance.instances.forEach { s -> s.spatial().scale = Vector3f(factor) }
+        sphereInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
         logger.debug("Decreasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
@@ -185,7 +214,7 @@ class SphereLinkNodes
         SCALE_FACTOR += 0.1f
         val factor = SCALE_FACTOR / oldScale
 //        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor) }
-        sphereInstance.instances.forEach { s -> s.spatial().scale = Vector3f(factor) }
+        sphereInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
         logger.debug("Increasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
