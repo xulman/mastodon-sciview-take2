@@ -5,7 +5,6 @@ import graphics.scenery.attribute.material.Material
 import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.minus
-import graphics.scenery.utils.extensions.plus
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import org.joml.Quaternionf
@@ -19,12 +18,7 @@ import org.mastodon.ui.coloring.GraphColorGenerator
 import org.scijava.event.EventService
 import sc.iview.SciView
 import sc.iview.event.NodeChangedEvent
-import java.lang.Math.random
 import java.util.*
-import kotlin.concurrent.thread
-import kotlin.math.PI
-import kotlin.math.floor
-import kotlin.math.sin
 import kotlin.math.sqrt
 
 
@@ -80,7 +74,7 @@ class SphereLinkNodes
             s.localize(auxSpatialPos)
             inst.spatial {
                 position =
-                    Vector3f(auxSpatialPos) * parentNode.spatialOrNull()!!.scale// - parentNode.spatialOrNull()!!.position
+                    Vector3f(auxSpatialPos) * parentNode.spatialOrNull()!!.scale - parentNode.spatialOrNull()!!.position
             }
             inst.spatial().scale = Vector3f(
                 SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
@@ -154,22 +148,34 @@ class SphereLinkNodes
         minusThisOffset[2] = center.z
     }
 
-    fun setInstancedSphereColors(colorizer: GraphColorGenerator<Spot, Link>) {
+    fun setInstancedSphereColors(
+        colorizer: GraphColorGenerator<Spot, Link>,
+        randomColors: Boolean = false,
+        isPartyMode: Boolean = false
+    ) {
         var intColor: Int
         var r: Float
         var g: Float
         var b: Float
-        var inst: InstancedNode.Instance?
+        var inst: InstancedNode.Instance
         for (s in spots) {
-            inst = sphereInstance.instances.find { it.name == s.internalPoolIndex.toString() }
+            inst = sphereInstance.instances[s.internalPoolIndex]
             intColor = colorizer.color(s)
             if (intColor == 0x00000000) intColor = DEFAULT_COLOR
             r = (intColor shr 16 and 0x000000FF) / 255f
             g = (intColor shr 8 and 0x000000FF) / 255f
             b = (intColor and 0x000000FF) / 255f
-            inst?.instancedProperties?.set("Color") { Vector4f(r, g, b, 1.0f) }
+            if (isPartyMode) {
+                inst.instancedProperties["Color"] = { Random.random4DVectorFromRange(0f, 1f) }
+            } else {
+                if (!randomColors) {
+                    inst.instancedProperties["Color"] = { Vector4f(r, g, b, 1.0f) }
+                } else {
+                    val col = Random.random4DVectorFromRange(0f, 1f)
+                    inst.instancedProperties["Color"] = { col }
+                }
+            }
         }
-
     }
 
     private fun setSphereNode(
