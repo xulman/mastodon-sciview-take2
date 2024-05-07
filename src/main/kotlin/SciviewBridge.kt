@@ -137,8 +137,8 @@ class SciviewBridge {
         //
         val volumeScale = Vector3f(
             voxelRes[0] * volumeDownscale[0],
-            voxelRes[1] * volumeDownscale[1],
-            voxelRes[2] * volumeDownscale[2] * -1.0f
+            voxelRes[1] * volumeDownscale[1] * -1f,
+            voxelRes[2] * volumeDownscale[2]
         )
         var spotsScale = Vector3f(
             volumeDims[0] * voxelRes[0],
@@ -154,7 +154,7 @@ class SciviewBridge {
         setVolumeRanges(
             volChannelNode,
             "Grays.lut",
-            Vector3f(sceneScale),
+            volumeScale * Vector3f(sceneScale),
             intensity.rangeMin,
             intensity.rangeMax
         )
@@ -181,8 +181,8 @@ class SciviewBridge {
             volumeNumPixels[1].toFloat(),
             volumeNumPixels[2].toFloat()
         )
-//            .mul(0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
-//            .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
+            .mul(0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
+            .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
             .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
         logger.info("position of sphereParent is now ${sphereParent.spatial().position}")
         logger.info("volume size is ${volChannelNode.boundingBox!!.max - volChannelNode.boundingBox!!.min}")
