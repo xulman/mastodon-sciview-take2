@@ -8,10 +8,14 @@ import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import graphics.scenery.volumes.TransferFunction
 import graphics.scenery.volumes.Volume
+import net.imagej.Data
+import net.imagej.Dataset
 import net.imglib2.RandomAccessibleInterval
+import net.imglib2.img.Img
 import net.imglib2.loops.LoopBuilder
 import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
+import net.imglib2.type.numeric.RealType
 import net.imglib2.type.numeric.integer.UnsignedShortType
 import net.imglib2.view.Views
 import org.joml.Matrix4f
@@ -30,10 +34,7 @@ import sc.iview.SciView
 import util.SphereLinkNodes
 import java.util.Vector
 import javax.swing.JFrame
-import kotlin.math.log
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
+import kotlin.math.*
 
 class SciviewBridge {
     private val logger by lazyLogger()
@@ -407,8 +408,8 @@ class SciviewBridge {
 //            mastodon,
 //            forThisBdv.timepoint, forThisBdv.colorizer
 //        )
-//        sphereLinkNodes.initializeSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
-        sphereLinkNodes.setInstancedSphereColors(forThisBdv.colorizer)
+        sphereLinkNodes.initializeSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
+//        sphereLinkNodes.setInstancedSphereColors(forThisBdv.colorizer)
     }
 
     private var lastTpWhenVolumeWasUpdated = 0
@@ -442,9 +443,15 @@ class SciviewBridge {
     }
 
     private fun updateSciviewCamera(forThisBdv: MamutViewBdv) {
+        val auxTransform = AffineTransform3D()
+        val viewMatrix = Matrix4f()
+        val viewRotation = Quaternionf()
         forThisBdv.viewerPanelMamut.state().getViewerTransform(auxTransform)
+        logger.info("bdv transform matrix: $auxTransform")
         for (r in 0..2) for (c in 0..3) viewMatrix[c, r] = auxTransform[r, c].toFloat()
+        logger.info("viewMatrix is $viewMatrix")
         viewMatrix.getUnnormalizedRotation(viewRotation)
+        logger.info("viewRotation is $viewRotation")
         val camSpatial = sciviewWin.camera?.spatial() ?: return
         viewRotation.y *= -1f
         viewRotation.z *= -1f
@@ -453,9 +460,7 @@ class SciviewBridge {
         camSpatial.position = sciviewWin.camera?.forward!!.normalize().mul(-1f * dist)
     }
 
-    private val auxTransform = AffineTransform3D()
-    private val viewMatrix = Matrix4f()
-    private val viewRotation = Quaternionf()
+
 
     // --------------------------------------------------------------------------
     fun setVisibilityOfVolume(state: Boolean) {

@@ -19,6 +19,7 @@ import sc.iview.SciView
 import sc.iview.event.NodeChangedEvent
 import java.util.*
 import kotlin.math.sqrt
+import kotlin.time.TimeSource
 
 
 //TODO FAILED to hook up here a 'parentNode' listener that would setVisible(false) on all children
@@ -53,11 +54,6 @@ class SphereLinkNodes
             specular = Vector3f(.0f, 1.0f, 1.0f)
             metallic = 0.0f
             roughness = 1.0f
-//            blending.transparent = true
-            blending.opacity = 0.5f
-//            blending.setOverlayBlending()
-//            depthTest = true
-//            depthOp = Material.DepthTest.Never
         }
         sphereInstance = InstancedNode(sphere)
         // Instanced properties should be aligned to 4*32bit boundaries, hence the use of Vector4f instead of Vector3f here
@@ -68,7 +64,11 @@ class SphereLinkNodes
         sv.blockOnNewNodes = false
         logger.info("got ${spots.size()} spots from mastodon timepoint $timepoint")
 
-        sv.addNode(sphereInstance, parent = parentNode)
+        if (parentNode.children.size > 0) {
+            parentNode.children.forEach { sv.deleteNode(it) }
+        } else {
+            sv.addNode(sphereInstance, parent = parentNode)
+        }
         var inst: InstancedNode.Instance
 
         for (s in spots) {
@@ -170,9 +170,11 @@ class SphereLinkNodes
         var r: Float
         var g: Float
         var b: Float
-        var inst: InstancedNode.Instance
+        var inst: InstancedNode.Instance?
+        val start = TimeSource.Monotonic.markNow()
         for (s in spots) {
-            inst = sphereInstance.instances[s.internalPoolIndex]
+//            inst = sphereInstance.instances[s.internalPoolIndex]
+            inst = sphereInstance.instances.find { i -> i.name == s.internalPoolIndex.toString() }
             intColor = colorizer.color(s)
             if (intColor == 0x00000000) intColor = DEFAULT_COLOR
             r = (intColor shr 16 and 0x000000FF) / 255f
@@ -180,16 +182,18 @@ class SphereLinkNodes
             b = (intColor and 0x000000FF) / 255f
             if (isPartyMode) {
                 val col = Random.random3DVectorFromRange(0f, 1f)
-                inst.instancedProperties["Color"] = { col.xyzw() }
+                inst?.instancedProperties?.set("Color") { col.xyzw() }
             } else {
                 if (!randomColors) {
-                    inst.instancedProperties["Color"] = { Vector4f(r, g, b, 1.0f) }
+                    inst?.instancedProperties?.set("Color") { Vector4f(r, g, b, 1.0f) }
                 } else {
                     val col = Random.random3DVectorFromRange(0f, 1f).stretchColor()
-                    inst.instancedProperties["Color"] = { col.xyzw() }
+                    inst?.instancedProperties?.set("Color") { col.xyzw() }
                 }
             }
         }
+        val end = TimeSource.Monotonic.markNow()
+        logger.info("coloring the spheres took ${end - start}")
     }
 
     private fun setSphereNode(
