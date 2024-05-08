@@ -4,8 +4,7 @@ import graphics.scenery.*
 import graphics.scenery.attribute.material.Material
 import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
-import graphics.scenery.utils.extensions.minus
-import graphics.scenery.utils.extensions.times
+import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -54,6 +53,11 @@ class SphereLinkNodes
             specular = Vector3f(.0f, 1.0f, 1.0f)
             metallic = 0.0f
             roughness = 1.0f
+//            blending.transparent = true
+            blending.opacity = 0.5f
+//            blending.setOverlayBlending()
+//            depthTest = true
+//            depthOp = Material.DepthTest.Never
         }
         sphereInstance = InstancedNode(sphere)
         // Instanced properties should be aligned to 4*32bit boundaries, hence the use of Vector4f instead of Vector3f here
@@ -81,7 +85,7 @@ class SphereLinkNodes
             )
         }
 
-        setInstancedSphereColors(colorizer)
+        setInstancedSphereColors(colorizer, true)
     }
 
     fun showTheseSpots(
@@ -148,6 +152,15 @@ class SphereLinkNodes
         minusThisOffset[2] = center.z
     }
 
+    // stretch color channels
+    fun Vector3f.stretchColor(): Vector3f {
+        this.x.coerceIn(0f, 1f)
+        this.y.coerceIn(0f, 1f)
+        this.z.coerceIn(0f, 1f)
+        val max = this.max()
+        return this + Vector3f(1 - max)
+    }
+
     fun setInstancedSphereColors(
         colorizer: GraphColorGenerator<Spot, Link>,
         randomColors: Boolean = false,
@@ -166,13 +179,14 @@ class SphereLinkNodes
             g = (intColor shr 8 and 0x000000FF) / 255f
             b = (intColor and 0x000000FF) / 255f
             if (isPartyMode) {
-                inst.instancedProperties["Color"] = { Random.random4DVectorFromRange(0f, 1f) }
+                val col = Random.random3DVectorFromRange(0f, 1f)
+                inst.instancedProperties["Color"] = { col.xyzw() }
             } else {
                 if (!randomColors) {
                     inst.instancedProperties["Color"] = { Vector4f(r, g, b, 1.0f) }
                 } else {
-                    val col = Random.random4DVectorFromRange(0f, 1f)
-                    inst.instancedProperties["Color"] = { col }
+                    val col = Random.random3DVectorFromRange(0f, 1f).stretchColor()
+                    inst.instancedProperties["Color"] = { col.xyzw() }
                 }
             }
         }
