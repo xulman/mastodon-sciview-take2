@@ -1,6 +1,7 @@
 package org.mastodon.mamut
 
 import bdv.viewer.Source
+import edu.mines.jtk.sgl.Vector3
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.minus
@@ -8,18 +9,16 @@ import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import graphics.scenery.volumes.TransferFunction
 import graphics.scenery.volumes.Volume
-import net.imagej.Data
-import net.imagej.Dataset
 import net.imglib2.RandomAccessibleInterval
-import net.imglib2.img.Img
 import net.imglib2.loops.LoopBuilder
 import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
-import net.imglib2.type.numeric.RealType
 import net.imglib2.type.numeric.integer.UnsignedShortType
 import net.imglib2.view.Views
 import org.joml.Matrix4f
 import org.joml.Quaternionf
+import org.joml.Vector2d
+import org.joml.Vector3d
 import org.joml.Vector3f
 import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
@@ -32,7 +31,6 @@ import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
 import util.SphereLinkNodes
-import java.util.Vector
 import javax.swing.JFrame
 import kotlin.math.*
 
@@ -78,7 +76,7 @@ class SciviewBridge {
     var volChannelNode: Volume
     var spimSource: Source<out Any>
     var isVolumeAutoAdjust = false
-    val mastodonToImgCoordsTransfer: Vector3f
+//    val mastodonToImgCoordsTransfer: Vector3f
     val sceneScale: Float = 10f
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
@@ -123,10 +121,10 @@ class SciviewBridge {
         this.sourceResLevel = sourceResLevel
         spimSource = mastodon.sharedBdvData.sources[this.sourceID].spimSource
         // number of pixels for each dimension at the highest res level
-        val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()     // TODO rename to something more meaningful
+        val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()    // TODO rename to something more meaningful
         // number of pixels for each dimension of the volume at current res level
         val volumeNumPixels = spimSource.getSource(0, this.sourceResLevel).dimensionsAsLongArray()
-        val volumeDownscale = floatArrayOf(
+        val volumeDownscale = Vector3f(
             volumeDims[0].toFloat() / volumeNumPixels[0].toFloat(),
             volumeDims[1].toFloat() / volumeNumPixels[1].toFloat(),
             volumeDims[2].toFloat() / volumeNumPixels[2].toFloat()
@@ -136,16 +134,14 @@ class SciviewBridge {
         val voxelRes = getDisplayVoxelRatio(spimSource)
         logger.info("voxel res is: ${voxelRes[0]} x, ${voxelRes[1]} x, ${voxelRes[2]} x")
         //
-        val volumeScale = Vector3f(
-            voxelRes[0] * volumeDownscale[0],
-            voxelRes[1] * volumeDownscale[1] * -1f,
-            voxelRes[2] * volumeDownscale[2]
-        )
-        var spotsScale = Vector3f(
-            volumeDims[0] * voxelRes[0],
-            volumeDims[1] * voxelRes[1],
-            volumeDims[2] * voxelRes[2]
-        )
+        val volumeScale = voxelRes / volumeDownscale
+//        volumeScale.y *= 1f
+
+//        var spotsScale = Vector3f(
+//            volumeDims[0] * voxelRes[0],
+//            volumeDims[1] * voxelRes[1],
+//            volumeDims[2] * voxelRes[2]
+//        )
 
         val commonNodeName = ": " + mastodon.projectName
         volChannelNode = sciviewWin.addVolume(
@@ -155,42 +151,45 @@ class SciviewBridge {
         setVolumeRanges(
             volChannelNode,
             "Grays.lut",
-            volumeScale * Vector3f(sceneScale),
+            volumeScale * Vector3f(10f),
             intensity.rangeMin,
             intensity.rangeMax
         )
 
         //spots stuff:
         sphereParent = Group()
-        sphereParent.name = "SPOTS$commonNodeName"
-        sciviewWin.addNode(sphereParent)
-        val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
-        spotsScale.mul(MAGIC_ONE_TENTH * volChannelNode.pixelToWorldRatio)
-        logger.info("pixelToWorldRatio is ${volChannelNode.pixelToWorldRatio}")
-        logger.info("spotsScale is $spotsScale")
-        mastodonToImgCoordsTransfer = Vector3f(
-            voxelRes[0] * volumeDownscale[0],
-            voxelRes[1] * volumeDownscale[1],
-            voxelRes[2] * volumeDownscale[2]
-        )
-        logger.info("mastodonToImgCoordsTransfer is $mastodonToImgCoordsTransfer")
-        spotsScale = Vector3f(0.01f)
-        sphereParent.spatial().scale = spotsScale
+        sphereParent.spatial().scale /= voxelRes
+        volChannelNode.addChild(sphereParent)
+//        sphereParent.name = "SPOTS$commonNodeName"
+//        sciviewWin.addNode(sphereParent)
+//        val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
+//        spotsScale.mul(MAGIC_ONE_TENTH * volChannelNode.pixelToWorldRatio)
+//        logger.info("pixelToWorldRatio is ${volChannelNode.pixelToWorldRatio}")
+//        logger.info("spotsScale is $spotsScale")
+//        mastodonToImgCoordsTransfer = Vector3f(
+//            voxelRes[0] * volumeDownscale[0],
+//            voxelRes[1] * volumeDownscale[1],
+//            voxelRes[2] * volumeDownscale[2]
+//        )
+//        logger.info("mastodonToImgCoordsTransfer is $mastodonToImgCoordsTransfer")
+//        spotsScale = Vector3f(0.01f)
+//        sphereParent.spatial().scale = spotsScale
         // initialize the base position
-        sphereParent.spatial().position = Vector3f(
-            volumeNumPixels[0].toFloat(),
-            volumeNumPixels[1].toFloat(),
-            volumeNumPixels[2].toFloat()
-        )
-            .mul(0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
-            .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
-            .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
-        logger.info("position of sphereParent is now ${sphereParent.spatial().position}")
+//        sphereParent.spatial().position = Vector3f(
+//            volumeNumPixels[0].toFloat(),
+//            volumeNumPixels[1].toFloat(),
+//            volumeNumPixels[2].toFloat()
+//        )
+//            .mul(0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
+//            .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
+//            .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
+//        logger.info("position of sphereParent is now ${sphereParent.spatial().position}")
         logger.info("volume size is ${volChannelNode.boundingBox!!.max - volChannelNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
 //        sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
-        sphereLinkNodes.initializeSpots(mastodon, 0, noTSColorizer)
+        sphereLinkNodes.initializeInstancedSpots(mastodon, 0, noTSColorizer)
+//        sphereParent.postUpdate.add {sphereLinkNodes.updateInstancedSpots(mastodon, 0, noTSColorizer)}
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }
@@ -214,7 +213,7 @@ class SciviewBridge {
             sciviewWin.deleteNode(volChannelNode, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: red volume removed")
             Thread.sleep(updateGraceTime)
-            sciviewWin.deleteNode(sphereParent, true)
+//            sciviewWin.deleteNode(sphereParent, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: spots were removed")
         } catch (e: InterruptedException) { /* do nothing */
         }
@@ -401,15 +400,14 @@ class SciviewBridge {
     }
 
     //------------------------------
-    /** Calls [updateVolume] and [SphereNodes.showTheseSpots] to update the current volume and corresponding spots. */
+    /** Calls [updateVolume] and [SphereLinkNodes.showTheseSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
 //        sphereLinkNodes.showTheseSpots(
 //            mastodon,
 //            forThisBdv.timepoint, forThisBdv.colorizer
 //        )
-        sphereLinkNodes.initializeSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
-//        sphereLinkNodes.setInstancedSphereColors(forThisBdv.colorizer)
+        sphereLinkNodes.updateInstancedSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
     }
 
     private var lastTpWhenVolumeWasUpdated = 0
@@ -473,19 +471,19 @@ class SciviewBridge {
     }
 
     fun setVisibilityOfSpots(state: Boolean) {
-        sphereParent.visible = state
-        if (state) {
-            sphereParent
-                .getChildrenByName(SphereLinkNodes.NAME_OF_NOT_USED_SPHERES)
-                .forEach { s: Node -> s.visible = false }
-        }
+//        sphereParent.visible = state
+//        if (state) {
+//            sphereParent
+//                .getChildrenByName(SphereLinkNodes.NAME_OF_NOT_USED_SPHERES)
+//                .forEach { s: Node -> s.visible = false }
+//        }
     }
 
     fun focusSpot(name: String) {
-        val nodes = sphereParent.getChildrenByName(name)
-        if (nodes.isNotEmpty()) {
-            sciviewWin.setActiveCenteredNode(nodes[0])
-        }
+//        val nodes = sphereParent.getChildrenByName(name)
+//        if (nodes.isNotEmpty()) {
+//            sciviewWin.setActiveCenteredNode(nodes[0])
+//        }
     }
 
     val detachedDPP_withOwnTime: DPP_DetachedOwnTime
@@ -571,13 +569,13 @@ class SciviewBridge {
     }
 
     companion object {
-        fun getDisplayVoxelRatio(forThisSource: Source<*>): FloatArray {
+        fun getDisplayVoxelRatio(forThisSource: Source<*>): Vector3f {
             val vxAxisRatio = forThisSource.voxelDimensions.dimensionsAsDoubleArray()
             val finalRatio = FloatArray(vxAxisRatio.size)
             var minLength = vxAxisRatio[0]
             for (i in 1 until vxAxisRatio.size) minLength = min(vxAxisRatio[i], minLength)
             for (i in vxAxisRatio.indices) finalRatio[i] = (vxAxisRatio[i] / minLength).toFloat()
-            return finalRatio
+            return Vector3f(finalRatio[0], finalRatio[1], finalRatio[2])
         }
 
         // --------------------------------------------------------------------------
