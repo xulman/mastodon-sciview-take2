@@ -31,6 +31,7 @@ class SphereLinkNodes
         var DEFAULT_COLOR = 0x00FFFFFF
         val knownNodes: MutableList<Sphere> = ArrayList(1000)
         val addedExtraNodes: MutableList<Sphere> = LinkedList()
+        val spotList: MutableList<IndexedSpotInstance> = LinkedList()
         private var spotRef: Spot? = null
         var events: EventService? = null
 
@@ -38,11 +39,15 @@ class SphereLinkNodes
         events = sv.scijavaContext?.getService(EventService::class.java)
     }
 
-    val sphere = Icosphere(0.01f, 2)
-    lateinit var sphereInstance: InstancedNode
+    /** Data class that combines the spatio-temporal index and the corresponding instance. */
+    data class IndexedSpotInstance(val index: Int, val instance: InstancedNode.Instance)
+
+    val sphere = Icosphere(1f, 2)
+    lateinit var mainInstance: InstancedNode
     lateinit var spots: SpatialIndex<Spot>
 
-    fun initializeSpots(
+    /** Initializes the main spot instance, publishes it to the scene and populates it with instances from time-point 0. */
+    fun initializeInstancedSpots(
         mastodonData: ProjectModel,
         timepoint: Int,
         colorizer: GraphColorGenerator<Spot, Link>
@@ -55,37 +60,75 @@ class SphereLinkNodes
             metallic = 0.0f
             roughness = 1.0f
         }
-        sphereInstance = InstancedNode(sphere)
+        mainInstance = InstancedNode(sphere)
         // Instanced properties should be aligned to 4*32bit boundaries, hence the use of Vector4f instead of Vector3f here
-        sphereInstance.instancedProperties["Color"] = { Vector4f(1f) }
+        mainInstance.instancedProperties["Color"] = { Vector4f(1f) }
         if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
         val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         sv.blockOnNewNodes = false
-        logger.info("got ${spots.size()} spots from mastodon timepoint $timepoint")
 
-        if (parentNode.children.size > 0) {
-            parentNode.children.forEach { sv.deleteNode(it) }
-        } else {
-            sv.addNode(sphereInstance, parent = parentNode)
-        }
+        sv.addNode(mainInstance, parent = parentNode)
+
         var inst: InstancedNode.Instance
-
         for (s in spots) {
-            inst = sphereInstance.addInstance()
+            inst = mainInstance.addInstance()
             inst.name = "${s.internalPoolIndex}"
             inst.addAttribute(Material::class.java, sphere.material())
-            s.localize(auxSpatialPos)
+            spotList.add(IndexedSpotInstance(s.internalPoolIndex, inst))
+            s.localize(spotPosition)
+            logger.info("spotPosition: ${spotPosition.joinToString(", ")}")
             inst.spatial {
-                position =
-                    Vector3f(auxSpatialPos) * parentNode.spatialOrNull()!!.scale - parentNode.spatialOrNull()!!.position
+                position = Vector3f(spotPosition)// * parentNode.spatialOrNull()!!.scale// - parentNode.spatialOrNull()!!.position
             }
             inst.spatial().scale = Vector3f(
                 SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
             )
+            logger.info("instance scale is ${inst.spatial().scale}")
+            setInstancedSphereColor(inst, colorizer, s,true)
+            inst.parent = parentNode
+        }
+    }
+
+    fun updateInstancedSpots(
+        mastodonData: ProjectModel,
+        timepoint: Int,
+        colorizer: GraphColorGenerator<Spot, Link>
+    ) {
+        spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
+
+        for (s in spots) {
+            s.localize(spotPosition)
+            val existingSpot = spotList.find { it.index == s.internalPoolIndex }
+            logger.info("found spot ${s.internalPoolIndex}: ${existingSpot != null}")
+            if (existingSpot != null) {
+                // update existing spot
+                existingSpot.instance.visible = true
+                existingSpot.instance.spatial {
+                    position = Vector3f(spotPosition)
+                }
+            } else {
+                // create a new spot if none exists in spotList yet
+                val inst = mainInstance.addInstance()
+                inst.addAttribute(Material::class.java, sphere.material())
+                spotList.add(IndexedSpotInstance(s.internalPoolIndex, inst))
+                inst.spatial {
+                    position = Vector3f(spotPosition)
+                }
+                setInstancedSphereColor(inst, colorizer, s,true)
+                inst.parent = parentNode
+            }
         }
 
-        setInstancedSphereColors(colorizer, true)
+        // disable all left-over spots that exist in spotList but not in the current time-point
+        val spotsToDisable = spotList.filter { inst ->
+            !spots.any { spot -> spot.internalPoolIndex == inst.index }
+        }
+        logger.info("disabled ${spotsToDisable.size} spots")
+
+        for (s in spotsToDisable) {
+            s.instance.visible = false
+        }
     }
 
     fun showTheseSpots(
@@ -144,7 +187,7 @@ class SphereLinkNodes
         return visibleNodeCount
     }
 
-    private val auxSpatialPos = FloatArray(3)
+    private val spotPosition = FloatArray(3)
     private val minusThisOffset = floatArrayOf(0f, 0f, 0f)
     fun setDataCenter(center: Vector3f) {
         minusThisOffset[0] = center.x
@@ -161,39 +204,30 @@ class SphereLinkNodes
         return this + Vector3f(1 - max)
     }
 
-    fun setInstancedSphereColors(
+    fun setInstancedSphereColor(
+        inst: InstancedNode.Instance,
         colorizer: GraphColorGenerator<Spot, Link>,
+        s: Spot,
         randomColors: Boolean = false,
         isPartyMode: Boolean = false
     ) {
-        var intColor: Int
-        var r: Float
-        var g: Float
-        var b: Float
-        var inst: InstancedNode.Instance?
-        val start = TimeSource.Monotonic.markNow()
-        for (s in spots) {
-//            inst = sphereInstance.instances[s.internalPoolIndex]
-            inst = sphereInstance.instances.find { i -> i.name == s.internalPoolIndex.toString() }
-            intColor = colorizer.color(s)
-            if (intColor == 0x00000000) intColor = DEFAULT_COLOR
-            r = (intColor shr 16 and 0x000000FF) / 255f
-            g = (intColor shr 8 and 0x000000FF) / 255f
-            b = (intColor and 0x000000FF) / 255f
-            if (isPartyMode) {
-                val col = Random.random3DVectorFromRange(0f, 1f)
-                inst?.instancedProperties?.set("Color") { col.xyzw() }
+//        var inst = mainInstance.instances.find { i -> i.name == s.internalPoolIndex.toString() }
+        var intColor = colorizer.color(s)
+        if (intColor == 0x00000000) intColor = DEFAULT_COLOR
+        val r = (intColor shr 16 and 0x000000FF) / 255f
+        val g = (intColor shr 8 and 0x000000FF) / 255f
+        val b = (intColor and 0x000000FF) / 255f
+        if (isPartyMode) {
+            val col = Random.random3DVectorFromRange(0f, 1f)
+            inst.instancedProperties["Color"] = { col.xyzw() }
+        } else {
+            if (!randomColors) {
+                inst.instancedProperties["Color"] = { Vector4f(r, g, b, 1.0f) }
             } else {
-                if (!randomColors) {
-                    inst?.instancedProperties?.set("Color") { Vector4f(r, g, b, 1.0f) }
-                } else {
-                    val col = Random.random3DVectorFromRange(0f, 1f).stretchColor()
-                    inst?.instancedProperties?.set("Color") { col.xyzw() }
-                }
+                val col = Random.random3DVectorFromRange(0f, 1f).stretchColor()
+                inst.instancedProperties["Color"] = { col.xyzw() }
             }
         }
-        val end = TimeSource.Monotonic.markNow()
-        logger.info("coloring the spheres took ${end - start}")
     }
 
     private fun setSphereNode(
@@ -202,13 +236,13 @@ class SphereLinkNodes
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
         node.name = s.label
-        s.localize(auxSpatialPos)
-        auxSpatialPos[0] -= minusThisOffset[0]
-        auxSpatialPos[1] -= minusThisOffset[1]
-        auxSpatialPos[2] -= minusThisOffset[2]
-        auxSpatialPos[1] *= -1f
-        auxSpatialPos[2] *= -1f
-        node.spatial().setPosition(auxSpatialPos)
+        s.localize(spotPosition)
+        spotPosition[0] -= minusThisOffset[0]
+        spotPosition[1] -= minusThisOffset[1]
+        spotPosition[2] -= minusThisOffset[2]
+        spotPosition[1] *= -1f
+        spotPosition[2] *= -1f
+        node.spatial().setPosition(spotPosition)
         node.spatial().scale = Vector3f(
             SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
         )
@@ -229,7 +263,7 @@ class SphereLinkNodes
         if (SCALE_FACTOR < 0.1f) SCALE_FACTOR = 0.1f
         val factor = SCALE_FACTOR / oldScale
 //        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor)  }
-        sphereInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
+        mainInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
         logger.debug("Decreasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
@@ -238,7 +272,7 @@ class SphereLinkNodes
         SCALE_FACTOR += 0.1f
         val factor = SCALE_FACTOR / oldScale
 //        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor) }
-        sphereInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
+        mainInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
         logger.debug("Increasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
