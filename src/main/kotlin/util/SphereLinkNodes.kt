@@ -40,9 +40,9 @@ class SphereLinkNodes
     }
 
     /** Data class that combines the spatio-temporal index and the corresponding instance. */
-    data class IndexedSpotInstance(val index: Int, val instance: InstancedNode.Instance)
+    data class IndexedSpotInstance(val spot: Spot, val instance: InstancedNode.Instance)
 
-    val sphere = Icosphere(1f, 2)
+    val sphere = Icosphere(0.1f, 2)
     lateinit var mainInstance: InstancedNode
     lateinit var spots: SpatialIndex<Spot>
 
@@ -75,7 +75,8 @@ class SphereLinkNodes
             inst = mainInstance.addInstance()
             inst.name = "${s.internalPoolIndex}"
             inst.addAttribute(Material::class.java, sphere.material())
-            spotList.add(IndexedSpotInstance(s.internalPoolIndex, inst))
+            // add the instance to spotList, connected with the corresponding spatio-temporal index
+            spotList.add(IndexedSpotInstance(s, inst))
             s.localize(spotPosition)
             logger.info("spotPosition: ${spotPosition.joinToString(", ")}")
             inst.spatial {
@@ -96,10 +97,10 @@ class SphereLinkNodes
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
-
+        logger.info("updating: got ${spots.size()} spots for timepoint $timepoint")
         for (s in spots) {
             s.localize(spotPosition)
-            val existingSpot = spotList.find { it.index == s.internalPoolIndex }
+            val existingSpot = spotList.find { it.spot == s }
             logger.info("found spot ${s.internalPoolIndex}: ${existingSpot != null}")
             if (existingSpot != null) {
                 // update existing spot
@@ -111,7 +112,7 @@ class SphereLinkNodes
                 // create a new spot if none exists in spotList yet
                 val inst = mainInstance.addInstance()
                 inst.addAttribute(Material::class.java, sphere.material())
-                spotList.add(IndexedSpotInstance(s.internalPoolIndex, inst))
+                spotList.add(IndexedSpotInstance(s, inst))
                 inst.spatial {
                     position = Vector3f(spotPosition)
                 }
@@ -122,7 +123,7 @@ class SphereLinkNodes
 
         // disable all left-over spots that exist in spotList but not in the current time-point
         val spotsToDisable = spotList.filter { inst ->
-            !spots.any { spot -> spot.internalPoolIndex == inst.index }
+            !spots.any { spot -> spot == inst.spot }
         }
         logger.info("disabled ${spotsToDisable.size} spots")
 
