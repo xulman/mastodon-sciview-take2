@@ -73,6 +73,7 @@ class SciviewBridge {
     //sink scene graph structuring nodes
     val axesParent: Node?
     val sphereParent: Group
+    var volumeImg: RandomAccessibleInterval<out Any>
     var volChannelNode: Volume
     var spimSource: Source<out Any>
     var isVolumeAutoAdjust = false
@@ -144,10 +145,12 @@ class SciviewBridge {
 //        )
 
         val commonNodeName = ": " + mastodon.projectName
+        volumeImg = spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
         volChannelNode = sciviewWin.addVolume(
-            spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>,
+            volumeImg as RandomAccessibleInterval<UnsignedShortType>,
             "Volume$commonNodeName",
-            floatArrayOf(1f, 1f, 1f))
+            floatArrayOf(1f, 1f, 1f)
+        )
         setVolumeRanges(
             volChannelNode,
             "Grays.lut",
@@ -279,6 +282,7 @@ class SciviewBridge {
     fun <T : IntegerType<T>?> volumeIntensityProcessing(
         srcImg: RandomAccessibleInterval<T>?
     ) {
+        logger.info("started volumeIntensityProcessing...")
         val gammaEnabledIntensityProcessor: (T) -> Unit =
             { src: T -> src?.setReal(
                     intensity.clampTop * ( //TODO, replace pow() with LUT for several gammas
@@ -298,14 +302,14 @@ class SciviewBridge {
                         )
                     )
             }
-        //choose one processor for the downstream job;
-        //it is seemingly a long code but it does the if-decision only once now
+
+        // choose processor depending on the gamma value selected
         val intensityProcessor = if (intensity.gamma != 1.0f)
             gammaEnabledIntensityProcessor else noGammaIntensityProcessor
 
         if (srcImg == null) logger.warn("volumeIntensityProcessing: srcImg is null !!!")
 
-        //massage input data into the red channel (LB guarantees that counterparting pixels are accessed)
+        // apply processor lambda to each pixel using ImgLib2
         LoopBuilder.setImages(srcImg)
             .multiThreaded()
             .forEachPixel(intensityProcessor)
@@ -427,15 +431,12 @@ class SciviewBridge {
             if (currTP != lastTpWhenVolumeWasUpdated) {
                 lastTpWhenVolumeWasUpdated = currTP
 
-                val spotCoord = Vector3f()
-                val color = Vector3f()
-                logger.debug("COLORING: started")
                 val tp = forThisBdv.timepoint
-                val srcRAI = mastodon
-                    .sharedBdvData.sources[sourceID]
-                    .spimSource.getSource(tp, sourceResLevel)
-                volumeIntensityProcessing(srcRAI as RandomAccessibleInterval<UnsignedShortType>
-                )
+                volumeImg = mastodon.sharedBdvData.sources[sourceID].spimSource.getSource(tp, sourceResLevel)
+                mastodon.sharedBdvData.sources[sourceID].spimSource
+                logger.info("we now have a volumeImg with timepoint $tp")
+                volumeIntensityProcessing(volumeImg as RandomAccessibleInterval<UnsignedShortType>)
+                volChannelNode.volumeManager.notifyUpdate(volChannelNode)
             }
         }
     }
@@ -445,11 +446,11 @@ class SciviewBridge {
         val viewMatrix = Matrix4f()
         val viewRotation = Quaternionf()
         forThisBdv.viewerPanelMamut.state().getViewerTransform(auxTransform)
-        logger.info("bdv transform matrix: $auxTransform")
+//        logger.info("bdv transform matrix: $auxTransform")
         for (r in 0..2) for (c in 0..3) viewMatrix[c, r] = auxTransform[r, c].toFloat()
-        logger.info("viewMatrix is $viewMatrix")
+//        logger.info("viewMatrix is $viewMatrix")
         viewMatrix.getUnnormalizedRotation(viewRotation)
-        logger.info("viewRotation is $viewRotation")
+//        logger.info("viewRotation is $viewRotation")
         val camSpatial = sciviewWin.camera?.spatial() ?: return
         viewRotation.y *= -1f
         viewRotation.z *= -1f
