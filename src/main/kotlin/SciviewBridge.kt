@@ -1,7 +1,9 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package org.mastodon.mamut
 
 import bdv.viewer.Source
-import edu.mines.jtk.sgl.Vector3
+import bdv.viewer.SourceAndConverter
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.minus
@@ -17,8 +19,6 @@ import net.imglib2.type.numeric.integer.UnsignedShortType
 import net.imglib2.view.Views
 import org.joml.Matrix4f
 import org.joml.Quaternionf
-import org.joml.Vector2d
-import org.joml.Vector3d
 import org.joml.Vector3f
 import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
@@ -74,7 +74,7 @@ class SciviewBridge {
     val axesParent: Node?
     val sphereParent: Group
     var volumeImg: RandomAccessibleInterval<out Any>
-    var volChannelNode: Volume
+    var volumeNode: Volume
     var spimSource: Source<out Any>
     var isVolumeAutoAdjust = false
 //    val mastodonToImgCoordsTransfer: Vector3f
@@ -105,7 +105,7 @@ class SciviewBridge {
         sciviewWin.toggleSidebar()
         sciviewWin.floor?.visible = false
         sciviewWin.lights?.forEach { l: PointLight ->
-            if (l.name.startsWith("headli")) adjustHeadLight(l) else l.visible = false
+            if (l.name.startsWith("headli")) adjustHeadLight(l)
         }
         sciviewWin.camera?.children?.forEach { l: Node ->
             if (l.name.startsWith("headli") && l is PointLight) adjustHeadLight(l)
@@ -145,24 +145,27 @@ class SciviewBridge {
 //        )
 
         val commonNodeName = ": " + mastodon.projectName
+        val sac: SourceAndConverter<*> = mastodon.sharedBdvData.sources[this.sourceID]
         volumeImg = spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
-        volChannelNode = sciviewWin.addVolume(
-            volumeImg as RandomAccessibleInterval<UnsignedShortType>,
-            "Volume$commonNodeName",
-            floatArrayOf(1f, 1f, 1f)
-        )
+//        volChannelNode = sciviewWin.addVolume(
+//            volumeImg as RandomAccessibleInterval<UnsignedShortType>,
+//            "Volume$commonNodeName",
+//            floatArrayOf(1f, 1f, 1f)
+//        )
+        volumeNode = sciviewWin.addVolume(sac as SourceAndConverter<UnsignedShortType>, 1, "volume", floatArrayOf(1f, 1f, 1f))
         setVolumeRanges(
-            volChannelNode,
+            volumeNode,
             "Grays.lut",
-            volumeScale * Vector3f(10f),
+            Vector3f(10f),
             intensity.rangeMin,
             intensity.rangeMax
         )
+        volumeNode.spatial().scale *= Vector3f(1f, 1f, -1f)
 
         //spots stuff:
         sphereParent = Group()
-        sphereParent.spatial().scale /= voxelRes
-        volChannelNode.addChild(sphereParent)
+        sphereParent.spatial().scale /= volumeDownscale
+        volumeNode.addChild(sphereParent)
 //        sphereParent.name = "SPOTS$commonNodeName"
 //        sciviewWin.addNode(sphereParent)
 //        val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
@@ -187,7 +190,7 @@ class SciviewBridge {
 //            .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
 //            .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
 //        logger.info("position of sphereParent is now ${sphereParent.spatial().position}")
-        logger.info("volume size is ${volChannelNode.boundingBox!!.max - volChannelNode.boundingBox!!.min}")
+        logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
 //        sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
@@ -213,7 +216,7 @@ class SciviewBridge {
         logger.debug("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
         val updateGraceTime = 100L // in ms
         try {
-            sciviewWin.deleteNode(volChannelNode, true)
+            sciviewWin.deleteNode(volumeNode, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: red volume removed")
             Thread.sleep(updateGraceTime)
 //            sciviewWin.deleteNode(sphereParent, true)
@@ -436,7 +439,7 @@ class SciviewBridge {
                 mastodon.sharedBdvData.sources[sourceID].spimSource
                 logger.info("we now have a volumeImg with timepoint $tp")
                 volumeIntensityProcessing(volumeImg as RandomAccessibleInterval<UnsignedShortType>)
-                volChannelNode.volumeManager.notifyUpdate(volChannelNode)
+                volumeNode.volumeManager.notifyUpdate(volumeNode)
             }
         }
     }
@@ -463,9 +466,9 @@ class SciviewBridge {
 
     // --------------------------------------------------------------------------
     fun setVisibilityOfVolume(state: Boolean) {
-        volChannelNode.visible = state
+        volumeNode.visible = state
         if (state) {
-            volChannelNode.children.stream()
+            volumeNode.children.stream()
                 .filter { c: Node -> c.name.startsWith("Bounding") }
                 .forEach { c: Node -> c.visible = false }
         }

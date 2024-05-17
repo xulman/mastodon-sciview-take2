@@ -4,7 +4,6 @@ import util.AdjustableBoundsRangeSlider
 import util.GroupLocksHandling
 import java.awt.*
 import java.awt.event.ActionListener
-import java.awt.event.ItemListener
 import java.util.function.Consumer
 import javax.swing.*
 import javax.swing.event.ChangeEvent
@@ -234,7 +233,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         controlledBridge.setVisibilityOfSpots(newState)
     }
     val toggleVolumeVisibility = ActionListener {
-        val newState = !controlledBridge.volChannelNode.visible
+        val newState = !controlledBridge.volumeNode.visible
         controlledBridge.setVisibilityOfVolume(newState)
     }
 
@@ -300,8 +299,8 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     val rangeSliderListener = ChangeListener {
         controlledBridge.intensity.rangeMin = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toFloat()
         controlledBridge.intensity.rangeMax = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toFloat()
-        controlledBridge.volChannelNode.minDisplayRange = controlledBridge.intensity.rangeMin
-        controlledBridge.volChannelNode.maxDisplayRange = controlledBridge.intensity.rangeMax
+        controlledBridge.volumeNode.minDisplayRange = controlledBridge.intensity.rangeMin
+        controlledBridge.volumeNode.maxDisplayRange = controlledBridge.intensity.rangeMax
     }
 
     //
