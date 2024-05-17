@@ -42,7 +42,7 @@ class SphereLinkNodes
     /** Data class that combines the spatio-temporal index and the corresponding instance. */
     data class IndexedSpotInstance(val spot: Spot, val instance: InstancedNode.Instance)
 
-    val sphere = Icosphere(0.1f, 2)
+    val sphere = Icosphere(1f, 2)
     lateinit var mainInstance: InstancedNode
     lateinit var spots: SpatialIndex<Spot>
 
