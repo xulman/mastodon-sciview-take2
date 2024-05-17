@@ -73,9 +73,10 @@ class SciviewBridge {
     //sink scene graph structuring nodes
     val axesParent: Node?
     val sphereParent: Group
-    var volumeImg: RandomAccessibleInterval<out Any>
+//    var volumeImg: RandomAccessibleInterval<out Any>
     var volumeNode: Volume
     var spimSource: Source<out Any>
+    var sac: SourceAndConverter<*>
     var isVolumeAutoAdjust = false
 //    val mastodonToImgCoordsTransfer: Vector3f
     val sceneScale: Float = 10f
@@ -121,6 +122,7 @@ class SciviewBridge {
         this.sourceID = sourceID
         this.sourceResLevel = sourceResLevel
         spimSource = mastodon.sharedBdvData.sources[this.sourceID].spimSource
+
         // number of pixels for each dimension at the highest res level
         val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()    // TODO rename to something more meaningful
         // number of pixels for each dimension of the volume at current res level
@@ -145,21 +147,30 @@ class SciviewBridge {
 //        )
 
         val commonNodeName = ": " + mastodon.projectName
-        val sac: SourceAndConverter<*> = mastodon.sharedBdvData.sources[this.sourceID]
-        volumeImg = spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
+        sac = mastodon.sharedBdvData.sources[this.sourceID]
+
+//        volumeImg = spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
 //        volChannelNode = sciviewWin.addVolume(
 //            volumeImg as RandomAccessibleInterval<UnsignedShortType>,
 //            "Volume$commonNodeName",
 //            floatArrayOf(1f, 1f, 1f)
 //        )
-        volumeNode = sciviewWin.addVolume(sac as SourceAndConverter<UnsignedShortType>, 1, "volume", floatArrayOf(1f, 1f, 1f))
+
+        volumeNode = sciviewWin.addVolume(
+            sac as SourceAndConverter<UnsignedShortType>,
+            mastodon.sharedBdvData.numTimepoints,
+            "volume",
+            floatArrayOf(1f, 1f, 1f)
+        )
+
         setVolumeRanges(
             volumeNode,
             "Grays.lut",
-            Vector3f(10f),
+            Vector3f(sceneScale),
             intensity.rangeMin,
             intensity.rangeMax
         )
+        // flip Z axis to align it with the synced BDV view
         volumeNode.spatial().scale *= Vector3f(1f, 1f, -1f)
 
         //spots stuff:
@@ -435,11 +446,7 @@ class SciviewBridge {
                 lastTpWhenVolumeWasUpdated = currTP
 
                 val tp = forThisBdv.timepoint
-                volumeImg = mastodon.sharedBdvData.sources[sourceID].spimSource.getSource(tp, sourceResLevel)
-                mastodon.sharedBdvData.sources[sourceID].spimSource
-                logger.info("we now have a volumeImg with timepoint $tp")
-                volumeIntensityProcessing(volumeImg as RandomAccessibleInterval<UnsignedShortType>)
-                volumeNode.volumeManager.notifyUpdate(volumeNode)
+                volumeNode.goToTimepoint(tp)
             }
         }
     }
