@@ -6,6 +6,7 @@ import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
+import org.apache.commons.math3.stat.correlation.Covariance
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector4f
@@ -69,7 +70,8 @@ class SphereLinkNodes
         sv.blockOnNewNodes = false
 
         sv.addNode(mainInstance, parent = parentNode)
-
+        val covArray = Array(3) { DoubleArray(3) }
+        var cov: Covariance
         var inst: InstancedNode.Instance
         for (s in spots) {
             inst = mainInstance.addInstance()
@@ -78,16 +80,20 @@ class SphereLinkNodes
             // add the instance to spotList, connected with the corresponding spatio-temporal index
             spotList.add(IndexedSpotInstance(s, inst))
             s.localize(spotPosition)
-            logger.info("spotPosition: ${spotPosition.joinToString(", ")}")
+            s.getCovariance(covArray)
+            cov = Covariance(covArray)
+            if (s.internalPoolIndex%5 == 0) {
+                logger.info("covariance for spot ${s.internalPoolIndex} is ${cov.covarianceMatrix}")
+            }
             inst.spatial {
-                position = Vector3f(spotPosition)// * parentNode.spatialOrNull()!!.scale// - parentNode.spatialOrNull()!!.position
+                position = Vector3f(spotPosition)
             }
             inst.spatial().scale = Vector3f(
                 SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
             )
-            logger.info("instance scale is ${inst.spatial().scale}")
-            setInstancedSphereColor(inst, colorizer, s,true)
+            setInstancedSphereColor(inst, colorizer, s,false)
             inst.parent = parentNode
+            logger.info("initialized spot ${s.internalPoolIndex} at pos ${inst.spatial().position}")
         }
     }
 
@@ -101,14 +107,17 @@ class SphereLinkNodes
         for (s in spots) {
             s.localize(spotPosition)
             val existingSpot = spotList.find { it.spot == s }
-            logger.info("found spot ${s.internalPoolIndex}: ${existingSpot != null}")
+//            logger.info("found spot ${s.internalPoolIndex}: ${existingSpot != null}")
             if (existingSpot != null) {
+                logger.info("found spot ${s.internalPoolIndex} in existing spots")
                 // update existing spot
                 existingSpot.instance.visible = true
                 existingSpot.instance.spatial {
                     position = Vector3f(spotPosition)
                 }
+                logger.info("updated existing spot ${s.internalPoolIndex} to pos ${existingSpot.instance.spatial().position}")
             } else {
+                logger.info("added spot ${s.internalPoolIndex} to list because it didn't exist")
                 // create a new spot if none exists in spotList yet
                 val inst = mainInstance.addInstance()
                 inst.addAttribute(Material::class.java, sphere.material())
@@ -116,20 +125,27 @@ class SphereLinkNodes
                 inst.spatial {
                     position = Vector3f(spotPosition)
                 }
-                setInstancedSphereColor(inst, colorizer, s,true)
+                setInstancedSphereColor(inst, colorizer, s,false)
                 inst.parent = parentNode
+                logger.info("added new spot ${s.internalPoolIndex} at pos ${inst.spatial().position}")
             }
         }
 
         // disable all left-over spots that exist in spotList but not in the current time-point
-        val spotsToDisable = spotList.filter { inst ->
-            !spots.any { spot -> spot == inst.spot }
+//        val spotsToDisable = spotList.filter { inst ->
+//            !spots.any { spot -> spot == inst.spot }
+//        }
+        for (s in spotList) {
+            val existingSpot = spots.find { it == s.spot }
+            if (existingSpot == null) {
+                s.instance.visible = false
+            }
         }
-        logger.info("disabled ${spotsToDisable.size} spots")
+//        logger.info("disabled ${spotsToDisable.size} spots")
 
-        for (s in spotsToDisable) {
-            s.instance.visible = false
-        }
+//        for (s in spotsToDisable) {
+//            s.instance.visible = false
+//        }
     }
 
     fun showTheseSpots(
