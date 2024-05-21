@@ -205,7 +205,7 @@ class SciviewBridge {
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
 //        sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
-        sphereLinkNodes.initializeInstancedSpots(mastodon, 0, noTSColorizer)
+        sphereLinkNodes.showInstancedSpots(mastodon, 0, noTSColorizer, true)
 //        sphereParent.postUpdate.add {sphereLinkNodes.updateInstancedSpots(mastodon, 0, noTSColorizer)}
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
@@ -425,7 +425,7 @@ class SciviewBridge {
 //            mastodon,
 //            forThisBdv.timepoint, forThisBdv.colorizer
 //        )
-        sphereLinkNodes.updateInstancedSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
+        sphereLinkNodes.showInstancedSpots(mastodon, forThisBdv.timepoint, forThisBdv.colorizer)
     }
 
     private var lastTpWhenVolumeWasUpdated = 0
