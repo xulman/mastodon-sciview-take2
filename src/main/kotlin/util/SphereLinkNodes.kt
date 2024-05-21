@@ -6,7 +6,11 @@ import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
+import org.apache.commons.math3.linear.EigenDecomposition
+import org.apache.commons.math3.linear.RealMatrix
 import org.apache.commons.math3.stat.correlation.Covariance
+import org.ejml.simple.SimpleMatrix
+import org.joml.Matrix3f
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector4f
@@ -53,9 +57,10 @@ class SphereLinkNodes
         colorizer: GraphColorGenerator<Spot, Link>,
         initializing: Boolean = false
     ) {
+        logger.info("called showInstancedSpots")
 
         if (initializing) {
-            logger.debug("Initializing Spots")
+            logger.info("Initializing Spots")
             sphere.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
                 diffuse = Vector3f(1.0f, 1.0f, 1.0f)
                 ambient = Vector3f(1.0f, 1.0f, 1.0f)
@@ -76,8 +81,9 @@ class SphereLinkNodes
         sv.blockOnNewNodes = false
 
         val covArray = Array(3) { DoubleArray(3) }
-        var cov: Covariance
+        var covariance: Covariance
         var inst: InstancedNode.Instance
+        var axisLengths: Vector3f
 
         for (s in spots) {
             inst = mainInstance.addInstance()
@@ -87,12 +93,16 @@ class SphereLinkNodes
             spotList.add(IndexedSpotInstance(s, inst, timepoint))
             s.localize(spotPosition)
             s.getCovariance(covArray)
-            cov = Covariance(covArray)
-            if (s.internalPoolIndex%5 == 0) {
-                logger.info("covariance for spot ${s.internalPoolIndex} is ${cov.covarianceMatrix}")
+            covariance = Covariance(covArray)
+            val (eigenvalues, eigenvectors) = computeEigen(covariance.covarianceMatrix)
+            axisLengths = computeSemiAxes(eigenvalues)
+
+//            inst.spatial().scale = Vector3f(SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat())
+            inst.spatial {
+                position = Vector3f(spotPosition)
+                scale = axisLengths * SCALE_FACTOR
+                rotation = eigenVectorsToQuaternion(eigenvectors)
             }
-            inst.spatial().position = Vector3f(spotPosition)
-            inst.spatial().scale = Vector3f(SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat())
             setInstancedSphereColor(inst, colorizer, s,false)
             inst.parent = parentNode
         }
@@ -164,6 +174,31 @@ class SphereLinkNodes
         minusThisOffset[0] = center.x
         minusThisOffset[1] = center.y
         minusThisOffset[2] = center.z
+    }
+
+    fun computeEigen(covariance: RealMatrix): Pair<DoubleArray, RealMatrix> {
+        val eigenDecomposition = EigenDecomposition(covariance)
+        val eigenvalues = eigenDecomposition.realEigenvalues
+        val eigenvectors = eigenDecomposition.v
+        return Pair(eigenvalues, eigenvectors)
+    }
+
+    fun computeSemiAxes(eigenvalues: DoubleArray): Vector3f {
+        return Vector3f(
+            sqrt(eigenvalues[0]).toFloat(),
+            sqrt(eigenvalues[1]).toFloat(),
+            sqrt(eigenvalues[2]).toFloat()
+        )
+    }
+
+    fun eigenVectorsToQuaternion(eigenvectors: RealMatrix): Quaternionf {
+        val matrix3f = Matrix3f()
+        for (i in 0 until 3) {
+            for (j in 0 until 3) {
+                matrix3f.set(j, i, eigenvectors.getEntry(j, i).toFloat())
+            }
+        }
+        return Quaternionf().setFromUnnormalized(matrix3f)
     }
 
     // stretch color channels
