@@ -23,6 +23,7 @@ import org.scijava.event.EventService
 import sc.iview.SciView
 import sc.iview.event.NodeChangedEvent
 import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.math.sqrt
 
 
@@ -34,8 +35,8 @@ class SphereLinkNodes
         var SCALE_FACTOR = 1f
         var DEFAULT_COLOR = 0x00FFFFFF
         val knownNodes: MutableList<Sphere> = ArrayList(1000)
+        val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
         val addedExtraNodes: MutableList<Sphere> = LinkedList()
-        val spotList: MutableList<IndexedSpotInstance> = LinkedList()
         private var spotRef: Spot? = null
         var events: EventService? = null
 
@@ -57,10 +58,7 @@ class SphereLinkNodes
         colorizer: GraphColorGenerator<Spot, Link>,
         initializing: Boolean = false
     ) {
-        logger.info("called showInstancedSpots")
-
         if (initializing) {
-            logger.info("Initializing Spots")
             sphere.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
                 diffuse = Vector3f(1.0f, 1.0f, 1.0f)
                 ambient = Vector3f(1.0f, 1.0f, 1.0f)
@@ -85,31 +83,49 @@ class SphereLinkNodes
         var inst: InstancedNode.Instance
         var axisLengths: Vector3f
 
-        for (s in spots) {
-            inst = mainInstance.addInstance()
-            inst.name = "${timepoint}_${s.internalPoolIndex}"
-            inst.addAttribute(Material::class.java, sphere.material())
-            // add the instance to spotList, connected with the corresponding spatio-temporal index
-            spotList.add(IndexedSpotInstance(s, inst, timepoint))
-            s.localize(spotPosition)
-            s.getCovariance(covArray)
+        var index = 0
+        spots.forEach { spot ->
+            // reuse a spot instance from the pool if the pool is large enough
+            if (index < spotPool.size) {
+                inst = spotPool[index]
+                inst.visible = true
+            }
+            // otherwise create a new instance and add it to the pool
+            else {
+                inst = mainInstance.addInstance()
+                inst.name = "${timepoint}_${spot.internalPoolIndex}"
+                inst.addAttribute(Material::class.java, sphere.material())
+                inst.parent = parentNode
+                spotPool.add(inst)
+            }
+
+            spot.localize(spotPosition)
+            spot.getCovariance(covArray)
             covariance = Covariance(covArray)
             val (eigenvalues, eigenvectors) = computeEigen(covariance.covarianceMatrix)
             axisLengths = computeSemiAxes(eigenvalues)
 
-//            inst.spatial().scale = Vector3f(SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat())
+//            inst.spatial().scale = Vector3f(SCALE_FACTOR * sqrt(spot.boundingSphereRadiusSquared).toFloat())
             inst.spatial {
                 position = Vector3f(spotPosition)
-                scale = axisLengths * SCALE_FACTOR
+//                scale = axisLengths * SCALE_FACTOR
                 rotation = eigenVectorsToQuaternion(eigenvectors)
             }
-            setInstancedSphereColor(inst, colorizer, s,false)
-            inst.parent = parentNode
+            setInstancedSphereColor(inst, colorizer, spot,false)
+
+            if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == spot.internalPoolIndex) {
+                inst.instancedProperties["Color"] = { Vector4f(1f, 0.25f, 0.25f, 1f) }
+            }
+
+            index++
         }
 
-        for (s in spotList) {
-            s.instance.visible = s.tp == timepoint
+        // turn all leftover spots from the pool invisible
+        var i = index
+        while (i < spotPool.size) {
+            spotPool[i++].visible = false
         }
+
     }
 
     fun showTheseSpots(
