@@ -25,14 +25,18 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.sqrt
 
-class SphereLinkNodes
-    (val sv: SciView, val parentNode: Node) {
-        private val logger by lazyLogger()
-        var SCALE_FACTOR = 1f
-        var DEFAULT_COLOR = 0x00FFFFFF
-        val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
-        private var spotRef: Spot? = null
-        var events: EventService? = null
+class SphereLinkNodes(
+    val sv: SciView,
+    val sphereParentNode: Node,
+    val linkParentNode: Node
+) {
+
+    private val logger by lazyLogger()
+    var SCALE_FACTOR = 1f
+    var DEFAULT_COLOR = 0x00FFFFFF
+    val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
+    private var spotRef: Spot? = null
+    var events: EventService? = null
 
     init {
         events = sv.scijavaContext?.getService(EventService::class.java)
@@ -42,7 +46,10 @@ class SphereLinkNodes
     data class IndexedSpotInstance(val spot: Spot, val instance: InstancedNode.Instance, val tp: Int)
 
     val sphere = Icosphere(1f, 2)
-    lateinit var mainInstance: InstancedNode
+    val cylinder = Cylinder(1f, 1f, 4)
+    lateinit var mainSpotInstance: InstancedNode
+    lateinit var mainLinkInstance: InstancedNode
+
     lateinit var spots: SpatialIndex<Spot>
 
     /** Shows or initializes the main spot instance, publishes it to the scene and populates it with instances from the current time-point. */
@@ -62,10 +69,10 @@ class SphereLinkNodes
                 roughness = 1.0f
             }
 
-            mainInstance = InstancedNode(sphere)
+            mainSpotInstance = InstancedNode(sphere)
             // Instanced properties should be aligned to 4*32bit boundaries, hence the use of Vector4f instead of Vector3f here
-            mainInstance.instancedProperties["Color"] = { Vector4f(1f) }
-            sv.addNode(mainInstance, parent = parentNode)
+            mainSpotInstance.instancedProperties["Color"] = { Vector4f(1f) }
+            sv.addNode(mainSpotInstance, parent = sphereParentNode)
         }
 
         if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
@@ -79,7 +86,7 @@ class SphereLinkNodes
         var axisLengths: Vector3f
 
         var index = 0
-        spots.forEach { spot ->
+        for (spot in spots) {
             // reuse a spot instance from the pool if the pool is large enough
             if (index < spotPool.size) {
                 inst = spotPool[index]
@@ -87,10 +94,10 @@ class SphereLinkNodes
             }
             // otherwise create a new instance and add it to the pool
             else {
-                inst = mainInstance.addInstance()
+                inst = mainSpotInstance.addInstance()
                 inst.name = "${timepoint}_${spot.internalPoolIndex}"
                 inst.addAttribute(Material::class.java, sphere.material())
-                inst.parent = parentNode
+                inst.parent = sphereParentNode
                 spotPool.add(inst)
             }
 
@@ -167,7 +174,6 @@ class SphereLinkNodes
         randomColors: Boolean = false,
         isPartyMode: Boolean = false
     ) {
-//        var inst = mainInstance.instances.find { i -> i.name == s.internalPoolIndex.toString() }
         var intColor = colorizer.color(s)
         if (intColor == 0x00000000) intColor = DEFAULT_COLOR
         val r = (intColor shr 16 and 0x000000FF) / 255f
@@ -191,8 +197,7 @@ class SphereLinkNodes
         SCALE_FACTOR -= 0.1f
         if (SCALE_FACTOR < 0.1f) SCALE_FACTOR = 0.1f
         val factor = SCALE_FACTOR / oldScale
-//        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor)  }
-        mainInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
+        mainSpotInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
         logger.debug("Decreasing scale to $SCALE_FACTOR, by factor $factor")
     }
 
@@ -200,9 +205,33 @@ class SphereLinkNodes
         val oldScale = SCALE_FACTOR
         SCALE_FACTOR += 0.1f
         val factor = SCALE_FACTOR / oldScale
-//        knownNodes.forEach { s: Sphere -> s.spatial().scale *= Vector3f(factor) }
-        mainInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
+        mainSpotInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
         logger.debug("Increasing scale to $SCALE_FACTOR, by factor $factor")
+    }
+
+
+    fun initializeInstancedLinks(
+        mastodonData: ProjectModel,
+    ) {
+        cylinder.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
+            diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+            ambient = Vector3f(1.0f, 1.0f, 1.0f)
+            specular = Vector3f(.0f, 1.0f, 1.0f)
+            metallic = 0.0f
+            roughness = 1.0f
+        }
+        mainLinkInstance = InstancedNode(cylinder)
+        mainLinkInstance.instancedProperties["Color"] = { Vector4f(1f) }
+        sv.addNode(mainLinkInstance, parent = linkParentNode)
+        val foo = mainLinkInstance.addInstance()
+        foo.addAttribute(Material::class.java, cylinder.material())
+        foo.parent = linkParentNode
+
+        spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(10)
+        for (spot in spots) {
+            forwardSearch(spot, 3)//mastodonData.maxTimepoint)
+        }
+        logger.info("iterated everything, we now have ${links?.size} links and ${mainLinkInstance.instances.size} instances")
     }
 
 
@@ -229,23 +258,28 @@ class SphereLinkNodes
         maxTP = minTP
     }
 
-    fun addLink(from: Spot, to: Spot) {
+    private fun addLink(from: Spot, to: Spot) {
         from.localize(pos)
         to.localize(pos)
 
         posT.sub(posF)
 
         //NB: posF is base of the "vector" link, posT is the "vector" link itself
-        val node = Cylinder(linkRadius, posT.length(), 8)
-        node.spatial().scale.set(linkSize * 100, 1.0, linkSize * 100)
-        node.spatial().rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posT).normalize()
-        node.spatial().position = Vector3f(posF)
+//        val node = Cylinder(linkRadius, posT.length(), 8)
+        val inst = mainLinkInstance.addInstance()
+        inst.addAttribute(Material::class.java, cylinder.material())
+        inst.spatial {
+            scale.set(linkSize * 100, 1.0, linkSize * 100)
+            rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posT).normalize()
+            position = Vector3f(posF)
+        }
 
-        node.name = from.label + " --> " + to.label
+        inst.name = from.label + " --> " + to.label
+        inst.parent = linkParentNode
         //node.setMaterial( linksNodesHub.getMaterial() );
-        logger.debug("add node : " + node.name)
-        linksNodesHub?.addChild(node)
-        links?.addLast(LinkNode(node, from.timepoint, to.timepoint))
+        logger.info("add instance at ${inst.spatial().position} with scale ${inst.spatial().scale} and rot ${inst.spatial().rotation}")
+//        linksNodesHub?.addChild(node)
+        links?.addLast(LinkNode(inst, from.timepoint, to.timepoint))
 
         minTP = minTP.coerceAtMost(from.timepoint)
         maxTP = maxTP.coerceAtLeast(to.timepoint)
@@ -262,22 +296,17 @@ class SphereLinkNodes
     }
 
     private fun forwardSearch(spot: Spot, toTP: Int) {
-        logger.info("spot.getTimepoint():" + spot.timepoint)
-        logger.info("TPtill:$toTP")
 
         if (spot.timepoint >= toTP) return
-        logger.info("forward search!")
         //enumerate all forward links
         val s = spot.modelGraph.vertexRef()
         for (l in spot.incomingEdges()) {
-            logger.info("forward search: incoming edges")
             if (l.getSource(s).timepoint > spot.timepoint && s.timepoint <= toTP) {
                 addLink(spot, s)
                 forwardSearch(s, toTP)
             }
         }
         for (l in spot.outgoingEdges()) {
-            logger.info("forward search: outgoing edges")
             if (l.getTarget(s).timepoint > spot.timepoint && s.timepoint <= toTP) {
                 addLink(spot, s)
                 forwardSearch(s, toTP)
@@ -312,7 +341,7 @@ class SphereLinkNodes
             while (it?.hasNext() == true) {
                 val link = it.next()
                 if (link.fromTP < fromTP || link.toTP > toTP) {
-                    linksNodesHub?.removeChild(link.node)
+                    linksNodesHub?.removeChild(link.instance)
                     it.remove()
                 }
             }
@@ -340,4 +369,4 @@ class SphereLinkNodes
     }
 }
 
-class LinkNode (var node: Cylinder, var fromTP: Int, var toTP: Int)
+data class LinkNode (var instance: InstancedNode.Instance, var fromTP: Int, var toTP: Int)

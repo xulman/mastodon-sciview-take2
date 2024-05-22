@@ -73,6 +73,7 @@ class SciviewBridge {
     //sink scene graph structuring nodes
     val axesParent: Node?
     val sphereParent: Group
+    val linkParent: Group
     var volumeNode: Volume
     var spimSource: Source<out Any>
     // the source and converter that contains our volume data
@@ -155,15 +156,22 @@ class SciviewBridge {
 
         // add spots inside a sphereParent group, which makes it easier for them to inherit transforms and be manually pushed around
         sphereParent = Group()
-        sphereParent.name = "InstanceParent"
+        sphereParent.name = "SphereInstanceParent"
         sphereParent.spatial().scale /= volumeDownscale
         sciviewWin.addNode(sphereParent)
         sphereParent.parent = volumeNode
 
+        linkParent = Group()
+        linkParent.name = "LinkInstanceParent"
+        linkParent.spatial().scale /= volumeDownscale
+        sciviewWin.addNode(linkParent)
+        linkParent.parent = volumeNode
+
         logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
-        sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
+        sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent, linkParent)
         sphereLinkNodes.showInstancedSpots(mastodon, 0, noTSColorizer, true)
+        sphereLinkNodes.initializeInstancedLinks(mastodon)
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }
