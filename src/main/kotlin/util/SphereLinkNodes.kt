@@ -25,17 +25,12 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.sqrt
 
-
-//TODO FAILED to hook up here a 'parentNode' listener that would setVisible(false) on all children
-// of the parent node that are "not used"
 class SphereLinkNodes
     (val sv: SciView, val parentNode: Node) {
         private val logger by lazyLogger()
         var SCALE_FACTOR = 1f
         var DEFAULT_COLOR = 0x00FFFFFF
-        val knownNodes: MutableList<Sphere> = ArrayList(1000)
         val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
-        val addedExtraNodes: MutableList<Sphere> = LinkedList()
         private var spotRef: Spot? = null
         var events: EventService? = null
 
@@ -57,6 +52,7 @@ class SphereLinkNodes
         colorizer: GraphColorGenerator<Spot, Link>,
         initializing: Boolean = false
     ) {
+        // only create and add the main instance once during initialization
         if (initializing) {
             sphere.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
                 diffuse = Vector3f(1.0f, 1.0f, 1.0f)
@@ -98,13 +94,13 @@ class SphereLinkNodes
                 spotPool.add(inst)
             }
 
+            // get spot covariance and calculate the scaling and rotation from it
             spot.localize(spotPosition)
             spot.getCovariance(covArray)
             covariance = Array2DRowRealMatrix(covArray)
             val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
 
-//            inst.spatial().scale = Vector3f(SCALE_FACTOR * sqrt(spot.boundingSphereRadiusSquared).toFloat())
             inst.spatial {
                 position = Vector3f(spotPosition)
                 scale = axisLengths * SCALE_FACTOR
@@ -112,6 +108,7 @@ class SphereLinkNodes
             }
             setInstancedSphereColor(inst, colorizer, spot,false)
 
+            // highlight the spot currently selected in BDV
             if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == spot.internalPoolIndex) {
                 inst.instancedProperties["Color"] = { Vector4f(1f, 0.25f, 0.25f, 1f) }
             }
@@ -127,69 +124,7 @@ class SphereLinkNodes
 
     }
 
-    fun showTheseSpots(
-        mastodonData: ProjectModel,
-        timepoint: Int,
-        colorizer: GraphColorGenerator<Spot, Link>
-    ): Int {
-        var visibleNodeCount = 0
-        addedExtraNodes.clear()
-
-        //nodes should honor if they are wished to be immediately visible or not
-        val finalVisibilityState = parentNode.visible
-        if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
-        val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
-        val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
-        var node: Sphere
-        sv.blockOnNewNodes = false
-        for (s in spots) {
-            if (visibleNodeCount < knownNodes.size) {
-                //injecting into known nodes (already registered with sciview)
-                node = knownNodes[visibleNodeCount]
-                node.visible = finalVisibilityState
-                //NB: make sure it's visible (could have got hidden when there were fewer spots before)
-            } else {
-                //adding some new nodes
-                node = Sphere()
-                node.visible = finalVisibilityState
-                sv.addNode(node, false, parentNode)
-                addedExtraNodes.add(node)
-            }
-            setSphereNode(node, s, colorizer)
-            if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == s.internalPoolIndex) {
-                node.material().wireframe = true
-            }
-
-//            setupEmptyLinks()
-//            registerNewSpot(s)
-//            updateLinks(30, 30)
-
-            ++visibleNodeCount
-        }
-        if (addedExtraNodes.size > 0) {
-            //NB: also means that the knownNodes were fully exhausted
-            knownNodes.addAll(addedExtraNodes)
-            sv.publishNode(addedExtraNodes[0]) //NB: publishes only once
-            logger.info("Added ${addedExtraNodes.size} new spheres")
-        } else {
-            logger.debug("Hide ${(knownNodes.size-visibleNodeCount)} spheres")
-            //NB: mark not-touched knownNodes as hidden
-            var i = visibleNodeCount
-            while (i < knownNodes.size) {
-                knownNodes[i].name = NAME_OF_NOT_USED_SPHERES
-                knownNodes[i++].visible = false
-            }
-        }
-        return visibleNodeCount
-    }
-
     private val spotPosition = FloatArray(3)
-    private val minusThisOffset = floatArrayOf(0f, 0f, 0f)
-    fun setDataCenter(center: Vector3f) {
-        minusThisOffset[0] = center.x
-        minusThisOffset[1] = center.y
-        minusThisOffset[2] = center.z
-    }
 
     fun computeEigen(covariance: Array2DRowRealMatrix): Pair<DoubleArray, RealMatrix> {
         val eigenDecomposition = EigenDecomposition(covariance)
@@ -249,33 +184,6 @@ class SphereLinkNodes
                 inst.instancedProperties["Color"] = { col.xyzw() }
             }
         }
-    }
-
-    private fun setSphereNode(
-        node: Sphere,
-        s: Spot,
-        colorizer: GraphColorGenerator<Spot, Link>
-    ) {
-        node.name = s.label
-        s.localize(spotPosition)
-        spotPosition[0] -= minusThisOffset[0]
-        spotPosition[1] -= minusThisOffset[1]
-        spotPosition[2] -= minusThisOffset[2]
-        spotPosition[1] *= -1f
-        spotPosition[2] *= -1f
-        node.spatial().setPosition(spotPosition)
-        node.spatial().scale = Vector3f(
-            SCALE_FACTOR * sqrt(s.boundingSphereRadiusSquared).toFloat()
-        )
-        var intColor = colorizer.color(s)
-        if (intColor == 0x00000000) intColor = DEFAULT_COLOR
-        val r = (intColor shr 16 and 0x000000FF) / 255f
-        val g = (intColor shr 8 and 0x000000FF) / 255f
-        val b = (intColor and 0x000000FF) / 255f
-        node.material().diffuse[r, g] = b
-//        node.material().diffuse = Vector3f(r, g, b)
-//        node.material().blending = Blending(transparent = true, opacity = 0.2f)
-        node.material().wireframe = false
     }
 
     fun decreaseSphereScale() {
