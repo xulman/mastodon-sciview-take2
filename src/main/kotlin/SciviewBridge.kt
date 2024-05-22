@@ -155,13 +155,14 @@ class SciviewBridge {
 
         // add spots inside a sphereParent group, which makes it easier for them to inherit transforms and be manually pushed around
         sphereParent = Group()
+        sphereParent.name = "InstanceParent"
         sphereParent.spatial().scale /= volumeDownscale
-        volumeNode.addChild(sphereParent)
+        sciviewWin.addNode(sphereParent)
+        sphereParent.parent = volumeNode
 
         logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, sphereParent)
-//        sphereLinkNodes.showTheseSpots(mastodon, 0, noTSColorizer)
         sphereLinkNodes.showInstancedSpots(mastodon, 0, noTSColorizer, true)
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
