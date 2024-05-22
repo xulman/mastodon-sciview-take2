@@ -6,10 +6,9 @@ import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
+import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
 import org.apache.commons.math3.linear.RealMatrix
-import org.apache.commons.math3.stat.correlation.Covariance
-import org.ejml.simple.SimpleMatrix
 import org.joml.Matrix3f
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -79,7 +78,7 @@ class SphereLinkNodes
         sv.blockOnNewNodes = false
 
         val covArray = Array(3) { DoubleArray(3) }
-        var covariance: Covariance
+        var covariance: Array2DRowRealMatrix
         var inst: InstancedNode.Instance
         var axisLengths: Vector3f
 
@@ -101,15 +100,15 @@ class SphereLinkNodes
 
             spot.localize(spotPosition)
             spot.getCovariance(covArray)
-            covariance = Covariance(covArray)
-            val (eigenvalues, eigenvectors) = computeEigen(covariance.covarianceMatrix)
+            covariance = Array2DRowRealMatrix(covArray)
+            val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
 
 //            inst.spatial().scale = Vector3f(SCALE_FACTOR * sqrt(spot.boundingSphereRadiusSquared).toFloat())
             inst.spatial {
                 position = Vector3f(spotPosition)
-//                scale = axisLengths * SCALE_FACTOR
-                rotation = eigenVectorsToQuaternion(eigenvectors)
+                scale = axisLengths * SCALE_FACTOR
+                rotation = matrixToQuaternion(eigenvectors)
             }
             setInstancedSphereColor(inst, colorizer, spot,false)
 
@@ -192,7 +191,7 @@ class SphereLinkNodes
         minusThisOffset[2] = center.z
     }
 
-    fun computeEigen(covariance: RealMatrix): Pair<DoubleArray, RealMatrix> {
+    fun computeEigen(covariance: Array2DRowRealMatrix): Pair<DoubleArray, RealMatrix> {
         val eigenDecomposition = EigenDecomposition(covariance)
         val eigenvalues = eigenDecomposition.realEigenvalues
         val eigenvectors = eigenDecomposition.v
@@ -207,7 +206,7 @@ class SphereLinkNodes
         )
     }
 
-    fun eigenVectorsToQuaternion(eigenvectors: RealMatrix): Quaternionf {
+    fun matrixToQuaternion(eigenvectors: RealMatrix): Quaternionf {
         val matrix3f = Matrix3f()
         for (i in 0 until 3) {
             for (j in 0 until 3) {
