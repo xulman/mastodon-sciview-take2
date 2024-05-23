@@ -6,6 +6,7 @@ import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
+import net.imglib2.display.ColorTable
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
 import org.apache.commons.math3.linear.RealMatrix
@@ -20,7 +21,6 @@ import org.mastodon.spatial.SpatialIndex
 import org.mastodon.ui.coloring.GraphColorGenerator
 import org.scijava.event.EventService
 import sc.iview.SciView
-import sc.iview.event.NodeChangedEvent
 import java.awt.Color
 import java.util.*
 import kotlin.collections.ArrayList
@@ -38,7 +38,7 @@ class SphereLinkNodes(
     var linkScaleFactor = 1f
     var DEFAULT_COLOR = 0x00FFFFFF
     var numTimePoints: Int
-//    var lut: ColorTable
+    var lut: ColorTable
     val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
     private var spotRef: Spot? = null
     var events: EventService? = null
@@ -53,7 +53,7 @@ class SphereLinkNodes(
         events = sv.scijavaContext?.getService(EventService::class.java)
         numTimePoints = mastodonData.maxTimepoint
 
-//        lut = sv.getLUT("Plasma.lut")
+        lut = sv.getLUT("Fire.lut")
     }
 
     /** Shows or initializes the main spot instance, publishes it to the scene and populates it with instances from the current time-point. */
@@ -178,21 +178,28 @@ class SphereLinkNodes(
         isPartyMode: Boolean = false
     ) {
         var intColor = colorizer.color(s)
-        if (intColor == 0x00000000) intColor = DEFAULT_COLOR
-        val r = (intColor shr 16 and 0x000000FF) / 255f
-        val g = (intColor shr 8 and 0x000000FF) / 255f
-        val b = (intColor and 0x000000FF) / 255f
+        if (intColor == 0x00000000) {
+            intColor = DEFAULT_COLOR
+        }
         if (isPartyMode) {
             val col = Random.random3DVectorFromRange(0f, 1f)
             inst.instancedProperties["Color"] = { col.xyzw() }
         } else {
             if (!randomColors) {
-                inst.instancedProperties["Color"] = { Vector4f(r, g, b, 1.0f) }
+                inst.instancedProperties["Color"] = { unpackRGB(intColor) }
             } else {
                 val col = Random.random3DVectorFromRange(0f, 1f).stretchColor()
                 inst.instancedProperties["Color"] = { col.xyzw() }
             }
         }
+    }
+
+    /** Takes an integer-encoded RGB value and returns it as [Vector4f] where alpha is 1.0f. */
+    private fun unpackRGB(intColor: Int): Vector4f {
+        val r = (intColor shr 16 and 0x000000FF) / 255f
+        val g = (intColor shr 8 and 0x000000FF) / 255f
+        val b = (intColor and 0x000000FF) / 255f
+        return Vector4f(r, g, b, 1.0f)
     }
 
     fun decreaseSphereScale() {
@@ -228,8 +235,8 @@ class SphereLinkNodes(
         logger.debug("Decreasing scale to $linkScaleFactor, by factor $factor")
     }
 
-
     fun initializeInstancedLinks(
+        colorizer: GraphColorGenerator<Spot, Link>
     ) {
         cylinder.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
             diffuse = Vector3f(1.0f, 1.0f, 1.0f)
@@ -245,9 +252,15 @@ class SphereLinkNodes(
 
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(0)
         numTimePoints = mastodonData.maxTimepoint
-        for (spot in spots) {
-            forwardSearch(spot, numTimePoints)
+        spots.forEach { spot ->
+            forwardSearch(spot, numTimePoints, colorizer)
         }
+    }
+
+    fun updateInstancedLinks (
+        colorizer: GraphColorGenerator<Spot, Link>
+    ) {
+
     }
 
 
@@ -264,7 +277,8 @@ class SphereLinkNodes(
     private val pos = FloatArray(3)
     private var posF = Vector3f()
     private var posT = Vector3f()
-    private var col = Vector3f()
+    private var intColor: Int = DEFAULT_COLOR
+    private var color: Vector4f = Vector4f()
 
     fun registerNewSpot(spot: Spot) {
         if (refSpot != null) refSpot!!.modelGraph.releaseRef(refSpot)
@@ -274,7 +288,7 @@ class SphereLinkNodes(
         maxTP = minTP
     }
 
-    private fun addLink(from: Spot, to: Spot) {
+    private fun addLink(from: Spot, to: Spot, colorizer: GraphColorGenerator<Spot, Link>) {
         from.localize(pos)
         posF = Vector3f(pos)
         to.localize(pos)
@@ -284,10 +298,13 @@ class SphereLinkNodes(
         //NB: posF is base of the "vector" link, posT is the "vector" link itself
         val inst = mainLinkInstance.addInstance()
         inst.addAttribute(Material::class.java, cylinder.material())
-
-//        lut?.lookupARGB(0.0, 1.0, 1.0)
+//        logger.info("linking from ${from.timepoint} to ${to.timepoint}")
+//        intCol = lut.lookupARGB(0.0, 1.0, to.timepoint / numTimePoints.toDouble())
+        intColor = colorizer.color(from)
+        color = unpackRGB(intColor)
+        logger.info("unpacked: $color")
 //        inst.instancedProperties["Color"] = { hsvToArgb((from.timepoint.toFloat() / numTimePoints.toFloat() * 100).toInt(), 100, 100) }
-        inst.instancedProperties["Color"] = { Vector4f(to.timepoint.toFloat() / numTimePoints.toFloat()).xyz().xyzw() }
+        inst.instancedProperties["Color"] = { color }
         inst.spatial {
             scale.set(linkSize, posT.length().toDouble(), linkSize)
             rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posT).normalize()
@@ -317,49 +334,49 @@ class SphereLinkNodes(
 
 
     fun updateLinks(TPsInPast: Int, TPsAhead: Int) {
-        logger.info("updatelinks!")
-        refSpot?.let {
-            clearLinksOutsideRange(it.timepoint, it.timepoint)
-            backwardSearch(it, it.timepoint - TPsInPast)
-            forwardSearch(it, it.timepoint + TPsAhead)
-        }
-        events?.publish(NodeChangedEvent(linksNodesHub))
+//        logger.info("updatelinks!")
+//        refSpot?.let {
+//            clearLinksOutsideRange(it.timepoint, it.timepoint)
+//            backwardSearch(it, it.timepoint - TPsInPast)
+//            forwardSearch(it, it.timepoint + TPsAhead)
+//        }
+//        events?.publish(NodeChangedEvent(linksNodesHub))
     }
 
-    private fun forwardSearch(spot: Spot, toTP: Int) {
+    private fun forwardSearch(spot: Spot, toTP: Int, colorizer: GraphColorGenerator<Spot, Link>) {
 
         if (spot.timepoint >= toTP) return
         //enumerate all forward links
         val spotRef = spot.modelGraph.vertexRef()
         for (l in spot.incomingEdges()) {
             if (l.getSource(spotRef).timepoint > spot.timepoint && spotRef.timepoint <= toTP) {
-                addLink(spot, spotRef)
-                forwardSearch(spotRef, toTP)
+                addLink(spot, spotRef, colorizer)
+                forwardSearch(spotRef, toTP, colorizer)
             }
         }
         for (l in spot.outgoingEdges()) {
             if (l.getTarget(spotRef).timepoint > spot.timepoint && spotRef.timepoint <= toTP) {
-                addLink(spot, spotRef)
-                forwardSearch(spotRef, toTP)
+                addLink(spot, spotRef, colorizer)
+                forwardSearch(spotRef, toTP, colorizer)
             }
         }
         spot.modelGraph.releaseRef(spotRef)
     }
 
-    private fun backwardSearch(spot: Spot, fromTP: Int) {
+    private fun backwardSearch(spot: Spot, fromTP: Int, colorizer: GraphColorGenerator<Spot, Link>) {
         if (spot.timepoint <= fromTP) return
         //enumerate all backward links
         val spotRef = spot.modelGraph.vertexRef()
         for (l in spot.incomingEdges()) {
             if (l.getSource(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= fromTP) {
-                addLink(spotRef, spot)
-                backwardSearch(spotRef, fromTP)
+                addLink(spotRef, spot, colorizer)
+                backwardSearch(spotRef, fromTP, colorizer)
             }
         }
         for (l in spot.outgoingEdges()) {
             if (l.getTarget(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= fromTP) {
-                addLink(spotRef, spot)
-                backwardSearch(spotRef, fromTP)
+                addLink(spotRef, spot, colorizer)
+                backwardSearch(spotRef, fromTP, colorizer)
             }
         }
         spot.modelGraph.releaseRef(spotRef)
