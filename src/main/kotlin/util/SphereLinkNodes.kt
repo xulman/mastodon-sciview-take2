@@ -257,10 +257,18 @@ class SphereLinkNodes(
         }
     }
 
-    fun updateInstancedLinks (
+    fun updateInstancedLinkColors (
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
-
+        var intColor = DEFAULT_COLOR
+        var color = Vector4f()
+        for (link in links) {
+            logger.info("got link color ${colorizer.color(link.from)} from TP ${link.from.timepoint} with inst ${link.instance.name}")
+            setInstancedSphereColor(link.instance, colorizer, link.from)
+//            intColor = colorizer.color(link.from)
+//            color = unpackRGB(intColor)
+//            link.instance.instancedProperties["Color"] = { color }
+        }
     }
 
 
@@ -302,9 +310,7 @@ class SphereLinkNodes(
 //        intCol = lut.lookupARGB(0.0, 1.0, to.timepoint / numTimePoints.toDouble())
         intColor = colorizer.color(from)
         color = unpackRGB(intColor)
-        logger.info("unpacked: $color")
 //        inst.instancedProperties["Color"] = { hsvToArgb((from.timepoint.toFloat() / numTimePoints.toFloat() * 100).toInt(), 100, 100) }
-        inst.instancedProperties["Color"] = { color }
         inst.spatial {
             scale.set(linkSize, posT.length().toDouble(), linkSize)
             rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posT).normalize()
@@ -313,7 +319,9 @@ class SphereLinkNodes(
 
         inst.name = from.label + " --> " + to.label
         inst.parent = linkParentNode
-        links.add(LinkNode(inst, from.timepoint, to.timepoint))
+//        inst.instancedProperties["Color"] = { color }
+        setInstancedSphereColor(inst, colorizer, from)
+        links.add(LinkNode(inst, from, to))
 
         minTP = minTP.coerceAtMost(from.timepoint)
         maxTP = maxTP.coerceAtLeast(to.timepoint)
@@ -386,7 +394,7 @@ class SphereLinkNodes(
         links.iterator().let {
             while (it.hasNext() == true) {
                 val link = it.next()
-                if (link.fromTP < fromTP || link.toTP > toTP) {
+                if (link.from.timepoint < fromTP || link.to.timepoint > toTP) {
                     linksNodesHub?.removeChild(link.instance)
                     it.remove()
                 }
@@ -415,4 +423,4 @@ class SphereLinkNodes(
     }
 }
 
-data class LinkNode (var instance: InstancedNode.Instance, var fromTP: Int, var toTP: Int)
+data class LinkNode (var instance: InstancedNode.Instance, var from: Spot, var to: Spot)
