@@ -458,6 +458,18 @@ class SciviewBridge {
             updateUI()
         })
 
+        handler?.addKeyBinding(desc_DEC_LINK, key_DEC_LINK)
+        handler?.addBehaviour(desc_DEC_LINK, ClickBehaviour { _, _ ->
+            sphereLinkNodes.decreaseLinkScale()
+            updateUI()
+        })
+
+        handler?.addKeyBinding(desc_INC_LINK, key_INC_LINK)
+        handler?.addBehaviour(desc_INC_LINK, ClickBehaviour { _, _ ->
+            sphereLinkNodes.increaseLinkScale()
+            updateUI()
+        })
+
         handler?.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN)
         handler?.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
 
@@ -482,6 +494,8 @@ class SciviewBridge {
         if (handler != null) {
             listOf(desc_DEC_SPH,
                 desc_INC_SPH,
+                desc_DEC_LINK,
+                desc_INC_LINK,
                 desc_CTRL_WIN,
                 desc_CTRL_INFO,
                 desc_PREV_TP,
@@ -567,12 +581,16 @@ class SciviewBridge {
         // --------------------------------------------------------------------------
         const val key_DEC_SPH = "O"
         const val key_INC_SPH = "shift O"
+        const val key_DEC_LINK = "L"
+        const val key_INC_LINK = "shift L"
         const val key_CTRL_WIN = "ctrl I"
         const val key_CTRL_INFO = "shift I"
         const val key_PREV_TP = "T"
         const val key_NEXT_TP = "shift T"
         const val desc_DEC_SPH = "decrease_initial_spheres_size"
         const val desc_INC_SPH = "increase_initial_spheres_size"
+        const val desc_DEC_LINK = "decrease_initial_links_size"
+        const val desc_INC_LINK = "increase_initial_links_size"
         const val desc_CTRL_WIN = "controlling_window"
         const val desc_CTRL_INFO = "controlling_info"
         const val desc_PREV_TP = "show_previous_timepoint"

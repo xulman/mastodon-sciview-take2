@@ -32,7 +32,8 @@ class SphereLinkNodes(
 ) {
 
     private val logger by lazyLogger()
-    var SCALE_FACTOR = 1f
+    var sphereScaleFactor = 1f
+    var linkScaleFactor = 1f
     var DEFAULT_COLOR = 0x00FFFFFF
     val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
     private var spotRef: Spot? = null
@@ -46,7 +47,7 @@ class SphereLinkNodes(
     data class IndexedSpotInstance(val spot: Spot, val instance: InstancedNode.Instance, val tp: Int)
 
     val sphere = Icosphere(1f, 2)
-    val cylinder = Cylinder(1f, 1f, 4)
+    val cylinder = Cylinder(0.2f, 1f, 8)
     lateinit var mainSpotInstance: InstancedNode
     lateinit var mainLinkInstance: InstancedNode
 
@@ -110,7 +111,7 @@ class SphereLinkNodes(
 
             inst.spatial {
                 position = Vector3f(spotPosition)
-                scale = axisLengths * SCALE_FACTOR
+                scale = axisLengths * sphereScaleFactor
                 rotation = matrixToQuaternion(eigenvectors)
             }
             setInstancedSphereColor(inst, colorizer, spot,false)
@@ -193,20 +194,36 @@ class SphereLinkNodes(
     }
 
     fun decreaseSphereScale() {
-        val oldScale = SCALE_FACTOR
-        SCALE_FACTOR -= 0.1f
-        if (SCALE_FACTOR < 0.1f) SCALE_FACTOR = 0.1f
-        val factor = SCALE_FACTOR / oldScale
+        val oldScale = sphereScaleFactor
+        sphereScaleFactor -= 0.1f
+        if (sphereScaleFactor < 0.1f) sphereScaleFactor = 0.1f
+        val factor = sphereScaleFactor / oldScale
         mainSpotInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
-        logger.debug("Decreasing scale to $SCALE_FACTOR, by factor $factor")
+        logger.debug("Decreasing scale to $sphereScaleFactor, by factor $factor")
     }
 
     fun increaseSphereScale() {
-        val oldScale = SCALE_FACTOR
-        SCALE_FACTOR += 0.1f
-        val factor = SCALE_FACTOR / oldScale
+        val oldScale = sphereScaleFactor
+        sphereScaleFactor += 0.1f
+        val factor = sphereScaleFactor / oldScale
         mainSpotInstance.instances.forEach { s -> s.spatial().scale *= Vector3f(factor) }
-        logger.debug("Increasing scale to $SCALE_FACTOR, by factor $factor")
+        logger.debug("Increasing scale to $sphereScaleFactor, by factor $factor")
+    }
+
+    fun increaseLinkScale() {
+        val oldScale = linkScaleFactor
+        linkScaleFactor += 0.1f
+        val factor = linkScaleFactor / oldScale
+        mainLinkInstance.instances.forEach { l -> l.spatial().scale *= Vector3f(factor) }
+        logger.debug("Increasing scale to $linkScaleFactor, by factor $factor")
+    }
+
+    fun decreaseLinkScale() {
+        val oldScale = linkScaleFactor
+        linkScaleFactor -= 0.1f
+        val factor = linkScaleFactor / oldScale
+        mainLinkInstance.instances.forEach { l -> l.spatial().scale *= Vector3f(factor) }
+        logger.debug("Decreasing scale to $linkScaleFactor, by factor $factor")
     }
 
 
@@ -223,13 +240,11 @@ class SphereLinkNodes(
         mainLinkInstance = InstancedNode(cylinder)
         mainLinkInstance.instancedProperties["Color"] = { Vector4f(1f) }
         sv.addNode(mainLinkInstance, parent = linkParentNode)
-        val foo = mainLinkInstance.addInstance()
-        foo.addAttribute(Material::class.java, cylinder.material())
-        foo.parent = linkParentNode
 
-        spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(10)
+        spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(0)
         for (spot in spots) {
-            forwardSearch(spot, 3)//mastodonData.maxTimepoint)
+            forwardSearch(spot, mastodonData.maxTimepoint)
+//            backwardSearch(spot, 3)
         }
         logger.info("iterated everything, we now have ${links?.size} links and ${mainLinkInstance.instances.size} instances")
     }
@@ -238,7 +253,7 @@ class SphereLinkNodes(
     val linkSize = 1.0
 
     var linksNodesHub: Node? = null // gathering node in sciview -- a links node associated to its spots node
-    var links: MutableList<LinkNode>? = null // list of links of this spot
+    lateinit var links: MutableList<LinkNode> // list of links of this spot
 
     var selectionStorage: Node = RichNode()
     var refSpot: Spot? = null
@@ -247,8 +262,8 @@ class SphereLinkNodes(
 
     var linkRadius: Float = 0.01f
     private val pos = FloatArray(3)
-    private val posF = Vector3f()
-    private val posT = Vector3f()
+    private var posF = Vector3f()
+    private var posT = Vector3f()
 
     fun registerNewSpot(spot: Spot) {
         if (refSpot != null) refSpot!!.modelGraph.releaseRef(refSpot)
@@ -260,26 +275,25 @@ class SphereLinkNodes(
 
     private fun addLink(from: Spot, to: Spot) {
         from.localize(pos)
+        posF = Vector3f(pos)
         to.localize(pos)
+        posT = Vector3f(pos)
 
         posT.sub(posF)
-
         //NB: posF is base of the "vector" link, posT is the "vector" link itself
-//        val node = Cylinder(linkRadius, posT.length(), 8)
         val inst = mainLinkInstance.addInstance()
         inst.addAttribute(Material::class.java, cylinder.material())
+        inst.instancedProperties["Color"] = { Vector4f(1f, 1f, 1f, 1f) }
         inst.spatial {
-            scale.set(linkSize * 100, 1.0, linkSize * 100)
+            scale.set(linkSize, posT.length().toDouble(), linkSize)
             rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posT).normalize()
             position = Vector3f(posF)
         }
 
         inst.name = from.label + " --> " + to.label
         inst.parent = linkParentNode
-        //node.setMaterial( linksNodesHub.getMaterial() );
         logger.info("add instance at ${inst.spatial().position} with scale ${inst.spatial().scale} and rot ${inst.spatial().rotation}")
-//        linksNodesHub?.addChild(node)
-        links?.addLast(LinkNode(inst, from.timepoint, to.timepoint))
+        links.add(LinkNode(inst, from.timepoint, to.timepoint))
 
         minTP = minTP.coerceAtMost(from.timepoint)
         maxTP = maxTP.coerceAtLeast(to.timepoint)
@@ -320,14 +334,12 @@ class SphereLinkNodes(
         //enumerate all backward links
         val s = spot.modelGraph.vertexRef()
         for (l in spot.incomingEdges()) {
-            logger.info("backward search: incoming edges")
             if (l.getSource(s).timepoint < spot.timepoint && s.timepoint >= fromTP) {
                 addLink(s, spot)
                 backwardSearch(s, fromTP)
             }
         }
         for (l in spot.outgoingEdges()) {
-            logger.info("backward search: outgoing edges")
             if (l.getTarget(s).timepoint < spot.timepoint && s.timepoint >= fromTP) {
                 addLink(s, spot)
                 backwardSearch(s, fromTP)
@@ -352,7 +364,7 @@ class SphereLinkNodes(
 
     fun clearAllLinks() {
         linksNodesHub!!.children.removeIf { f: Node? -> true }
-        links?.clear()
+        links.clear()
         minTP = 999999
         maxTP = -1
     }
