@@ -170,8 +170,9 @@ class SciviewBridge {
         logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, sphereParent, linkParent)
-        sphereLinkNodes.showInstancedSpots(0, noTSColorizer, true)
-        sphereLinkNodes.initializeInstancedLinks(noTSColorizer)
+        sphereLinkNodes.updateColorizer(noTSColorizer)
+        sphereLinkNodes.showInstancedSpots(0, true)
+        sphereLinkNodes.initializeInstancedLinks()
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }
@@ -367,8 +368,9 @@ class SciviewBridge {
     /** Calls [updateVolume] and [SphereLinkNodes.showTheseSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
-        sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint, forThisBdv.colorizer)
-        sphereLinkNodes.updateInstancedLinkColors(forThisBdv.colorizer)
+        sphereLinkNodes.updateColorizer(forThisBdv.colorizer)
+        sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint)
+        sphereLinkNodes.updateInstancedLinkColors()
     }
 
     private var lastTpWhenVolumeWasUpdated = 0
