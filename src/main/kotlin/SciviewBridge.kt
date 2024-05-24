@@ -171,7 +171,7 @@ class SciviewBridge {
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, sphereParent, linkParent)
         sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
-        sphereLinkNodes.initializeInstancedLinks(colorizer = noTSColorizer)
+        sphereLinkNodes.initializeInstancedLinks(SphereLinkNodes.colorMode.LUT, colorizer = noTSColorizer)
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }
@@ -202,7 +202,7 @@ class SciviewBridge {
         sciviewWin.deleteNode(axesParent, true)
     }
 
-    /** Adds a volume to the sciview scene, adjusts the transfer function to a ramp from [0, 0] to [1, 1]
+    /** Adds a volume to the sciview scene, scales it by [scale], adjusts the transfer function to a ramp from [0, 0] to [1, 1]
      * and sets the node children visibility to false. */
     private fun setVolumeRanges(
         v: Volume?,
@@ -213,7 +213,6 @@ class SciviewBridge {
     ) {
         v?.let {
             sciviewWin.setColormap(it, colorMapName)
-//            it.spatial().scale = scale
             it.spatial().scale = scale
             it.minDisplayRange = displayRangeMin
             it.maxDisplayRange = displayRangeMax
@@ -368,7 +367,7 @@ class SciviewBridge {
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
         sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint, forThisBdv.colorizer)
-        sphereLinkNodes.updateInstancedLinkColors(forThisBdv.colorizer)
+        sphereLinkNodes.updateLinkColors(forThisBdv.colorizer, SphereLinkNodes.colorMode.LUT)
     }
 
     private var lastTpWhenVolumeWasUpdated = 0

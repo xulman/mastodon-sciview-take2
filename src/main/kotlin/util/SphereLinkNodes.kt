@@ -6,7 +6,6 @@ import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
-import ij.process.LUT
 import net.imglib2.display.ColorTable
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
@@ -61,8 +60,6 @@ class SphereLinkNodes(
 
     /** The following types are allowed for track coloring:
      * - [LUT] uses a colormap, defaults to Fire.lut
-     * - [GREYS] uses a gradient from black to white
-     * - [WHITE] pure white color
      * - [RAINBOW] uses saturated colors across the whole hue spectrum
      * - [SPOT] uses the spot color from the connected spot */
     enum class colorMode { LUT, RAINBOW, SPOT }
@@ -130,7 +127,7 @@ class SphereLinkNodes(
                 scale = axisLengths * sphereScaleFactor
                 rotation = matrixToQuaternion(eigenvectors)
             }
-            inst.setInstanceColor(spot, colorizer)
+            inst.setColorFromSpot(spot, colorizer)
             // highlight the spot currently selected in BDV
             if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == spot.internalPoolIndex) {
                 inst.instancedProperties["Color"] = { Vector4f(1f, 0.25f, 0.25f, 1f) }
@@ -184,7 +181,7 @@ class SphereLinkNodes(
     }
 
     /** overload function that takes a spot and colors the corresponding instance according to the [colorizer]. */
-    fun InstancedNode.Instance.setInstanceColor(
+    private fun InstancedNode.Instance.setColorFromSpot(
         s: Spot,
         colorizer: GraphColorGenerator<Spot, Link>,
         randomColors: Boolean = false,
@@ -259,7 +256,7 @@ class SphereLinkNodes(
             metallic = 0.0f
             roughness = 1.0f
         }
-
+        currentColorMode = colorMode
         val mainLink = InstancedNode(cylinder)
         mainLink.instancedProperties["Color"] = { Vector4f(1f) }
         sv.addNode(mainLink, parent = linkParentNode)
@@ -274,36 +271,33 @@ class SphereLinkNodes(
 
     /** Traverse and update the colors of all [links] using the provided [colorMode].
      * When set to [colorMode.SPOT], it uses the [colorizer] to get the spot colors. */
-    fun updateInstancedLinkColors (
+    fun updateLinkColors (
         colorizer: GraphColorGenerator<Spot, Link>,
         colorMode: colorMode
     ) {
+
         when (colorMode) {
             SphereLinkNodes.colorMode.LUT -> {
                 for (link in links) {
-                    val factor = link.from.timepoint / numTimePoints.toDouble()
-                    val intColor = lut.lookupARGB(0.0, 1.0, factor)
-                    val color = unpackRGB(intColor)
+                    val factor = link.to.timepoint / numTimePoints.toDouble()
+                    val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
                     link.instance.instancedProperties["Color"] = { color }
                 }
             }
             SphereLinkNodes.colorMode.RAINBOW -> {
                 for (link in links) {
-                    val factor = (link.from.timepoint.toFloat() / numTimePoints.toFloat() * 360).toInt()
+                    val factor = (link.to.timepoint.toFloat() / numTimePoints.toFloat() * 360).toInt()
                     val color = hsvToArgb(factor, 100, 100)
                     link.instance.instancedProperties["Color"] = { color }
                 }
             }
             SphereLinkNodes.colorMode.SPOT -> {
                 for (link in links) {
-                    link.instance.setInstanceColor(link.from, colorizer)
+                    link.instance.setColorFromSpot(link.to, colorizer)
                 }
             }
         }
-
-
     }
-
 
     val linkSize = 2.0
 
@@ -327,8 +321,6 @@ class SphereLinkNodes(
         maxTP = minTP
     }
 
-
-
     fun hsvToArgb(hue: Int, saturation: Int, value: Int): Vector4f {
         val h = hue / 360.0f
         val s = saturation / 100.0f
@@ -337,7 +329,6 @@ class SphereLinkNodes(
         val rgbInt = Color.HSBtoRGB(h, s, v)
         return unpackRGB(rgbInt)
     }
-
 
     fun updateLinks(TPsInPast: Int, TPsAhead: Int) {
 //        logger.info("updatelinks!")
@@ -357,7 +348,6 @@ class SphereLinkNodes(
         colorizer: GraphColorGenerator<Spot, Link>,
         forward: Boolean
     ) {
-
         // ensure that the local state of mainInstance is not nullable
         val mainInstance = mainLinkInstance?: throw IllegalStateException("Main link instance was not initialized")
 
@@ -371,19 +361,26 @@ class SphereLinkNodes(
             //NB: posF is base of the "vector" link, posT is the "vector" link itself
             val inst = mainInstance.addInstance()
             inst.addAttribute(Material::class.java, cylinder.material())
-
-            val color = unpackRGB(lut.lookupARGB(0.0, 1.0, to.timepoint / numTimePoints.toDouble()))
-//        val color = hsvToArgb((from.timepoint.toFloat() / numTimePoints.toFloat() * 360).toInt(), 100, 100)
+            val factor = to.timepoint / numTimePoints.toDouble()
+            val color = when (currentColorMode) {
+                colorMode.LUT -> {
+                    unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
+                }
+                colorMode.RAINBOW -> {
+                    hsvToArgb((factor * 360).toInt(), 100, 100)
+                }
+                colorMode.SPOT -> {
+                    unpackRGB(colorizer.color(to))
+                }
+            }
             inst.instancedProperties["Color"] = { color }
             inst.spatial {
                 scale.set(linkSize, posT.length().toDouble(), linkSize)
                 rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posT).normalize()
                 position = Vector3f(posF)
             }
-
             inst.name = from.label + " --> " + to.label
             inst.parent = linkParentNode
-//        setInstancedSphereColor(inst, from)
             links.add(LinkNode(inst, from, to))
 
             minTP = minTP.coerceAtMost(from.timepoint)
