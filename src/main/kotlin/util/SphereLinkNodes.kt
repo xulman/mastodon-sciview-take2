@@ -267,7 +267,7 @@ class SphereLinkNodes(
         numTimePoints = mastodonData.maxTimepoint
         mainLinkInstance = mainLink
         spots.forEach { spot ->
-            searchAndConnectSpots(spot, numTimePoints, colorizer)
+            searchAndConnectSpots(spot, numTimePoints, colorizer, true)
         }
     }
 
@@ -325,8 +325,16 @@ class SphereLinkNodes(
 //        events?.publish(NodeChangedEvent(linksNodesHub))
     }
 
-    private fun searchAndConnectSpots(spot: Spot, toTP: Int, colorizer: GraphColorGenerator<Spot, Link>) {
+    /** Recursive method that traverses the links of the provided [spot] up until the given timepoint [toTP].
+     * Forward search is enabled when [forward] is true, otherwise it searches backwards. */
+    private fun searchAndConnectSpots(
+        spot: Spot,
+        toTP: Int,
+        colorizer: GraphColorGenerator<Spot, Link>,
+        forward: Boolean
+    ) {
 
+        // ensure that the local state of mainInstance is not nullable
         val mainInstance = mainLinkInstance?: throw IllegalStateException("Main link instance was not initialized")
 
         fun addLink(from: Spot, to: Spot) {
@@ -358,43 +366,43 @@ class SphereLinkNodes(
             maxTP = maxTP.coerceAtLeast(to.timepoint)
         }
 
-        if (spot.timepoint >= toTP) return
-        //enumerate all forward links
-        val spotRef = spot.modelGraph.vertexRef()
-        for (l in spot.incomingEdges()) {
-            if (l.getSource(spotRef).timepoint > spot.timepoint && spotRef.timepoint <= toTP) {
-                addLink(spot, spotRef)
-                searchAndConnectSpots(spotRef, toTP, colorizer)
-            }
-        }
-        for (l in spot.outgoingEdges()) {
-            if (l.getTarget(spotRef).timepoint > spot.timepoint && spotRef.timepoint <= toTP) {
-                addLink(spot, spotRef)
-                searchAndConnectSpots(spotRef, toTP, colorizer)
-            }
-        }
-        spot.modelGraph.releaseRef(spotRef)
-    }
+        if (forward) {
+            // forward search
+            if (spot.timepoint >= toTP) return
 
-    // TODO unify search with passed direction
-//    private fun backwardSearch(spot: Spot, fromTP: Int) {
-//        if (spot.timepoint <= fromTP) return
-//        //enumerate all backward links
-//        val spotRef = spot.modelGraph.vertexRef()
-//        for (l in spot.incomingEdges()) {
-//            if (l.getSource(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= fromTP) {
-//                addLink(spotRef, spot)
-//                backwardSearch(spotRef, fromTP)
-//            }
-//        }
-//        for (l in spot.outgoingEdges()) {
-//            if (l.getTarget(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= fromTP) {
-//                addLink(spotRef, spot)
-//                backwardSearch(spotRef, fromTP)
-//            }
-//        }
-//        spot.modelGraph.releaseRef(spotRef)
-//    }
+            val spotRef = spot.modelGraph.vertexRef()
+            for (l in spot.incomingEdges()) {
+                if (l.getSource(spotRef).timepoint > spot.timepoint && spotRef.timepoint <= toTP) {
+                    addLink(spot, spotRef)
+                    searchAndConnectSpots(spotRef, toTP, colorizer, true)
+                }
+            }
+            for (l in spot.outgoingEdges()) {
+                if (l.getTarget(spotRef).timepoint > spot.timepoint && spotRef.timepoint <= toTP) {
+                    addLink(spot, spotRef)
+                    searchAndConnectSpots(spotRef, toTP, colorizer, true)
+                }
+            }
+            spot.modelGraph.releaseRef(spotRef)
+        } else {
+            // backwards search
+            if (spot.timepoint <= toTP) return
+            val spotRef = spot.modelGraph.vertexRef()
+            for (l in spot.incomingEdges()) {
+                if (l.getSource(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= toTP) {
+                    addLink(spotRef, spot)
+                    searchAndConnectSpots(spotRef, toTP, colorizer, false)
+                }
+            }
+            for (l in spot.outgoingEdges()) {
+                if (l.getTarget(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= toTP) {
+                    addLink(spotRef, spot)
+                    searchAndConnectSpots(spotRef, toTP, colorizer, false)
+                }
+            }
+            spot.modelGraph.releaseRef(spotRef)
+        }
+    }
 
     fun clearLinksOutsideRange(fromTP: Int, toTP: Int) {
         links.iterator().let {
