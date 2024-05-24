@@ -6,6 +6,7 @@ import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
+import ij.process.LUT
 import net.imglib2.display.ColorTable
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
@@ -55,7 +56,7 @@ class SphereLinkNodes(
         numTimePoints = mastodonData.maxTimepoint
 
         lut = sv.getLUT("Fire.lut")
-        currentColorMode = colorMode.WHITE
+        currentColorMode = colorMode.LUT
     }
 
     /** The following types are allowed for track coloring:
@@ -64,7 +65,7 @@ class SphereLinkNodes(
      * - [WHITE] pure white color
      * - [RAINBOW] uses saturated colors across the whole hue spectrum
      * - [SPOT] uses the spot color from the connected spot */
-    enum class colorMode { LUT, GREYS, WHITE, RAINBOW, SPOT }
+    enum class colorMode { LUT, RAINBOW, SPOT }
 
     /** Shows or initializes the main spot instance, publishes it to the scene and populates it with instances from the current time-point. */
     fun showInstancedSpots(
@@ -248,7 +249,7 @@ class SphereLinkNodes(
     }
 
     fun initializeInstancedLinks(
-        colorMode: colorMode = SphereLinkNodes.colorMode.WHITE,
+        colorMode: colorMode,
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
         cylinder.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
@@ -271,13 +272,36 @@ class SphereLinkNodes(
         }
     }
 
+    /** Traverse and update the colors of all [links] using the provided [colorMode].
+     * When set to [colorMode.SPOT], it uses the [colorizer] to get the spot colors. */
     fun updateInstancedLinkColors (
         colorizer: GraphColorGenerator<Spot, Link>,
-        colorMode: colorMode = SphereLinkNodes.colorMode.WHITE
+        colorMode: colorMode
     ) {
-        for (link in links) {
-            link.instance.setInstanceColor(link.from, colorizer)
+        when (colorMode) {
+            SphereLinkNodes.colorMode.LUT -> {
+                for (link in links) {
+                    val factor = link.from.timepoint / numTimePoints.toDouble()
+                    val intColor = lut.lookupARGB(0.0, 1.0, factor)
+                    val color = unpackRGB(intColor)
+                    link.instance.instancedProperties["Color"] = { color }
+                }
+            }
+            SphereLinkNodes.colorMode.RAINBOW -> {
+                for (link in links) {
+                    val factor = (link.from.timepoint.toFloat() / numTimePoints.toFloat() * 360).toInt()
+                    val color = hsvToArgb(factor, 100, 100)
+                    link.instance.instancedProperties["Color"] = { color }
+                }
+            }
+            SphereLinkNodes.colorMode.SPOT -> {
+                for (link in links) {
+                    link.instance.setInstanceColor(link.from, colorizer)
+                }
+            }
         }
+
+
     }
 
 
