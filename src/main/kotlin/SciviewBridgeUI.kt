@@ -13,6 +13,20 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     var controlledBridge: SciviewBridge?
     val controlsWindowPanel: Container
 
+    //int SOURCE_ID = 0;
+    //int SOURCE_USED_RES_LEVEL = 0;
+    lateinit var INTENSITY_CONTRAST: SpinnerModel
+    lateinit var INTENSITY_SHIFT: SpinnerModel
+    lateinit var INTENSITY_CLAMP_AT_TOP: SpinnerModel
+    lateinit var INTENSITY_GAMMA: SpinnerModel
+    lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
+    //
+    lateinit var visToggleSpots: JButton
+    lateinit var visToggleVols: JButton
+    lateinit var visToggleTracks: JButton
+    lateinit var autoIntensityBtn: JToggleButton
+    lateinit var lockGroupHandler: GroupLocksHandling
+
     // -------------------------------------------------------------------------------------------
     private fun populatePane() {
         val bridge = this.controlledBridge ?: throw IllegalStateException("The passed bridge cannot be null.")
@@ -105,39 +119,46 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         )
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener)
         c.gridy++
-        visToggleSpots = JButton("Toggle visibility of SPOTS")
+        visToggleSpots = JButton("Toggle spots")
         visToggleSpots.addActionListener(toggleSpotsVisibility)
-        visToggleVols = JButton("Toggle visibility of VOLUME")
+        visToggleVols = JButton("Toggle volume")
         visToggleVols.addActionListener(toggleVolumeVisibility)
+        visToggleTracks = JButton("Toggle tracks")
+        visToggleTracks.addActionListener(toggleTrackVisivility)
+
         autoIntensityBtn = JToggleButton("Auto Intensity", bridge.isVolumeAutoAdjust)
         autoIntensityBtn.addActionListener(autoAdjustIntensity)
         //
-        val threeCenteredButtonsPlaceHolder = JPanel()
-        controlsWindowPanel.add(threeCenteredButtonsPlaceHolder, c)
+        val fourButtonsPlaceholder = JPanel()
+        controlsWindowPanel.add(fourButtonsPlaceholder, c)
         //
-        threeCenteredButtonsPlaceHolder.setLayout(GridBagLayout())
+        fourButtonsPlaceholder.setLayout(GridBagLayout())
         val bc = GridBagConstraints()
         bc.fill = GridBagConstraints.HORIZONTAL
         bc.weightx = 0.4
         bc.gridx = 0
 //        bc.insets = Insets(0, 20, 0, 0)
-        threeCenteredButtonsPlaceHolder.add(autoIntensityBtn, bc)
+        fourButtonsPlaceholder.add(autoIntensityBtn, bc)
         bc.gridx = 1
         bc.insets = Insets(0, 20, 0, 0)
-        threeCenteredButtonsPlaceHolder.add(visToggleSpots, bc)
+        fourButtonsPlaceholder.add(visToggleSpots, bc)
         bc.gridx = 2
         bc.insets = Insets(0, 20, 0, 0)
-        threeCenteredButtonsPlaceHolder.add(visToggleVols, bc)
-//        bc.insets = Insets(0, 0, 0, 20)
+        fourButtonsPlaceholder.add(visToggleVols, bc)
+        bc.gridx = 3
+        bc.insets = Insets(0, 20, 0, 0)
+        fourButtonsPlaceholder.add(visToggleTracks, bc)
 
         // -------------- button row --------------
         c.gridy++
-        c.gridx = 0
+        c.gridx = 1
         c.gridwidth = 1
-        c.anchor = GridBagConstraints.LINE_END
+        c.anchor = GridBagConstraints.EAST
+//        c.insets = Insets(0, 0, 10, 0)
         val closeBtn = JButton("Close")
         closeBtn.addActionListener { bridge.detachControllingUI() }
-        insertRColumnItem(closeBtn, c)
+//        insertRColumnItem(closeBtn, c)
+        controlsWindowPanel.add(closeBtn, c)
     }
 
     val sideSpace = 15
@@ -230,11 +251,15 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
 
     val toggleSpotsVisibility = ActionListener {
         val newState = !controlledBridge.sphereParent.visible
-        controlledBridge.setVisibilityOfSpots(newState)
+        controlledBridge.sphereParent.visible = newState
     }
     val toggleVolumeVisibility = ActionListener {
         val newState = !controlledBridge.volumeNode.visible
         controlledBridge.setVisibilityOfVolume(newState)
+    }
+    val toggleTrackVisivility = ActionListener {
+        val newState = !controlledBridge.linkParent.visible
+        controlledBridge.linkParent.visible = newState
     }
 
     val autoAdjustIntensity = ActionListener {
@@ -289,13 +314,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         bridge.updateVolAutomatically = updVolAutoBackup
     }
 
-    //int SOURCE_ID = 0;
-    //int SOURCE_USED_RES_LEVEL = 0;
-    lateinit var INTENSITY_CONTRAST: SpinnerModel
-    lateinit var INTENSITY_SHIFT: SpinnerModel
-    lateinit var INTENSITY_CLAMP_AT_TOP: SpinnerModel
-    lateinit var INTENSITY_GAMMA: SpinnerModel
-    lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
+
     val rangeSliderListener = ChangeListener {
         controlledBridge.intensity.rangeMin = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toFloat()
         controlledBridge.intensity.rangeMax = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toFloat()
@@ -303,11 +322,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         controlledBridge.volumeNode.maxDisplayRange = controlledBridge.intensity.rangeMax
     }
 
-    //
-    lateinit var visToggleSpots: JButton
-    lateinit var visToggleVols: JButton
-    lateinit var autoIntensityBtn: JToggleButton
-    lateinit var lockGroupHandler: GroupLocksHandling
+
 
     init {
         this.controlledBridge = controlledBridge

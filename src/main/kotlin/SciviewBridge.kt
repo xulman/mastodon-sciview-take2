@@ -185,11 +185,6 @@ class SciviewBridge {
         logger.info("Mastodon-sciview Bridge closing procedure: UI and keyboard handlers are removed now")
         sciviewWin.setActiveNode(axesParent)
         logger.info("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes")
-
-        //first make invisible, then remove...
-        setVisibilityOfVolume(false)
-        setVisibilityOfSpots(false)
-        logger.debug("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
         val updateGraceTime = 100L // in ms
         try {
             sciviewWin.deleteNode(volumeNode, true)
@@ -414,15 +409,6 @@ class SciviewBridge {
             volumeNode.children.stream()
                 .filter { c: Node -> c.name.startsWith("Bounding") }
                 .forEach { c: Node -> c.visible = false }
-        }
-    }
-
-    fun setVisibilityOfSpots(state: Boolean) {
-        sphereParent.visible = state
-        if (state) {
-            sphereParent
-                .getChildrenByName(SphereLinkNodes.NAME_OF_NOT_USED_SPHERES)
-                .forEach { s: Node -> s.visible = false }
         }
     }
 
