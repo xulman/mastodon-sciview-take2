@@ -279,14 +279,14 @@ class SphereLinkNodes(
         when (colorMode) {
             SphereLinkNodes.colorMode.LUT -> {
                 for (link in links) {
-                    val factor = link.to.timepoint / numTimePoints.toDouble()
+                    val factor = link.tp / numTimePoints.toDouble()
                     val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
                     link.instance.instancedProperties["Color"] = { color }
                 }
             }
             SphereLinkNodes.colorMode.RAINBOW -> {
                 for (link in links) {
-                    val factor = (link.to.timepoint.toFloat() / numTimePoints.toFloat() * 360).toInt()
+                    val factor = (link.tp / numTimePoints.toFloat() * 360).toInt()
                     val color = hsvToArgb(factor, 100, 100)
                     link.instance.instancedProperties["Color"] = { color }
                 }
@@ -381,7 +381,7 @@ class SphereLinkNodes(
             }
             inst.name = from.label + " --> " + to.label
             inst.parent = linkParentNode
-            links.add(LinkNode(inst, from, to))
+            links.add(LinkNode(inst, from, to, from.timepoint))
 
             minTP = minTP.coerceAtMost(from.timepoint)
             maxTP = maxTP.coerceAtLeast(to.timepoint)
@@ -458,4 +458,4 @@ class SphereLinkNodes(
     }
 }
 
-data class LinkNode (val instance: InstancedNode.Instance, val from: Spot, val to: Spot)
+data class LinkNode (val instance: InstancedNode.Instance, val from: Spot, val to: Spot, val tp: Int)
