@@ -420,6 +420,7 @@ class SciviewBridge {
     }
 
     val detachedDPP_withOwnTime: DPP_DetachedOwnTime
+
     fun showTimepoint(timepoint: Int) {
         detachedDPP_withOwnTime.timepoint = timepoint
         updateSciviewContent(detachedDPP_withOwnTime)
@@ -427,48 +428,27 @@ class SciviewBridge {
 
     private fun registerKeyboardHandlers() {
 
-        val handler = sciviewWin.sceneryInputHandler
-        handler?.addKeyBinding(desc_DEC_SPH, key_DEC_SPH)
-        handler?.addBehaviour(desc_DEC_SPH, ClickBehaviour { _, _ ->
-            sphereLinkNodes.decreaseSphereScale()
-            updateUI()
-        })
+        data class BehaviourTriple(val name: String, val key: String, val lambda: ClickBehaviour)
 
-        handler?.addKeyBinding(desc_INC_SPH, key_INC_SPH)
-        handler?.addBehaviour(desc_INC_SPH, ClickBehaviour { _, _ ->
-            sphereLinkNodes.increaseSphereScale()
-            updateUI()
-        })
+        val handler = sciviewWin.sceneryInputHandler ?: throw IllegalStateException("Could not find input handler!")
 
-        handler?.addKeyBinding(desc_DEC_LINK, key_DEC_LINK)
-        handler?.addBehaviour(desc_DEC_LINK, ClickBehaviour { _, _ ->
-            sphereLinkNodes.decreaseLinkScale()
-            updateUI()
-        })
+        val behaviourCollection = arrayOf(
+            BehaviourTriple(desc_DEC_SPH, key_DEC_SPH, { _, _ -> sphereLinkNodes.decreaseSphereScale(); updateUI() }),
+            BehaviourTriple(desc_INC_SPH, key_INC_SPH, { _, _ -> sphereLinkNodes.increaseSphereScale(); updateUI() }),
+            BehaviourTriple(desc_DEC_LINK, key_DEC_LINK, { _, _ -> sphereLinkNodes.decreaseLinkScale(); updateUI() }),
+            BehaviourTriple(desc_INC_LINK, key_INC_LINK, { _, _ -> sphereLinkNodes.increaseLinkScale(); updateUI() }),
+            BehaviourTriple(desc_CTRL_WIN, key_CTRL_WIN, { _, _ -> createAndShowControllingUI() }),
+            BehaviourTriple(desc_CTRL_INFO, key_CTRL_INFO, { _, _ -> logger.info(this.toString()) }),
+            BehaviourTriple(desc_PREV_TP, key_PREV_TP, { _, _ -> detachedDPP_withOwnTime.prevTimepoint()
+                updateSciviewContent(detachedDPP_withOwnTime) }),
+            BehaviourTriple(desc_NEXT_TP, key_NEXT_TP, { _, _ -> detachedDPP_withOwnTime.nextTimepoint()
+                updateSciviewContent(detachedDPP_withOwnTime) })
+        )
 
-        handler?.addKeyBinding(desc_INC_LINK, key_INC_LINK)
-        handler?.addBehaviour(desc_INC_LINK, ClickBehaviour { _, _ ->
-            sphereLinkNodes.increaseLinkScale()
-            updateUI()
-        })
-
-        handler?.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN)
-        handler?.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
-
-        handler?.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO)
-        handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> logger.info(this.toString()) })
-
-        handler?.addKeyBinding(desc_PREV_TP, key_PREV_TP)
-        handler?.addBehaviour(desc_PREV_TP, ClickBehaviour { _, _ ->
-            detachedDPP_withOwnTime.prevTimepoint()
-            updateSciviewContent(detachedDPP_withOwnTime)
-        })
-
-        handler?.addKeyBinding(desc_NEXT_TP, key_NEXT_TP)
-        handler?.addBehaviour(desc_NEXT_TP, ClickBehaviour { _, _ ->
-            detachedDPP_withOwnTime.nextTimepoint()
-            updateSciviewContent(detachedDPP_withOwnTime)
-        })
+        behaviourCollection.forEach {
+            handler.addKeyBinding(it.name, it.key)
+            handler.addBehaviour(it.name, it.lambda)
+        }
     }
 
     private fun deregisterKeyboardHandlers() {
