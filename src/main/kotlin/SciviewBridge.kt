@@ -302,7 +302,7 @@ class SciviewBridge {
     }
 
     private var recentTagSet: TagSetStructure.TagSet? = null
-    private var recentColorizer: GraphColorGenerator<Spot, Link>? = null
+    var recentColorizer: GraphColorGenerator<Spot, Link>? = null
     private val noTSColorizer = DefaultGraphColorGenerator<Spot, Link>()
     private fun getCurrentColorizer(forThisBdv: MamutViewBdv): GraphColorGenerator<Spot, Link> {
         //NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending

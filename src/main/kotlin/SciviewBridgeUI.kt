@@ -2,6 +2,7 @@ package org.mastodon.mamut
 
 import util.AdjustableBoundsRangeSlider
 import util.GroupLocksHandling
+import util.SphereLinkNodes
 import java.awt.*
 import java.awt.event.ActionListener
 import java.util.function.Consumer
@@ -26,6 +27,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var visToggleTracks: JButton
     lateinit var autoIntensityBtn: JToggleButton
     lateinit var lockGroupHandler: GroupLocksHandling
+    lateinit var colormapSelector: JComboBox<String>
 
     // -------------------------------------------------------------------------------------------
     private fun populatePane() {
@@ -118,6 +120,24 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
             10000
         )
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener)
+
+        // link parameters
+        c.gridy++
+        val linkPlaceholder = JPanel()
+        controlsWindowPanel.add(linkPlaceholder, c)
+        linkPlaceholder.setLayout(GridBagLayout())
+        val linkRow = GridBagConstraints()
+        linkRow.fill = GridBagConstraints.HORIZONTAL
+        linkRow.gridx = 0
+        // TODO this is still broken
+        insertLabel("Select track color:", linkRow)
+        linkRow.gridx = 1
+        val choices = arrayOf("By Spot", "Rainbow", "Fire")
+        colormapSelector = JComboBox(choices)
+        linkPlaceholder.add(colormapSelector, linkRow)
+        colormapSelector.addActionListener(chooseColormap)
+
+        // the four toggle buttons
         c.gridy++
         visToggleSpots = JButton("Toggle spots")
         visToggleSpots.addActionListener(toggleSpotsVisibility)
@@ -133,21 +153,22 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         controlsWindowPanel.add(fourButtonsPlaceholder, c)
         //
         fourButtonsPlaceholder.setLayout(GridBagLayout())
-        val bc = GridBagConstraints()
-        bc.fill = GridBagConstraints.HORIZONTAL
-        bc.weightx = 0.4
-        bc.gridx = 0
+        val buttonRow = GridBagConstraints()
+        buttonRow.fill = GridBagConstraints.HORIZONTAL
+        buttonRow.anchor = GridBagConstraints.WEST
+        buttonRow.weightx = 0.4
+        buttonRow.gridx = 0
 //        bc.insets = Insets(0, 20, 0, 0)
-        fourButtonsPlaceholder.add(autoIntensityBtn, bc)
-        bc.gridx = 1
-        bc.insets = Insets(0, 20, 0, 0)
-        fourButtonsPlaceholder.add(visToggleSpots, bc)
-        bc.gridx = 2
-        bc.insets = Insets(0, 20, 0, 0)
-        fourButtonsPlaceholder.add(visToggleVols, bc)
-        bc.gridx = 3
-        bc.insets = Insets(0, 20, 0, 0)
-        fourButtonsPlaceholder.add(visToggleTracks, bc)
+        fourButtonsPlaceholder.add(autoIntensityBtn, buttonRow)
+        buttonRow.gridx = 1
+        buttonRow.insets = Insets(0, 20, 0, 0)
+        fourButtonsPlaceholder.add(visToggleSpots, buttonRow)
+        buttonRow.gridx = 2
+        buttonRow.insets = Insets(0, 20, 0, 0)
+        fourButtonsPlaceholder.add(visToggleVols, buttonRow)
+        buttonRow.gridx = 3
+        buttonRow.insets = Insets(0, 20, 0, 0)
+        fourButtonsPlaceholder.add(visToggleTracks, buttonRow)
 
         // -------------- button row --------------
         c.gridy++
@@ -248,6 +269,18 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
 
     val spinnerModelsWithListeners: MutableList<OwnerAwareSpinnerChangeListener> = ArrayList(10)
     val checkBoxesWithListeners: MutableList<JCheckBox> = ArrayList(10)
+
+    val chooseColormap = ActionListener { _ ->
+        when (colormapSelector.selectedItem) {
+            "By Spot" -> { controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.SPOT }
+            "Rainbow" -> {controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.RAINBOW }
+            "Fire" -> {
+                controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.LUT
+                controlledBridge.sphereLinkNodes.setLUT("Fire.lut")
+            }
+        }
+        controlledBridge.recentColorizer?.let { controlledBridge.sphereLinkNodes.updateLinkColors(it) }
+    }
 
     val toggleSpotsVisibility = ActionListener {
         val newState = !controlledBridge.sphereParent.visible
