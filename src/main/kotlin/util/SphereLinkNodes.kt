@@ -19,6 +19,7 @@ import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
 import org.mastodon.spatial.SpatialIndex
 import org.mastodon.ui.coloring.GraphColorGenerator
+import org.ojalgo.array.Array2D
 import org.scijava.event.EventService
 import sc.iview.SciView
 import java.awt.Color
@@ -38,7 +39,7 @@ class SphereLinkNodes(
     var linkScaleFactor = 1f
     var DEFAULT_COLOR = 0x00FFFFFF
     var numTimePoints: Int
-    var lut: ColorTable
+    lateinit var lut: ColorTable
     lateinit var currentColorMode: colorMode
     val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
     private var spotRef: Spot? = null
@@ -54,8 +55,12 @@ class SphereLinkNodes(
         events = sv.scijavaContext?.getService(EventService::class.java)
         numTimePoints = mastodonData.maxTimepoint
 
-        lut = sv.getLUT("Fire.lut")
+        setLUT("Fire.lut")
         currentColorMode = colorMode.LUT
+    }
+
+    fun setLUT(lutName: String) {
+        lut = sv.getLUT(lutName)
     }
 
     /** The following types are allowed for track coloring:
@@ -91,6 +96,7 @@ class SphereLinkNodes(
 
         if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
         val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
+        mastodonData.selectionModel
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         sv.blockOnNewNodes = false
 
@@ -121,7 +127,6 @@ class SphereLinkNodes(
             covariance = Array2DRowRealMatrix(covArray)
             val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
-
             inst.spatial {
                 position = Vector3f(spotPosition)
                 scale = axisLengths * sphereScaleFactor
@@ -141,27 +146,30 @@ class SphereLinkNodes(
         while (i < spotPool.size) {
             spotPool[i++].visible = false
         }
-
     }
 
     private val spotPosition = FloatArray(3)
 
-    fun computeEigen(covariance: Array2DRowRealMatrix): Pair<DoubleArray, RealMatrix> {
+    private fun computeEigen(covariance: Array2DRowRealMatrix): Pair<DoubleArray, RealMatrix> {
         val eigenDecomposition = EigenDecomposition(covariance)
         val eigenvalues = eigenDecomposition.realEigenvalues
         val eigenvectors = eigenDecomposition.v
+        val tempRow = eigenvectors.getRow(0)
+//        eigenvectors.setRow(0, eigenvectors.getRow(2))
+//        eigenvectors.setRow(2, tempRow)
         return Pair(eigenvalues, eigenvectors)
     }
 
-    fun computeSemiAxes(eigenvalues: DoubleArray): Vector3f {
+    private fun computeSemiAxes(eigenvalues: DoubleArray): Vector3f {
         return Vector3f(
-            sqrt(eigenvalues[0]).toFloat(),
+            // flip X and Z axes to align with the sciview coordinate system (is this correct??)
+            sqrt(eigenvalues[2]).toFloat(),
             sqrt(eigenvalues[1]).toFloat(),
-            sqrt(eigenvalues[2]).toFloat()
+            sqrt(eigenvalues[0]).toFloat()
         )
     }
 
-    fun matrixToQuaternion(eigenvectors: RealMatrix): Quaternionf {
+    private fun matrixToQuaternion(eigenvectors: RealMatrix): Quaternionf {
         val matrix3f = Matrix3f()
         for (i in 0 until 3) {
             for (j in 0 until 3) {
@@ -172,7 +180,7 @@ class SphereLinkNodes(
     }
 
     // stretch color channels
-    fun Vector3f.stretchColor(): Vector3f {
+    private fun Vector3f.stretchColor(): Vector3f {
         this.x.coerceIn(0f, 1f)
         this.y.coerceIn(0f, 1f)
         this.z.coerceIn(0f, 1f)
@@ -273,7 +281,7 @@ class SphereLinkNodes(
      * When set to [colorMode.SPOT], it uses the [colorizer] to get the spot colors. */
     fun updateLinkColors (
         colorizer: GraphColorGenerator<Spot, Link>,
-        colorMode: colorMode
+        colorMode: colorMode =  currentColorMode
     ) {
 
         when (colorMode) {
@@ -286,6 +294,7 @@ class SphereLinkNodes(
             }
             SphereLinkNodes.colorMode.RAINBOW -> {
                 for (link in links) {
+
                     val factor = (link.tp / numTimePoints.toFloat() * 360).toInt()
                     val color = hsvToArgb(factor, 100, 100)
                     link.instance.instancedProperties["Color"] = { color }
@@ -381,7 +390,7 @@ class SphereLinkNodes(
             }
             inst.name = from.label + " --> " + to.label
             inst.parent = linkParentNode
-            links.add(LinkNode(inst, from, to, from.timepoint))
+            links.add(LinkNode(inst, from, to, to.timepoint))
 
             minTP = minTP.coerceAtMost(from.timepoint)
             maxTP = maxTP.coerceAtLeast(to.timepoint)
