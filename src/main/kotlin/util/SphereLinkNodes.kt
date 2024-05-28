@@ -25,6 +25,7 @@ import sc.iview.SciView
 import java.awt.Color
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 import kotlin.math.sqrt
 
 class SphereLinkNodes(
@@ -291,25 +292,36 @@ class SphereLinkNodes(
         when (cm) {
             colorMode.LUT -> {
                 for (link in links) {
-                    val factor = link.tp / numTimePoints.toDouble()
+                    val factor = link.value.tp / numTimePoints.toDouble()
                     val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
-                    link.instance.instancedProperties["Color"] = { color }
+                    link.value.instance.instancedProperties["Color"] = { color }
                 }
             }
             colorMode.SPOT -> {
                 if (colorizer != null) {
-                    for (link in links) {
-                        link.instance.setColorFromSpot(link.to, colorizer)
+                    for (tp in 0 until numTimePoints) {
+                        val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(tp)
+                        spots.forEach { spot ->
+                            links[spot.generateHash()]?.instance?.setColorFromSpot(spot, colorizer)
+                        }
                     }
                 }
             }
         }
     }
 
+    /** This function generates a unique hash for every spot, using its time-point and internal pool index. */
+    fun Spot.generateHash() : Int {
+        val hash = this.timepoint * 239 + this.internalPoolIndex * 337
+        return (hash % Int.MAX_VALUE)
+
+    }
+
     val linkSize = 2.0
 
     var linksNodesHub: Node? = null // gathering node in sciview -- a links node associated to its spots node
-    var links: MutableList<LinkNode> = ArrayList() // list of links of this spot
+    // list of all link segments
+    var links: HashMap<Int, LinkNode> = HashMap()
 
     var selectionStorage: Node = RichNode()
     var refSpot: Spot? = null
@@ -385,7 +397,8 @@ class SphereLinkNodes(
             }
             inst.name = from.label + " --> " + to.label
             inst.parent = linkParentNode
-            links.add(LinkNode(inst, from, to, to.timepoint))
+            // add a new key-value pair to the hash map
+            links[to.generateHash()] = LinkNode(inst, from, to, to.timepoint)
 
             minTP = minTP.coerceAtMost(from.timepoint)
             maxTP = maxTP.coerceAtLeast(to.timepoint)
@@ -433,8 +446,8 @@ class SphereLinkNodes(
         links.iterator().let {
             while (it.hasNext() == true) {
                 val link = it.next()
-                if (link.from.timepoint < fromTP || link.to.timepoint > toTP) {
-                    linksNodesHub?.removeChild(link.instance)
+                if (link.value.from.timepoint < fromTP || link.value.to.timepoint > toTP) {
+                    linksNodesHub?.removeChild(link.value.instance)
                     it.remove()
                 }
             }
@@ -452,7 +465,7 @@ class SphereLinkNodes(
 
     fun setupEmptyLinks() {
         linksNodesHub = RichNode()
-        links = LinkedList()
+        links = HashMap()
         minTP = 999999
         maxTP = -1
     }
