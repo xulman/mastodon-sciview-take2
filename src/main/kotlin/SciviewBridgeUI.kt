@@ -1,5 +1,6 @@
 package org.mastodon.mamut
 
+import graphics.scenery.utils.lazyLogger
 import util.AdjustableBoundsRangeSlider
 import util.GroupLocksHandling
 import util.SphereLinkNodes
@@ -13,6 +14,7 @@ import javax.swing.event.ChangeListener
 class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Container) {
     var controlledBridge: SciviewBridge?
     val controlsWindowPanel: Container
+    private val logger by lazyLogger()
 
     //int SOURCE_ID = 0;
     //int SOURCE_USED_RES_LEVEL = 0;
@@ -27,7 +29,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var visToggleTracks: JButton
     lateinit var autoIntensityBtn: JToggleButton
     lateinit var lockGroupHandler: GroupLocksHandling
-    lateinit var colormapSelector: JComboBox<String>
+    lateinit var linkColorSelector: JComboBox<String>
 
     // -------------------------------------------------------------------------------------------
     private fun populatePane() {
@@ -121,7 +123,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         )
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener)
 
-        // link parameters
+        // color parameters
         c.gridy++
         val linkPlaceholder = JPanel()
         controlsWindowPanel.add(linkPlaceholder, c)
@@ -129,13 +131,24 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         val linkRow = GridBagConstraints()
         linkRow.fill = GridBagConstraints.HORIZONTAL
         linkRow.gridx = 0
-        // TODO this is still broken
-        insertLabel("Select track color:", linkRow)
+        controlsWindowPanel.add(Label("Link colors: "), c)
         linkRow.gridx = 1
-        val choices = arrayOf("By Spot", "Rainbow", "Fire")
-        colormapSelector = JComboBox(choices)
-        linkPlaceholder.add(colormapSelector, linkRow)
-        colormapSelector.addActionListener(chooseColormap)
+        // add the first choice of the list manually
+        val choices = mutableListOf("By Spot")
+        // get the rest of the LUTs from sciview and clean up their names
+        val cb = controlledBridge ?: throw IllegalStateException("No initialized Sciview Bridge found!")
+        val availableLUTs = cb.sciviewWin.getAvailableLUTs() as MutableList<String>
+        for (i in availableLUTs.indices) {
+            availableLUTs[i] = availableLUTs[i].removeSuffix(".lut")
+        }
+        choices.addAll(availableLUTs)
+
+        // create dropdown menu for link LUTs
+        linkColorSelector = JComboBox(choices.toTypedArray())
+        linkColorSelector.setSelectedItem("Fire")
+        linkPlaceholder.add(linkColorSelector, linkRow)
+        linkColorSelector.addActionListener(chooseColormap)
+
 
         // the four toggle buttons
         c.gridy++
@@ -271,15 +284,15 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     val checkBoxesWithListeners: MutableList<JCheckBox> = ArrayList(10)
 
     val chooseColormap = ActionListener { _ ->
-        when (colormapSelector.selectedItem) {
+        when (linkColorSelector.selectedItem) {
             "By Spot" -> { controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.SPOT }
-            "Rainbow" -> {controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.RAINBOW }
-            "Fire" -> {
+            else -> {
                 controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.LUT
-                controlledBridge.sphereLinkNodes.setLUT("Fire.lut")
+                controlledBridge.sphereLinkNodes.setLUT("${linkColorSelector.selectedItem}.lut")
             }
         }
-        controlledBridge.recentColorizer?.let { controlledBridge.sphereLinkNodes.updateLinkColors(it) }
+        logger.info("available luts: ${controlledBridge.sciviewWin.getAvailableLUTs()}")
+        controlledBridge.sphereLinkNodes.updateLinkColors(controlledBridge.recentColorizer ?: controlledBridge.noTSColorizer)
     }
 
     val toggleSpotsVisibility = ActionListener {

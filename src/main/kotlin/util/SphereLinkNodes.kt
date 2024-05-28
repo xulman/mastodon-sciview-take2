@@ -7,6 +7,7 @@ import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
 import net.imglib2.display.ColorTable
+import okio.FileNotFoundException
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
 import org.apache.commons.math3.linear.RealMatrix
@@ -19,7 +20,6 @@ import org.mastodon.mamut.model.Link
 import org.mastodon.mamut.model.Spot
 import org.mastodon.spatial.SpatialIndex
 import org.mastodon.ui.coloring.GraphColorGenerator
-import org.ojalgo.array.Array2D
 import org.scijava.event.EventService
 import sc.iview.SciView
 import java.awt.Color
@@ -60,14 +60,17 @@ class SphereLinkNodes(
     }
 
     fun setLUT(lutName: String) {
-        lut = sv.getLUT(lutName)
+        try {
+            lut = sv.getLUT(lutName)
+        } catch (e: Exception) {
+            logger.error("Could not find LUT $lutName.")
+        }
     }
 
     /** The following types are allowed for track coloring:
      * - [LUT] uses a colormap, defaults to Fire.lut
-     * - [RAINBOW] uses saturated colors across the whole hue spectrum
      * - [SPOT] uses the spot color from the connected spot */
-    enum class colorMode { LUT, RAINBOW, SPOT }
+    enum class colorMode { LUT, SPOT }
 
     /** Shows or initializes the main spot instance, publishes it to the scene and populates it with instances from the current time-point. */
     fun showInstancedSpots(
@@ -275,34 +278,29 @@ class SphereLinkNodes(
         spots.forEach { spot ->
             searchAndConnectSpots(spot, numTimePoints, colorizer, true)
         }
+        // first update the link colors without providing a colorizer, because no BDV window has been opened yet
+        updateLinkColors(null)
     }
 
-    /** Traverse and update the colors of all [links] using the provided [colorMode].
-     * When set to [colorMode.SPOT], it uses the [colorizer] to get the spot colors. */
+    /** Traverse and update the colors of all [links] using the provided [cm].
+     * When set to [cm.SPOT], it uses the [colorizer] to get the spot colors. */
     fun updateLinkColors (
-        colorizer: GraphColorGenerator<Spot, Link>,
-        colorMode: colorMode =  currentColorMode
+        colorizer: GraphColorGenerator<Spot, Link>?,
+        cm: colorMode =  currentColorMode
     ) {
-
-        when (colorMode) {
-            SphereLinkNodes.colorMode.LUT -> {
+        when (cm) {
+            colorMode.LUT -> {
                 for (link in links) {
                     val factor = link.tp / numTimePoints.toDouble()
                     val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
                     link.instance.instancedProperties["Color"] = { color }
                 }
             }
-            SphereLinkNodes.colorMode.RAINBOW -> {
-                for (link in links) {
-
-                    val factor = (link.tp / numTimePoints.toFloat() * 360).toInt()
-                    val color = hsvToArgb(factor, 100, 100)
-                    link.instance.instancedProperties["Color"] = { color }
-                }
-            }
-            SphereLinkNodes.colorMode.SPOT -> {
-                for (link in links) {
-                    link.instance.setColorFromSpot(link.to, colorizer)
+            colorMode.SPOT -> {
+                if (colorizer != null) {
+                    for (link in links) {
+                        link.instance.setColorFromSpot(link.to, colorizer)
+                    }
                 }
             }
         }
@@ -374,9 +372,6 @@ class SphereLinkNodes(
             val color = when (currentColorMode) {
                 colorMode.LUT -> {
                     unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
-                }
-                colorMode.RAINBOW -> {
-                    hsvToArgb((factor * 360).toInt(), 100, 100)
                 }
                 colorMode.SPOT -> {
                     unpackRGB(colorizer.color(to))
