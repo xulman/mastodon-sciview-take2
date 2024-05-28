@@ -30,6 +30,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var autoIntensityBtn: JToggleButton
     lateinit var lockGroupHandler: GroupLocksHandling
     lateinit var linkColorSelector: JComboBox<String>
+    lateinit var volumeColorSelector: JComboBox<String>
 
     // -------------------------------------------------------------------------------------------
     private fun populatePane() {
@@ -125,30 +126,39 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
 
         // color parameters
         c.gridy++
-        val linkPlaceholder = JPanel()
-        controlsWindowPanel.add(linkPlaceholder, c)
-        linkPlaceholder.setLayout(GridBagLayout())
-        val linkRow = GridBagConstraints()
-        linkRow.fill = GridBagConstraints.HORIZONTAL
-        linkRow.gridx = 0
-        controlsWindowPanel.add(Label("Link colors: "), c)
-        linkRow.gridx = 1
+        val colorPlaceholder = JPanel()
+        controlsWindowPanel.add(colorPlaceholder, c)
+        colorPlaceholder.setLayout(GridBagLayout())
+        val coloringRow = GridBagConstraints()
+        coloringRow.fill = GridBagConstraints.HORIZONTAL
+        coloringRow.gridx = 0
+        colorPlaceholder.add(Label("Link colors: "), coloringRow)
+        coloringRow.gridx = 1
         // add the first choice of the list manually
-        val choices = mutableListOf("By Spot")
+        val linkColorChoices = mutableListOf("By Spot")
         // get the rest of the LUTs from sciview and clean up their names
         val cb = controlledBridge ?: throw IllegalStateException("No initialized Sciview Bridge found!")
         val availableLUTs = cb.sciviewWin.getAvailableLUTs() as MutableList<String>
         for (i in availableLUTs.indices) {
             availableLUTs[i] = availableLUTs[i].removeSuffix(".lut")
         }
-        choices.addAll(availableLUTs)
+        linkColorChoices.addAll(availableLUTs)
 
         // create dropdown menu for link LUTs
-        linkColorSelector = JComboBox(choices.toTypedArray())
+        linkColorSelector = JComboBox(linkColorChoices.toTypedArray())
         linkColorSelector.setSelectedItem("Fire")
-        linkPlaceholder.add(linkColorSelector, linkRow)
-        linkColorSelector.addActionListener(chooseColormap)
+        colorPlaceholder.add(linkColorSelector, coloringRow)
+        linkColorSelector.addActionListener(chooseLinkColormap)
 
+        // Volume colors
+        coloringRow.gridx = 2
+        coloringRow.insets = Insets(0, 10, 0, 0)
+        colorPlaceholder.add(Label("Volume colors: "), coloringRow)
+        coloringRow.gridx = 3
+        volumeColorSelector = JComboBox(availableLUTs.toTypedArray())
+        volumeColorSelector.setSelectedItem("Grays")
+        colorPlaceholder.add(volumeColorSelector, coloringRow)
+        volumeColorSelector.addActionListener(chooseVolumeColormap)
 
         // the four toggle buttons
         c.gridy++
@@ -193,6 +203,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         closeBtn.addActionListener { bridge.detachControllingUI() }
 //        insertRColumnItem(closeBtn, c)
         controlsWindowPanel.add(closeBtn, c)
+//        c.insets = Insets(10, 0, 10, 0)
     }
 
     val sideSpace = 15
@@ -283,16 +294,24 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     val spinnerModelsWithListeners: MutableList<OwnerAwareSpinnerChangeListener> = ArrayList(10)
     val checkBoxesWithListeners: MutableList<JCheckBox> = ArrayList(10)
 
-    val chooseColormap = ActionListener { _ ->
+    val chooseLinkColormap = ActionListener { _ ->
         when (linkColorSelector.selectedItem) {
-            "By Spot" -> { controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.SPOT }
+            "By Spot" -> {
+                controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.SPOT
+                logger.info("Coloring links by spot color")
+            }
             else -> {
                 controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.LUT
                 controlledBridge.sphereLinkNodes.setLUT("${linkColorSelector.selectedItem}.lut")
+                logger.info("Coloring links with LUT $linkColorSelector.selectedItem")
             }
         }
-        logger.info("available luts: ${controlledBridge.sciviewWin.getAvailableLUTs()}")
         controlledBridge.sphereLinkNodes.updateLinkColors(controlledBridge.recentColorizer ?: controlledBridge.noTSColorizer)
+    }
+
+    val chooseVolumeColormap = ActionListener {
+        controlledBridge.sciviewWin.setColormap(controlledBridge.volumeNode, "${volumeColorSelector.selectedItem}.lut")
+        logger.info("Coloring volume with LUT $volumeColorSelector.selectedItem")
     }
 
     val toggleSpotsVisibility = ActionListener {
