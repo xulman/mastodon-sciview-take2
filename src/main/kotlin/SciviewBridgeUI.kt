@@ -27,6 +27,8 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var visToggleSpots: JButton
     lateinit var visToggleVols: JButton
     lateinit var visToggleTracks: JButton
+    lateinit var linkRangeBackwards: SpinnerModel
+    lateinit var linkRangeForwards: SpinnerModel
     lateinit var autoIntensityBtn: JToggleButton
     lateinit var lockGroupHandler: GroupLocksHandling
     lateinit var linkColorSelector: JComboBox<String>
@@ -124,6 +126,30 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         )
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener)
 
+
+        // links window range
+        c.gridy++
+        c.gridx = 0
+        insertLabel("Link window range backwards", c)
+        c.gridx = 1
+        linkRangeBackwards = SpinnerNumberModel(bridge.mastodon.maxTimepoint, 0, bridge.mastodon.maxTimepoint, 1)
+        insertSpinner(
+            linkRangeBackwards,
+            {f: Float -> bridge.sphereLinkNodes.linkBackwardRange = f.toInt()},
+            c)
+
+        c.gridy++
+        c.gridx = 0
+        insertLabel("Link window range forwards:", c)
+        c.gridx = 1
+        linkRangeForwards = SpinnerNumberModel(bridge.mastodon.maxTimepoint, 0, bridge.mastodon.maxTimepoint, 1)
+        insertSpinner(
+            linkRangeForwards,
+            {f: Float -> bridge.sphereLinkNodes.linkForwardRange = f.toInt()},
+            c
+        )
+
+
         // color parameters
         c.gridy++
         val colorPlaceholder = JPanel()
@@ -137,8 +163,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         // add the first choice of the list manually
         val linkColorChoices = mutableListOf("By Spot")
         // get the rest of the LUTs from sciview and clean up their names
-        val cb = controlledBridge ?: throw IllegalStateException("No initialized Sciview Bridge found!")
-        val availableLUTs = cb.sciviewWin.getAvailableLUTs() as MutableList<String>
+        val availableLUTs = bridge.sciviewWin.getAvailableLUTs() as MutableList<String>
         for (i in availableLUTs.indices) {
             availableLUTs[i] = availableLUTs[i].removeSuffix(".lut")
         }

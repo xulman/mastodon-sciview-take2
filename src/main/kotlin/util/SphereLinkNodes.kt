@@ -51,6 +51,8 @@ class SphereLinkNodes(
     var mainSpotInstance: InstancedNode? = null
     var mainLinkInstance: InstancedNode? = null
     lateinit var spots: SpatialIndex<Spot>
+    var linkForwardRange: Int
+    var linkBackwardRange: Int
 
     init {
         events = sv.scijavaContext?.getService(EventService::class.java)
@@ -58,6 +60,9 @@ class SphereLinkNodes(
 
         setLUT("Fire.lut")
         currentColorMode = colorMode.LUT
+
+        linkForwardRange = mastodonData.maxTimepoint
+        linkBackwardRange = mastodonData.maxTimepoint
     }
 
     fun setLUT(lutName: String) {
@@ -320,6 +325,13 @@ class SphereLinkNodes(
         }
         val end = TimeSource.Monotonic.markNow()
         logger.info("Link coloring took ${end - start}.")
+    }
+
+    fun updateLinkVisibility(currentTP: Int) {
+        links.forEach {link ->
+            // turns the link on if it is within range, otherwise turns it off
+            link.value.instance.visible = link.value.tp in currentTP - linkBackwardRange..currentTP + linkForwardRange
+        }
     }
 
     /** This function generates a unique hash for every spot, using its time-point and internal pool index. */
