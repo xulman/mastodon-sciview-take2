@@ -303,7 +303,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
             else -> {
                 controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.LUT
                 controlledBridge.sphereLinkNodes.setLUT("${linkColorSelector.selectedItem}.lut")
-                logger.info("Coloring links with LUT $linkColorSelector.selectedItem")
+                logger.info("Coloring links with LUT ${linkColorSelector.selectedItem}")
             }
         }
         controlledBridge.sphereLinkNodes.updateLinkColors(controlledBridge.recentColorizer ?: controlledBridge.noTSColorizer)
@@ -311,7 +311,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
 
     val chooseVolumeColormap = ActionListener {
         controlledBridge.sciviewWin.setColormap(controlledBridge.volumeNode, "${volumeColorSelector.selectedItem}.lut")
-        logger.info("Coloring volume with LUT $volumeColorSelector.selectedItem")
+        logger.info("Coloring volume with LUT ${volumeColorSelector.selectedItem}")
     }
 
     val toggleSpotsVisibility = ActionListener {
