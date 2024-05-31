@@ -7,7 +7,6 @@ import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
 import net.imglib2.display.ColorTable
-import okio.FileNotFoundException
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
 import org.apache.commons.math3.linear.RealMatrix
@@ -24,9 +23,10 @@ import org.scijava.event.EventService
 import sc.iview.SciView
 import java.awt.Color
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
 import kotlin.math.sqrt
+import kotlin.time.TimeSource
 
 class SphereLinkNodes(
     val sv: SciView,
@@ -134,7 +134,7 @@ class SphereLinkNodes(
             inst.spatial {
                 position = Vector3f(spotPosition)
                 scale = axisLengths * sphereScaleFactor
-                rotation = matrixToQuaternion(eigenvectors)
+//                rotation = matrixToQuaternion(eigenvectors)
             }
             inst.setColorFromSpot(spot, colorizer)
             // highlight the spot currently selected in BDV
@@ -276,9 +276,18 @@ class SphereLinkNodes(
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(0)
         numTimePoints = mastodonData.maxTimepoint
         mainLinkInstance = mainLink
-        spots.forEach { spot ->
-            searchAndConnectSpots(spot, numTimePoints, colorizer, true)
+//        spots.forEach { spot ->
+//            searchAndConnectSpots(spot, numTimePoints, colorizer, true)
+//        }
+
+        val start = TimeSource.Monotonic.markNow()
+        // TODO use coroutines for this
+        mastodonData.model.graph.edges().forEach { edge ->
+            addLink(edge.source, edge.target, mainLink, colorizer)
         }
+        val end = TimeSource.Monotonic.markNow()
+        logger.info("Edge traversel took ${end - start}.")
+        logger.info("Found a total of ${links.size} links. Should be ${mastodonData.model.graph.edges().size}.")
         // first update the link colors without providing a colorizer, because no BDV window has been opened yet
         updateLinkColors(null)
     }
@@ -289,9 +298,10 @@ class SphereLinkNodes(
         colorizer: GraphColorGenerator<Spot, Link>?,
         cm: colorMode =  currentColorMode
     ) {
+        val start = TimeSource.Monotonic.markNow()
         when (cm) {
             colorMode.LUT -> {
-                for (link in links) {
+                links.forEach {link ->
                     val factor = link.value.tp / numTimePoints.toDouble()
                     val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
                     link.value.instance.instancedProperties["Color"] = { color }
@@ -302,12 +312,14 @@ class SphereLinkNodes(
                     for (tp in 0 until numTimePoints) {
                         val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(tp)
                         spots.forEach { spot ->
-                            links[spot.generateHash()]?.instance?.setColorFromSpot(spot, colorizer)
+                            links[spot.hashCode()]?.instance?.setColorFromSpot(spot, colorizer)
                         }
                     }
                 }
             }
         }
+        val end = TimeSource.Monotonic.markNow()
+        logger.info("Link coloring took ${end - start}.")
     }
 
     /** This function generates a unique hash for every spot, using its time-point and internal pool index. */
@@ -321,16 +333,12 @@ class SphereLinkNodes(
 
     var linksNodesHub: Node? = null // gathering node in sciview -- a links node associated to its spots node
     // list of all link segments
-    var links: HashMap<Int, LinkNode> = HashMap()
+    var links: ConcurrentHashMap<Int, LinkNode> = ConcurrentHashMap()
 
     var selectionStorage: Node = RichNode()
     var refSpot: Spot? = null
     var minTP = 0
     var maxTP = 0
-
-    private val pos = FloatArray(3)
-    private var posF = Vector3f()
-    private var posT = Vector3f()
 
     fun registerNewSpot(spot: Spot) {
         if (refSpot != null) refSpot!!.modelGraph.releaseRef(refSpot)
@@ -359,7 +367,41 @@ class SphereLinkNodes(
 //        events?.publish(NodeChangedEvent(linksNodesHub))
     }
 
-    /** Recursive method that traverses the links of the provided [spot] up until the given timepoint [toTP].
+    fun addLink(from: Spot, to: Spot, mainInstance: InstancedNode, colorizer: GraphColorGenerator<Spot, Link>) {
+
+        // temporary container to get the position as array
+        val pos = FloatArray(3)
+
+        from.localize(pos)
+        val posOrigin = Vector3f(pos)
+        to.localize(pos)
+        val posTarget = Vector3f(pos)
+
+        //NB: posOrigin is base of the "vector" link, posTarget is the "vector" link itself
+        posTarget.sub(posOrigin)
+        val inst = mainInstance.addInstance()
+        inst.addAttribute(Material::class.java, cylinder.material())
+        val factor = to.timepoint / numTimePoints.toDouble()
+        val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
+
+        inst.instancedProperties["Color"] = { color }
+        inst.spatial {
+            scale.set(linkSize, posTarget.length().toDouble(), linkSize)
+            rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posTarget).normalize()
+            position = Vector3f(posOrigin)
+        }
+        inst.name = from.label + " --> " + to.label
+        inst.parent = linkParentNode
+        // add a new key-value pair to the hash map
+        links[from.hashCode()] = LinkNode(inst, from, to, from.timepoint)
+
+//        minTP = minTP.coerceAtMost(from.timepoint)
+//        maxTP = maxTP.coerceAtLeast(to.timepoint)
+
+//            logger.info("added link from ${from.timepoint}/${from.internalPoolIndex} to ${to.timepoint}/${to.internalPoolIndex}")
+    }
+
+    /** Recursive method that traverses the links of the provided [origin] up until the given timepoint [toTP].
      * Forward search is enabled when [forward] is true, otherwise it searches backwards. */
     private fun searchAndConnectSpots(
         spot: Spot,
@@ -370,76 +412,50 @@ class SphereLinkNodes(
         // ensure that the local state of mainInstance is not nullable
         val mainInstance = mainLinkInstance?: throw IllegalStateException("Main link instance was not initialized")
 
-        fun addLink(from: Spot, to: Spot) {
-            from.localize(pos)
-            posF = Vector3f(pos)
-            to.localize(pos)
-            posT = Vector3f(pos)
-
-            posT.sub(posF)
-            //NB: posF is base of the "vector" link, posT is the "vector" link itself
-            val inst = mainInstance.addInstance()
-            inst.addAttribute(Material::class.java, cylinder.material())
-            val factor = to.timepoint / numTimePoints.toDouble()
-            val color = when (currentColorMode) {
-                colorMode.LUT -> {
-                    unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
-                }
-                colorMode.SPOT -> {
-                    unpackRGB(colorizer.color(to))
-                }
-            }
-            inst.instancedProperties["Color"] = { color }
-            inst.spatial {
-                scale.set(linkSize, posT.length().toDouble(), linkSize)
-                rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posT).normalize()
-                position = Vector3f(posF)
-            }
-            inst.name = from.label + " --> " + to.label
-            inst.parent = linkParentNode
-            // add a new key-value pair to the hash map
-            links[to.generateHash()] = LinkNode(inst, from, to, to.timepoint)
-
-            minTP = minTP.coerceAtMost(from.timepoint)
-            maxTP = maxTP.coerceAtLeast(to.timepoint)
-        }
-
         if (forward) {
             // forward search
             if (spot.timepoint >= toTP) return
 
-            val spotRef = spot.modelGraph.vertexRef()
-            for (l in spot.incomingEdges()) {
-                if (l.getSource(spotRef).timepoint > spot.timepoint && spotRef.timepoint <= toTP) {
-                    addLink(spot, spotRef)
-                    searchAndConnectSpots(spotRef, toTP, colorizer, true)
-                }
+//            val originRef = spot.modelGraph.vertexRef()
+            val targetRef = spot.modelGraph.vertexRef() // so we can have two different references
+            if (spot.outgoingEdges().size() > 1) {
+//                logger.info("got ${spot.outgoingEdges().size()} outgoing edges for TP ${spot.timepoint} and spot ${spot.internalPoolIndex}")
             }
+            // TODO why even use incoming edges in forward search?
+//            for (l in spot.incomingEdges()) {
+//                l.getSource(targetRef)
+//                if (targetRef.timepoint < spot.timepoint && targetRef.timepoint <= toTP) {
+//                    addLink(spot, originRef)
+//                    searchAndConnectSpots(originRef, toTP, colorizer, true)
+//                }
+//            }
             for (l in spot.outgoingEdges()) {
-                if (l.getTarget(spotRef).timepoint > spot.timepoint && spotRef.timepoint <= toTP) {
-                    addLink(spot, spotRef)
-                    searchAndConnectSpots(spotRef, toTP, colorizer, true)
+                if (l.getTarget(targetRef).timepoint > spot.timepoint && targetRef.timepoint <= toTP) {
+                    addLink(spot, targetRef, mainInstance, colorizer)
+                    searchAndConnectSpots(targetRef, toTP, colorizer, true)
                 }
             }
-            spot.modelGraph.releaseRef(spotRef)
-        } else {
-            // backwards search
-            if (spot.timepoint <= toTP) return
-            val spotRef = spot.modelGraph.vertexRef()
-            for (l in spot.incomingEdges()) {
-                if (l.getSource(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= toTP) {
-                    addLink(spotRef, spot)
-                    searchAndConnectSpots(spotRef, toTP, colorizer, false)
-                }
-            }
-            for (l in spot.outgoingEdges()) {
-                if (l.getTarget(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= toTP) {
-                    addLink(spotRef, spot)
-                    searchAndConnectSpots(spotRef, toTP, colorizer, false)
-                }
-            }
-            spot.modelGraph.releaseRef(spotRef)
+//            spot.modelGraph.releaseRef(spot)
+            spot.modelGraph.releaseRef(targetRef)
         }
+        //        else {
+//            // TODO do we even need backwards search?
+//            // backwards search
+//            if (spot.timepoint <= toTP) return
+//            val spotRef = spot.modelGraph.vertexRef()
+//            for (l in spot.incomingEdges()) {
+//                if (l.getSource(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= toTP) {
+//                    addLink(spotRef, spot)
+//                    searchAndConnectSpots(spotRef, toTP, colorizer, false)
+//                }
+//            }
+//            for (l in spot.outgoingEdges()) {
+//                if (l.getTarget(spotRef).timepoint < spot.timepoint && spotRef.timepoint >= toTP) {
+//                    addLink(spotRef, spot)
+//                    searchAndConnectSpots(spotRef, toTP, colorizer, false)
+//                }
+//            }
+//        }
     }
 
     fun clearLinksOutsideRange(fromTP: Int, toTP: Int) {
@@ -465,7 +481,7 @@ class SphereLinkNodes(
 
     fun setupEmptyLinks() {
         linksNodesHub = RichNode()
-        links = HashMap()
+        links = ConcurrentHashMap()
         minTP = 999999
         maxTP = -1
     }
