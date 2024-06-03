@@ -39,12 +39,14 @@ object StartSciviewBridgeDirectly {
             //point this to your testing project, or grab example project with:
             //git clone https://github.com/mastodon-sc/mastodon-example-data.git
             //String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
-            val projectPath = "/home/ulman/devel/sciview_hack2/mastodon-example-data/tgmm-mini/tgmm-mini.mastodon"
+//            val projectPath = "/home/ulman/devel/sciview_hack2/mastodon-example-data/tgmm-mini/tgmm-mini.mastodon"
+            val projectPath = "D:/CASUS/datasets/mastodon-example-data/tgmm-mini/tgmm-mini.mastodon"
             // --------------->>  <<---------------
             val sv = createSciview()
             val mastodon = giveMeMastodonOfThisProject(sv.scijavaContext, projectPath)
-            val bridge = SciviewBridge(mastodon, 0, 2, sv)
-            //bridge.openSyncedBDV();
+            val bridge = SciviewBridge(mastodon, targetSciviewWindow = sv)
+            bridge.createAndShowControllingUI()
+            bridge.openSyncedBDV();
             mastodon.projectClosedListeners().add(CloseListener {
                 logger.debug("Mastodon project was closed, cleaning up in sciview:")
                 bridge.close() //calls also bridge.detachControllingUI();
