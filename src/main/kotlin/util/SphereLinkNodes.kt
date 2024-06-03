@@ -41,7 +41,7 @@ class SphereLinkNodes(
     var DEFAULT_COLOR = 0x00FFFFFF
     var numTimePoints: Int
     lateinit var lut: ColorTable
-    lateinit var currentColorMode: colorMode
+    var currentColorMode: ColorMode
     val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
     private var spotRef: Spot? = null
     var events: EventService? = null
@@ -59,7 +59,7 @@ class SphereLinkNodes(
         numTimePoints = mastodonData.maxTimepoint
 
         setLUT("Fire.lut")
-        currentColorMode = colorMode.LUT
+        currentColorMode = ColorMode.LUT
 
         linkForwardRange = mastodonData.maxTimepoint
         linkBackwardRange = mastodonData.maxTimepoint
@@ -76,7 +76,7 @@ class SphereLinkNodes(
     /** The following types are allowed for track coloring:
      * - [LUT] uses a colormap, defaults to Fire.lut
      * - [SPOT] uses the spot color from the connected spot */
-    enum class colorMode { LUT, SPOT }
+    enum class ColorMode { LUT, SPOT }
 
     /** Shows or initializes the main spot instance, publishes it to the scene and populates it with instances from the current time-point. */
     fun showInstancedSpots(
@@ -109,6 +109,7 @@ class SphereLinkNodes(
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         sv.blockOnNewNodes = false
 
+        val spotPosition = FloatArray(3)
         val covArray = Array(3) { DoubleArray(3) }
         var covariance: Array2DRowRealMatrix
         var inst: InstancedNode.Instance
@@ -157,8 +158,6 @@ class SphereLinkNodes(
         }
     }
 
-    private val spotPosition = FloatArray(3)
-
     private fun computeEigen(covariance: Array2DRowRealMatrix): Pair<DoubleArray, RealMatrix> {
         val eigenDecomposition = EigenDecomposition(covariance)
         val eigenvalues = eigenDecomposition.realEigenvalues
@@ -197,7 +196,7 @@ class SphereLinkNodes(
         return this + Vector3f(1 - max)
     }
 
-    /** overload function that takes a spot and colors the corresponding instance according to the [colorizer]. */
+    /** extension function that takes a spot and colors the corresponding instance according to the [colorizer]. */
     private fun InstancedNode.Instance.setColorFromSpot(
         s: Spot,
         colorizer: GraphColorGenerator<Spot, Link>,
@@ -263,7 +262,7 @@ class SphereLinkNodes(
     }
 
     fun initializeInstancedLinks(
-        colorMode: colorMode,
+        colorMode: ColorMode,
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
         cylinder.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
@@ -301,18 +300,18 @@ class SphereLinkNodes(
      * When set to [cm.SPOT], it uses the [colorizer] to get the spot colors. */
     fun updateLinkColors (
         colorizer: GraphColorGenerator<Spot, Link>?,
-        cm: colorMode =  currentColorMode
+        cm: ColorMode =  currentColorMode
     ) {
         val start = TimeSource.Monotonic.markNow()
         when (cm) {
-            colorMode.LUT -> {
+            ColorMode.LUT -> {
                 links.forEach {link ->
                     val factor = link.value.tp / numTimePoints.toDouble()
                     val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
                     link.value.instance.instancedProperties["Color"] = { color }
                 }
             }
-            colorMode.SPOT -> {
+            ColorMode.SPOT -> {
                 if (colorizer != null) {
                     for (tp in 0 until numTimePoints) {
                         val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(tp)

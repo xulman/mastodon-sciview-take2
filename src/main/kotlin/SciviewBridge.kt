@@ -90,7 +90,8 @@ class SciviewBridge {
 
     constructor(
         mastodonMainWindow: ProjectModel,
-        sourceID: Int, sourceResLevel: Int,
+        sourceID: Int,
+        sourceResLevel: Int,
         targetSciviewWindow: SciView
     ) {
         mastodon = mastodonMainWindow
@@ -171,7 +172,7 @@ class SciviewBridge {
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, sphereParent, linkParent)
         sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
-        sphereLinkNodes.initializeInstancedLinks(SphereLinkNodes.colorMode.LUT, colorizer = noTSColorizer)
+        sphereLinkNodes.initializeInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }
@@ -362,14 +363,15 @@ class SciviewBridge {
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
         sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint, forThisBdv.colorizer)
+        sphereLinkNodes.updateLinkVisibility(forThisBdv.timepoint)
 //        sphereLinkNodes.updateLinkColors(forThisBdv.colorizer)
     }
 
-    private var lastTpWhenVolumeWasUpdated = 0
+    var lastTpWhenVolumeWasUpdated = 0
     val detachedDPP_showsLastTimepoint: DisplayParamsProvider = DPP_Detached()
 
     /** Fetch the volume state at the current time point,
-     * then call [volumeIntensityProcessing] to adjust the intensity values*/
+     * then call [volumeIntensityProcessing] to adjust the intensity values */
     @JvmOverloads
     fun updateVolume(
         forThisBdv: DisplayParamsProvider = detachedDPP_showsLastTimepoint,
