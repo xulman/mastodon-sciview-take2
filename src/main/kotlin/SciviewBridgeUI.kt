@@ -129,13 +129,17 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
 
         // links window range
         c.gridy++
+        c.gridwidth = 2
         c.gridx = 0
         insertLabel("Link window range backwards", c)
         c.gridx = 1
         linkRangeBackwards = SpinnerNumberModel(bridge.mastodon.maxTimepoint, 0, bridge.mastodon.maxTimepoint, 1)
         insertSpinner(
             linkRangeBackwards,
-            {f: Float -> bridge.sphereLinkNodes.linkBackwardRange = f.toInt()},
+            {
+                f: Float -> bridge.sphereLinkNodes.linkBackwardRange = f.toInt()
+                bridge.sphereLinkNodes.updateLinkVisibility(bridge.lastTpWhenVolumeWasUpdated)
+            },
             c)
 
         c.gridy++
@@ -145,13 +149,17 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         linkRangeForwards = SpinnerNumberModel(bridge.mastodon.maxTimepoint, 0, bridge.mastodon.maxTimepoint, 1)
         insertSpinner(
             linkRangeForwards,
-            {f: Float -> bridge.sphereLinkNodes.linkForwardRange = f.toInt()},
+            {
+                f: Float -> bridge.sphereLinkNodes.linkForwardRange = f.toInt()
+                bridge.sphereLinkNodes.updateLinkVisibility(bridge.lastTpWhenVolumeWasUpdated)
+            },
             c
         )
 
 
         // color parameters
         c.gridy++
+        c.gridwidth = 1
         val colorPlaceholder = JPanel()
         controlsWindowPanel.add(colorPlaceholder, c)
         colorPlaceholder.setLayout(GridBagLayout())
@@ -250,8 +258,8 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         controlsWindowPanel.add(JLabel(labelText), c)
     }
 
-    val spinnerMinDim = Dimension(200, 20)
-    val spinnerMaxDim = Dimension(1000, 20)
+    val spinnerMinDim = Dimension(40, 20)
+    val spinnerMaxDim = Dimension(200, 20)
     fun insertSpinner(
         model: SpinnerModel,
         updaterOnEvents: Consumer<Float>,
@@ -322,11 +330,11 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     val chooseLinkColormap = ActionListener { _ ->
         when (linkColorSelector.selectedItem) {
             "By Spot" -> {
-                controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.SPOT
+                controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.ColorMode.SPOT
                 logger.info("Coloring links by spot color")
             }
             else -> {
-                controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.colorMode.LUT
+                controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.ColorMode.LUT
                 controlledBridge.sphereLinkNodes.setLUT("${linkColorSelector.selectedItem}.lut")
                 logger.info("Coloring links with LUT ${linkColorSelector.selectedItem}")
             }
