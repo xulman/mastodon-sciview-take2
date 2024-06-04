@@ -137,10 +137,20 @@ class SphereLinkNodes(
             covariance = Array2DRowRealMatrix(covArray)
             val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
+
+            if (spot.internalPoolIndex % 20 == 0) {
+                logger.info("covariance array: ${covArray.joinToString(", ") { it.joinToString(", ") }}")
+                logger.info("covariance is: $covariance")
+                logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
+                logger.info("eigenvectors are: $eigenvectors")
+                logger.info("axisLengths are: $axisLengths")
+                logger.info("rotation is: ${matrixToQuaternion(eigenvectors)}")
+            }
+
             inst.spatial {
                 position = Vector3f(spotPosition)
                 scale = axisLengths * sphereScaleFactor
-//                rotation = matrixToQuaternion(eigenvectors)
+                rotation = matrixToQuaternion(eigenvectors)
             }
             inst.setColorFromSpot(spot, colorizer)
             // highlight the spot currently selected in BDV
@@ -162,9 +172,10 @@ class SphereLinkNodes(
         val eigenDecomposition = EigenDecomposition(covariance)
         val eigenvalues = eigenDecomposition.realEigenvalues
         val eigenvectors = eigenDecomposition.v
-        val tempRow = eigenvectors.getRow(0)
-//        eigenvectors.setRow(0, eigenvectors.getRow(2))
-//        eigenvectors.setRow(2, tempRow)
+        // swap eigen v0 and v2 column vectors
+        val tempCol = eigenvectors.getColumn(0)
+        eigenvectors.setColumn(0, eigenvectors.getColumn(2))
+        eigenvectors.setColumn(2, tempCol)
         return Pair(eigenvalues, eigenvectors)
     }
 
@@ -184,7 +195,9 @@ class SphereLinkNodes(
                 matrix3f.set(j, i, eigenvectors.getEntry(j, i).toFloat())
             }
         }
-        return Quaternionf().setFromUnnormalized(matrix3f)
+        val quaternion = Quaternionf()
+        matrix3f.getUnnormalizedRotation(quaternion)
+        return quaternion
     }
 
     // stretch color channels
@@ -313,7 +326,7 @@ class SphereLinkNodes(
             }
             ColorMode.SPOT -> {
                 if (colorizer != null) {
-                    for (tp in 0 until numTimePoints) {
+                    for (tp in 0 .. numTimePoints) {
                         val spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(tp)
                         spots.forEach { spot ->
                             links[spot.hashCode()]?.instance?.setColorFromSpot(spot, colorizer)
@@ -404,7 +417,7 @@ class SphereLinkNodes(
         inst.name = from.label + " --> " + to.label
         inst.parent = linkParentNode
         // add a new key-value pair to the hash map
-        links[from.hashCode()] = LinkNode(inst, from, to, from.timepoint)
+        links[to.hashCode()] = LinkNode(inst, from, to, to.timepoint)
 
 //        minTP = minTP.coerceAtMost(from.timepoint)
 //        maxTP = maxTP.coerceAtLeast(to.timepoint)
