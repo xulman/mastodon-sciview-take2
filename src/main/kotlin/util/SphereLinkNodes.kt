@@ -25,6 +25,7 @@ import java.awt.Color
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.ArrayList
+import kotlin.math.PI
 import kotlin.math.sqrt
 import kotlin.time.TimeSource
 
@@ -150,7 +151,7 @@ class SphereLinkNodes(
             inst.spatial {
                 position = Vector3f(spotPosition)
                 scale = axisLengths * sphereScaleFactor
-                rotation = matrixToQuaternion(eigenvectors)
+                rotation = matrixToQuaternion(eigenvectors).rotationY((PI/2f).toFloat())
             }
             inst.setColorFromSpot(spot, colorizer)
             // highlight the spot currently selected in BDV
@@ -182,9 +183,9 @@ class SphereLinkNodes(
     private fun computeSemiAxes(eigenvalues: DoubleArray): Vector3f {
         return Vector3f(
             // flip X and Z axes to align with the sciview coordinate system (is this correct??)
-            sqrt(eigenvalues[2]).toFloat(),
+            sqrt(eigenvalues[0]).toFloat(),
             sqrt(eigenvalues[1]).toFloat(),
-            sqrt(eigenvalues[0]).toFloat()
+            sqrt(eigenvalues[2]).toFloat()
         )
     }
 
