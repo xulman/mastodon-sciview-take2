@@ -228,15 +228,14 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         buttonRow.insets = Insets(0, 20, 0, 0)
         fourButtonsPlaceholder.add(visToggleTracks, buttonRow)
 
-        // -------------- button row --------------
+        // -------------- close button row --------------
         c.gridy++
-        c.gridx = 0
+        c.gridx = 1
         c.gridwidth = 1
         c.anchor = GridBagConstraints.EAST
-//        c.insets = Insets(0, 0, 10, 0)
         val closeBtn = JButton("Close")
         closeBtn.addActionListener { bridge.detachControllingUI() }
-//        insertRColumnItem(closeBtn, c)
+        c.insets = Insets(0, 0, 10, 15)
         controlsWindowPanel.add(closeBtn, c)
     }
 
