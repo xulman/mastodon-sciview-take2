@@ -8,6 +8,7 @@ import java.awt.*
 import java.awt.event.ActionListener
 import java.util.function.Consumer
 import javax.swing.*
+import javax.swing.border.EmptyBorder
 import javax.swing.event.ChangeEvent
 import javax.swing.event.ChangeListener
 
@@ -159,8 +160,9 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
 
         // color parameters
         c.gridy++
-        c.gridwidth = 1
+        c.gridwidth = 4
         val colorPlaceholder = JPanel()
+        c.gridx = 0
         controlsWindowPanel.add(colorPlaceholder, c)
         colorPlaceholder.setLayout(GridBagLayout())
         val coloringRow = GridBagConstraints()
@@ -228,7 +230,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
 
         // -------------- button row --------------
         c.gridy++
-        c.gridx = 1
+        c.gridx = 0
         c.gridwidth = 1
         c.anchor = GridBagConstraints.EAST
 //        c.insets = Insets(0, 0, 10, 0)
@@ -236,7 +238,6 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         closeBtn.addActionListener { bridge.detachControllingUI() }
 //        insertRColumnItem(closeBtn, c)
         controlsWindowPanel.add(closeBtn, c)
-//        c.insets = Insets(10, 0, 10, 0)
     }
 
     val sideSpace = 15
