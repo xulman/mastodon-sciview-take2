@@ -138,14 +138,14 @@ class SphereLinkNodes(
             val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
 
-            if (spot.internalPoolIndex % 20 == 0) {
-                logger.info("covariance array: ${covArray.joinToString(", ") { it.joinToString(", ") }}")
-                logger.info("covariance is: $covariance")
-                logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
-                logger.info("eigenvectors are: $eigenvectors")
-                logger.info("axisLengths are: $axisLengths")
-                logger.info("rotation is: ${matrixToQuaternion(eigenvectors)}")
-            }
+//            if (spot.internalPoolIndex % 20 == 0) {
+//                logger.info("covariance array: ${covArray.joinToString(", ") { it.joinToString(", ") }}")
+//                logger.info("covariance is: $covariance")
+//                logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
+//                logger.info("eigenvectors are: $eigenvectors")
+//                logger.info("axisLengths are: $axisLengths")
+//                logger.info("rotation is: ${matrixToQuaternion(eigenvectors)}")
+//            }
 
             inst.spatial {
                 position = Vector3f(spotPosition)
@@ -293,9 +293,6 @@ class SphereLinkNodes(
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(0)
         numTimePoints = mastodonData.maxTimepoint
         mainLinkInstance = mainLink
-//        spots.forEach { spot ->
-//            searchAndConnectSpots(spot, numTimePoints, colorizer, true)
-//        }
 
         val start = TimeSource.Monotonic.markNow()
         // TODO use coroutines for this
@@ -303,7 +300,7 @@ class SphereLinkNodes(
             addLink(edge.source, edge.target, mainLink, colorizer)
         }
         val end = TimeSource.Monotonic.markNow()
-        logger.info("Edge traversel took ${end - start}.")
+        logger.info("Initial edge traversel took ${end - start}.")
         logger.info("Found a total of ${links.size} links. Should be ${mastodonData.model.graph.edges().size}.")
         // first update the link colors without providing a colorizer, because no BDV window has been opened yet
         updateLinkColors(null)
@@ -336,7 +333,7 @@ class SphereLinkNodes(
             }
         }
         val end = TimeSource.Monotonic.markNow()
-        logger.info("Link coloring took ${end - start}.")
+        logger.info("Updating link colors took ${end - start}.")
     }
 
     fun updateLinkVisibility(currentTP: Int) {
@@ -346,16 +343,8 @@ class SphereLinkNodes(
         }
     }
 
-    /** This function generates a unique hash for every spot, using its time-point and internal pool index. */
-    fun Spot.generateHash() : Int {
-        val hash = this.timepoint * 239 + this.internalPoolIndex * 337
-        return (hash % Int.MAX_VALUE)
-
-    }
-
     val linkSize = 2.0
 
-    var linksNodesHub: Node? = null // gathering node in sciview -- a links node associated to its spots node
     // list of all link segments
     var links: ConcurrentHashMap<Int, LinkNode> = ConcurrentHashMap()
 
@@ -381,6 +370,7 @@ class SphereLinkNodes(
         return unpackRGB(rgbInt)
     }
 
+    // TODO also deprecated. We loop over all edges without needing recursion
     fun updateLinks(TPsInPast: Int, TPsAhead: Int) {
 //        logger.info("updatelinks!")
 //        refSpot?.let {
@@ -418,15 +408,11 @@ class SphereLinkNodes(
         inst.parent = linkParentNode
         // add a new key-value pair to the hash map
         links[to.hashCode()] = LinkNode(inst, from, to, to.timepoint)
-
-//        minTP = minTP.coerceAtMost(from.timepoint)
-//        maxTP = maxTP.coerceAtLeast(to.timepoint)
-
-//            logger.info("added link from ${from.timepoint}/${from.internalPoolIndex} to ${to.timepoint}/${to.internalPoolIndex}")
     }
 
     /** Recursive method that traverses the links of the provided [origin] up until the given timepoint [toTP].
      * Forward search is enabled when [forward] is true, otherwise it searches backwards. */
+    // TODO probably not needed anymore. Just keeping this here in case I am wrong.
     private fun searchAndConnectSpots(
         spot: Spot,
         toTP: Int,
@@ -482,29 +468,13 @@ class SphereLinkNodes(
 //        }
     }
 
-    fun clearLinksOutsideRange(fromTP: Int, toTP: Int) {
-        links.iterator().let {
-            while (it.hasNext() == true) {
-                val link = it.next()
-                if (link.value.from.timepoint < fromTP || link.value.to.timepoint > toTP) {
-                    linksNodesHub?.removeChild(link.value.instance)
-                    it.remove()
-                }
-            }
-        }
-        minTP = fromTP
-        maxTP = toTP
-    }
-
     fun clearAllLinks() {
-        linksNodesHub!!.children.removeIf { f: Node? -> true }
         links.clear()
         minTP = 999999
         maxTP = -1
     }
 
     fun setupEmptyLinks() {
-        linksNodesHub = RichNode()
         links = ConcurrentHashMap()
         minTP = 999999
         maxTP = -1

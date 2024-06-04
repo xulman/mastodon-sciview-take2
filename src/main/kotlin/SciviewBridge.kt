@@ -364,7 +364,7 @@ class SciviewBridge {
         updateVolume(forThisBdv)
         sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint, forThisBdv.colorizer)
         sphereLinkNodes.updateLinkVisibility(forThisBdv.timepoint)
-//        sphereLinkNodes.updateLinkColors(forThisBdv.colorizer)
+        sphereLinkNodes.updateLinkColors(forThisBdv.colorizer)
     }
 
     var lastTpWhenVolumeWasUpdated = 0
