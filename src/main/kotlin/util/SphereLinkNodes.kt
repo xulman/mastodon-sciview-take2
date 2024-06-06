@@ -139,19 +139,19 @@ class SphereLinkNodes(
             val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
 
-//            if (spot.internalPoolIndex % 20 == 0) {
-//                logger.info("covariance array: ${covArray.joinToString(", ") { it.joinToString(", ") }}")
-//                logger.info("covariance is: $covariance")
-//                logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
-//                logger.info("eigenvectors are: $eigenvectors")
-//                logger.info("axisLengths are: $axisLengths")
-//                logger.info("rotation is: ${matrixToQuaternion(eigenvectors)}")
-//            }
+            if (spot.internalPoolIndex == 32) {
+                logger.info("covariance array: ${covArray.joinToString(", ") { it.joinToString(", ") }}")
+                logger.info("covariance is: $covariance")
+                logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
+                logger.info("eigenvectors are: $eigenvectors")
+                logger.info("axisLengths are: $axisLengths")
+                logger.info("rotation is: ${matrixToQuaternion(eigenvectors, verbose = true)}")//.rotationY((PI/2f).toFloat())}")
+            }
 
             inst.spatial {
                 position = Vector3f(spotPosition)
-                scale = axisLengths * sphereScaleFactor
-                rotation = matrixToQuaternion(eigenvectors).rotationY((PI/2f).toFloat())
+                scale = axisLengths * sphereScaleFactor * 50f
+                rotation = matrixToQuaternion(eigenvectors)
             }
             inst.setColorFromSpot(spot, colorizer)
             // highlight the spot currently selected in BDV
@@ -174,30 +174,34 @@ class SphereLinkNodes(
         val eigenvalues = eigenDecomposition.realEigenvalues
         val eigenvectors = eigenDecomposition.v
         // swap eigen v0 and v2 column vectors
-        val tempCol = eigenvectors.getColumn(0)
-        eigenvectors.setColumn(0, eigenvectors.getColumn(2))
-        eigenvectors.setColumn(2, tempCol)
+//        val tempCol = eigenvectors.getColumn(0)
+//        eigenvectors.setColumn(0, eigenvectors.getColumn(2))
+//        eigenvectors.setColumn(2, tempCol)
         return Pair(eigenvalues, eigenvectors)
     }
 
     private fun computeSemiAxes(eigenvalues: DoubleArray): Vector3f {
         return Vector3f(
-            // flip X and Z axes to align with the sciview coordinate system (is this correct??)
-            sqrt(eigenvalues[0]).toFloat(),
-            sqrt(eigenvalues[1]).toFloat(),
-            sqrt(eigenvalues[2]).toFloat()
+            1/sqrt(eigenvalues[0]).toFloat(),
+            1/sqrt(eigenvalues[1]).toFloat(),
+            1/sqrt(eigenvalues[2]).toFloat()
         )
     }
 
-    private fun matrixToQuaternion(eigenvectors: RealMatrix): Quaternionf {
+    private fun matrixToQuaternion(eigenvectors: RealMatrix, verbose: Boolean = false): Quaternionf {
         val matrix3f = Matrix3f()
         for (i in 0 until 3) {
             for (j in 0 until 3) {
                 matrix3f.set(j, i, eigenvectors.getEntry(j, i).toFloat())
             }
         }
+
         val quaternion = Quaternionf()
-        matrix3f.getUnnormalizedRotation(quaternion)
+        matrix3f.getNormalizedRotation(quaternion)
+        if (verbose) {
+            logger.info("converted matrix is \n $matrix3f")
+            logger.info("quaternion is $quaternion")
+        }
         return quaternion
     }
 
