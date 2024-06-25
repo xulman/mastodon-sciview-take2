@@ -1,8 +1,10 @@
 package util
 
 import graphics.scenery.*
+import graphics.scenery.attribute.material.DefaultMaterial
 import graphics.scenery.attribute.material.Material
 import graphics.scenery.numerics.Random
+import graphics.scenery.primitives.Arrow
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
@@ -13,6 +15,7 @@ import org.apache.commons.math3.linear.RealMatrix
 import org.joml.Matrix3f
 import org.joml.Quaternionf
 import org.joml.Vector3f
+import org.joml.Vector3i
 import org.joml.Vector4f
 import org.mastodon.mamut.ProjectModel
 import org.mastodon.mamut.model.Link
@@ -25,7 +28,7 @@ import java.awt.Color
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.ArrayList
-import kotlin.math.PI
+import kotlin.concurrent.thread
 import kotlin.math.sqrt
 import kotlin.time.TimeSource
 
@@ -139,20 +142,23 @@ class SphereLinkNodes(
             val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
 
-            if (spot.internalPoolIndex == 32) {
-                logger.info("covariance array: ${covArray.joinToString(", ") { it.joinToString(", ") }}")
+            if (spot.internalPoolIndex == 51 || spot.internalPoolIndex == 61) {
+                logger.info("for spot ${spot.internalPoolIndex}:")
                 logger.info("covariance is: $covariance")
                 logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
                 logger.info("eigenvectors are: $eigenvectors")
                 logger.info("axisLengths are: $axisLengths")
-                logger.info("rotation is: ${matrixToQuaternion(eigenvectors, verbose = true)}")//.rotationY((PI/2f).toFloat())}")
+                logger.info("rotation is: ${eigenvectors.toQuaternion(true)}")
             }
 
             inst.spatial {
                 position = Vector3f(spotPosition)
-                scale = axisLengths * sphereScaleFactor * 50f
-                rotation = matrixToQuaternion(eigenvectors)
+                scale = axisLengths * sphereScaleFactor * 0.5f
+                rotation = eigenvectors.alignToQuaternion()
             }
+
+            inst.drawEigenVectors(eigenvectors, axisLengths)
+
             inst.setColorFromSpot(spot, colorizer)
             // highlight the spot currently selected in BDV
             if (focusedSpotRef != null && focusedSpotRef.internalPoolIndex == spot.internalPoolIndex) {
@@ -182,26 +188,90 @@ class SphereLinkNodes(
 
     private fun computeSemiAxes(eigenvalues: DoubleArray): Vector3f {
         return Vector3f(
-            1/sqrt(eigenvalues[0]).toFloat(),
-            1/sqrt(eigenvalues[1]).toFloat(),
-            1/sqrt(eigenvalues[2]).toFloat()
+            sqrt(eigenvalues[order.x]).toFloat(),
+            sqrt(eigenvalues[order.y]).toFloat(),
+            sqrt(eigenvalues[order.z]).toFloat()
         )
     }
 
-    private fun matrixToQuaternion(eigenvectors: RealMatrix, verbose: Boolean = false): Quaternionf {
-        val matrix3f = Matrix3f()
-        for (i in 0 until 3) {
-            for (j in 0 until 3) {
-                matrix3f.set(j, i, eigenvectors.getEntry(j, i).toFloat())
-            }
+    fun InstancedNode.Instance.drawEigenVectors(eigenVectors: RealMatrix, axisLengths: Vector3f) {
+
+        val x = Vector3f(eigenVectors.getColumn(0).map { it.toFloat() }.toFloatArray()).normalize()
+        val y = Vector3f(eigenVectors.getColumn(1).map { it.toFloat() }.toFloatArray()).normalize()
+        val z = Vector3f(eigenVectors.getColumn(2).map { it.toFloat() }.toFloatArray()).normalize()
+
+        val red = DefaultMaterial()
+        red.diffuse = Vector3f(1f,0.2f, 0.2f)
+        red.cullingMode = Material.CullingMode.None
+        val green = DefaultMaterial()
+        green.diffuse = Vector3f(0.2f,1f,0.2f)
+        green.cullingMode = Material.CullingMode.None
+        val blue = DefaultMaterial()
+        blue.diffuse = Vector3f(0.2f,0.2f,1f)
+        blue.cullingMode = Material.CullingMode.None
+
+        val arrowX = Arrow(x.times(axisLengths.x))
+        arrowX.addAttribute(Material::class.java, red)
+        val arrowY = Arrow(y.times(axisLengths.y))
+        arrowY.addAttribute(Material::class.java, green)
+        val arrowZ = Arrow(z.times(axisLengths.z))
+        arrowZ.addAttribute(Material::class.java, blue)
+
+        for (a in arrayOf(arrowX, arrowY, arrowZ)) {
+            a.spatial().position = this.spatial().position
+            sv.addNode(a, false, parent = sphereParentNode)
         }
+    }
+
+    val order = Vector3i(0, 1, 2)
+
+    private fun RealMatrix.toQuaternion(verbose: Boolean = false): Quaternionf {
+        val matrix3f = Matrix3f()
+//        for (i in 0 until 3) {
+//            for (j in 0 until 3) {
+//                matrix3f.set(i, j, this.getEntry(j, i).toFloat())
+//                matrix3f.set
+//            }
+//        }
+        val x = Vector3f(getColumn(0).map { it.toFloat() }.toFloatArray())
+        val y = Vector3f(getColumn(1).map { it.toFloat() }.toFloatArray())
+        val z = Vector3f(getColumn(2).map { it.toFloat() }.toFloatArray())
+
+//        x.z *= -1.0f
+//        y.z *= -1.0f
+//        z.z *= -1.0f
+
+        matrix3f.setRow(order.x, x)
+        matrix3f.setRow(order.y, y)
+        matrix3f.setRow(order.z, z)
+
+//        matrix3f.transpose()
 
         val quaternion = Quaternionf()
         matrix3f.getNormalizedRotation(quaternion)
+        val temp = Quaternionf(quaternion)
+        quaternion.x = temp.x * -1
+        quaternion.y = temp.z * -1
+        quaternion.z = temp.y * -1
         if (verbose) {
             logger.info("converted matrix is \n $matrix3f")
             logger.info("quaternion is $quaternion")
         }
+        return quaternion
+    }
+
+    private fun RealMatrix.alignToQuaternion(): Quaternionf {
+
+        val x = Vector3f(getColumn(0).map { it.toFloat() }.toFloatArray()).normalize()
+        val y = Vector3f(getColumn(1).map { it.toFloat() }.toFloatArray()).normalize()
+        val z = Vector3f(getColumn(2).map { it.toFloat() }.toFloatArray()).normalize()
+
+        val quaternion = Quaternionf()
+        // align longest axis
+        quaternion.rotateTo(Vector3f(1f, 0f, 0f), x)
+        val tempY = Vector3f(0f, 1f, 0f).rotate(quaternion)
+        val correction = Quaternionf().rotateTo(tempY, y)
+        quaternion.mul(correction)
         return quaternion
     }
 
