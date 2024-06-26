@@ -28,7 +28,6 @@ import java.awt.Color
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.ArrayList
-import kotlin.concurrent.thread
 import kotlin.math.sqrt
 import kotlin.time.TimeSource
 
@@ -40,7 +39,7 @@ class SphereLinkNodes(
 ) {
 
     private val logger by lazyLogger()
-    var sphereScaleFactor = 1f
+    var sphereScaleFactor = 5f
     var linkScaleFactor = 1f
     var DEFAULT_COLOR = 0x00FFFFFF
     var numTimePoints: Int
@@ -148,16 +147,18 @@ class SphereLinkNodes(
                 logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
                 logger.info("eigenvectors are: $eigenvectors")
                 logger.info("axisLengths are: $axisLengths")
-                logger.info("rotation is: ${eigenvectors.toQuaternion(true)}")
+                logger.info("rotation is: ${eigenvectors.matrixToQuaternion(true)}")
             }
 
             inst.spatial {
                 position = Vector3f(spotPosition)
-                scale = axisLengths * sphereScaleFactor * 0.5f
-                rotation = eigenvectors.alignToQuaternion()
+                scale = Vector3f(sphereScaleFactor)
+                // TODO add ellipsoid scale & rotation to instances
+                // scale = axisLengths * sphereScaleFactor * 0.5f
+                // rotation = eigenvectors.toQuaternion()
             }
 
-            inst.drawEigenVectors(eigenvectors, axisLengths)
+//            inst.drawEigenVectors(eigenvectors, axisLengths)
 
             inst.setColorFromSpot(spot, colorizer)
             // highlight the spot currently selected in BDV
@@ -179,21 +180,25 @@ class SphereLinkNodes(
         val eigenDecomposition = EigenDecomposition(covariance)
         val eigenvalues = eigenDecomposition.realEigenvalues
         val eigenvectors = eigenDecomposition.v
-        // swap eigen v0 and v2 column vectors
-//        val tempCol = eigenvectors.getColumn(0)
-//        eigenvectors.setColumn(0, eigenvectors.getColumn(2))
-//        eigenvectors.setColumn(2, tempCol)
         return Pair(eigenvalues, eigenvectors)
     }
 
+    // helper variable to make it easy to try out different vector orders
+    // for converting covariance matrices to rotation quaternions
+    val matrixOrder = Vector3i(0, 1, 2)
+
     private fun computeSemiAxes(eigenvalues: DoubleArray): Vector3f {
         return Vector3f(
-            sqrt(eigenvalues[order.x]).toFloat(),
-            sqrt(eigenvalues[order.y]).toFloat(),
-            sqrt(eigenvalues[order.z]).toFloat()
+            sqrt(eigenvalues[matrixOrder[0]]).toFloat(),
+            sqrt(eigenvalues[matrixOrder[1]]).toFloat(),
+            sqrt(eigenvalues[matrixOrder[2]]).toFloat()
         )
     }
 
+    /** Debug function to help with aligning ellipsoids with the eigenvectors from the covariance matrix.
+     * @param [eigenVectors] The column-based eigenvectors of the covariance matrix
+     * @param [axisLengths] The lengths per axis, given as [Vector3f]
+     * */
     fun InstancedNode.Instance.drawEigenVectors(eigenVectors: RealMatrix, axisLengths: Vector3f) {
 
         val x = Vector3f(eigenVectors.getColumn(0).map { it.toFloat() }.toFloatArray()).normalize()
@@ -223,36 +228,24 @@ class SphereLinkNodes(
         }
     }
 
-    val order = Vector3i(0, 1, 2)
+    /** Converts this [RealMatrix] into a rotation [Quaternionf]. */
+    private fun RealMatrix.matrixToQuaternion(verbose: Boolean = false): Quaternionf {
 
-    private fun RealMatrix.toQuaternion(verbose: Boolean = false): Quaternionf {
         val matrix3f = Matrix3f()
-//        for (i in 0 until 3) {
-//            for (j in 0 until 3) {
-//                matrix3f.set(i, j, this.getEntry(j, i).toFloat())
-//                matrix3f.set
-//            }
-//        }
+
         val x = Vector3f(getColumn(0).map { it.toFloat() }.toFloatArray())
         val y = Vector3f(getColumn(1).map { it.toFloat() }.toFloatArray())
         val z = Vector3f(getColumn(2).map { it.toFloat() }.toFloatArray())
 
-//        x.z *= -1.0f
-//        y.z *= -1.0f
-//        z.z *= -1.0f
+        matrix3f.setRow(matrixOrder.x, x)
+        matrix3f.setRow(matrixOrder.y, y)
+        matrix3f.setRow(matrixOrder.z, z)
 
-        matrix3f.setRow(order.x, x)
-        matrix3f.setRow(order.y, y)
-        matrix3f.setRow(order.z, z)
-
-//        matrix3f.transpose()
+        // matrix3f.transpose()
 
         val quaternion = Quaternionf()
         matrix3f.getNormalizedRotation(quaternion)
-        val temp = Quaternionf(quaternion)
-        quaternion.x = temp.x * -1
-        quaternion.y = temp.z * -1
-        quaternion.z = temp.y * -1
+        quaternion.invert()
         if (verbose) {
             logger.info("converted matrix is \n $matrix3f")
             logger.info("quaternion is $quaternion")
@@ -260,18 +253,24 @@ class SphereLinkNodes(
         return quaternion
     }
 
+    /** Converts this [RealMatrix] into a rotation [Quaternionf].
+     * Uses a different approach than [RealMatrix.matrixToQuaternion] for testing purposes. */
     private fun RealMatrix.alignToQuaternion(): Quaternionf {
 
-        val x = Vector3f(getColumn(0).map { it.toFloat() }.toFloatArray()).normalize()
-        val y = Vector3f(getColumn(1).map { it.toFloat() }.toFloatArray()).normalize()
-        val z = Vector3f(getColumn(2).map { it.toFloat() }.toFloatArray()).normalize()
+        // extract
+        val v1 = Vector3f(getColumn(0).map { it.toFloat() }.toFloatArray()).normalize()
+        val v2 = Vector3f(getColumn(1).map { it.toFloat() }.toFloatArray()).normalize()
+        val v3 = Vector3f(getColumn(2).map { it.toFloat() }.toFloatArray()).normalize()
 
         val quaternion = Quaternionf()
         // align longest axis
-        quaternion.rotateTo(Vector3f(1f, 0f, 0f), x)
+        quaternion.rotateTo(Vector3f(1f, 0f, 0f), v1)
+        // align second longest axis
         val tempY = Vector3f(0f, 1f, 0f).rotate(quaternion)
-        val correction = Quaternionf().rotateTo(tempY, y)
+        val correction = Quaternionf().rotateTo(tempY, v2)
         quaternion.mul(correction)
+        // TODO does this need to be flipped for right- vs left-handed coordinate system? (Mastodon vs Sciview)
+        quaternion.invert()
         return quaternion
     }
 
@@ -284,7 +283,7 @@ class SphereLinkNodes(
         return this + Vector3f(1 - max)
     }
 
-    /** extension function that takes a spot and colors the corresponding instance according to the [colorizer]. */
+    /** Extension function that takes a spot and colors the corresponding instance according to the [colorizer]. */
     private fun InstancedNode.Instance.setColorFromSpot(
         s: Spot,
         colorizer: GraphColorGenerator<Spot, Link>,
@@ -381,7 +380,7 @@ class SphereLinkNodes(
         updateLinkColors(null)
     }
 
-    /** Traverse and update the colors of all [links] using the provided [cm].
+    /** Traverse and update the colors of all [links] using the provided color mode [cm].
      * When set to [cm.SPOT], it uses the [colorizer] to get the spot colors. */
     fun updateLinkColors (
         colorizer: GraphColorGenerator<Spot, Link>?,
