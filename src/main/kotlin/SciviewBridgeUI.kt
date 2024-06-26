@@ -1,18 +1,39 @@
 package org.mastodon.mamut
 
+import graphics.scenery.utils.lazyLogger
 import util.AdjustableBoundsRangeSlider
 import util.GroupLocksHandling
+import util.SphereLinkNodes
 import java.awt.*
 import java.awt.event.ActionListener
-import java.awt.event.ItemListener
 import java.util.function.Consumer
 import javax.swing.*
+import javax.swing.border.EmptyBorder
 import javax.swing.event.ChangeEvent
 import javax.swing.event.ChangeListener
 
 class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Container) {
     var controlledBridge: SciviewBridge?
     val controlsWindowPanel: Container
+    private val logger by lazyLogger()
+
+    //int SOURCE_ID = 0;
+    //int SOURCE_USED_RES_LEVEL = 0;
+    lateinit var INTENSITY_CONTRAST: SpinnerModel
+    lateinit var INTENSITY_SHIFT: SpinnerModel
+    lateinit var INTENSITY_CLAMP_AT_TOP: SpinnerModel
+    lateinit var INTENSITY_GAMMA: SpinnerModel
+    lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
+    //
+    lateinit var visToggleSpots: JButton
+    lateinit var visToggleVols: JButton
+    lateinit var visToggleTracks: JButton
+    lateinit var linkRangeBackwards: SpinnerModel
+    lateinit var linkRangeForwards: SpinnerModel
+    lateinit var autoIntensityBtn: JToggleButton
+    lateinit var lockGroupHandler: GroupLocksHandling
+    lateinit var linkColorSelector: JComboBox<String>
+    lateinit var volumeColorSelector: JComboBox<String>
 
     // -------------------------------------------------------------------------------------------
     private fun populatePane() {
@@ -105,40 +126,117 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
             10000
         )
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener)
+
+
+        // links window range
         c.gridy++
-        visToggleSpots = JButton("Toggle visibility of SPOTS")
+        c.gridwidth = 2
+        c.gridx = 0
+        insertLabel("Link window range backwards", c)
+        c.gridx = 1
+        linkRangeBackwards = SpinnerNumberModel(bridge.mastodon.maxTimepoint, 0, bridge.mastodon.maxTimepoint, 1)
+        insertSpinner(
+            linkRangeBackwards,
+            {
+                f: Float -> bridge.sphereLinkNodes.linkBackwardRange = f.toInt()
+                bridge.sphereLinkNodes.updateLinkVisibility(bridge.lastTpWhenVolumeWasUpdated)
+            },
+            c)
+
+        c.gridy++
+        c.gridx = 0
+        insertLabel("Link window range forwards:", c)
+        c.gridx = 1
+        linkRangeForwards = SpinnerNumberModel(bridge.mastodon.maxTimepoint, 0, bridge.mastodon.maxTimepoint, 1)
+        insertSpinner(
+            linkRangeForwards,
+            {
+                f: Float -> bridge.sphereLinkNodes.linkForwardRange = f.toInt()
+                bridge.sphereLinkNodes.updateLinkVisibility(bridge.lastTpWhenVolumeWasUpdated)
+            },
+            c
+        )
+
+
+        // color parameters
+        c.gridy++
+        c.gridwidth = 4
+        val colorPlaceholder = JPanel()
+        c.gridx = 0
+        controlsWindowPanel.add(colorPlaceholder, c)
+        colorPlaceholder.setLayout(GridBagLayout())
+        val coloringRow = GridBagConstraints()
+        coloringRow.fill = GridBagConstraints.HORIZONTAL
+        coloringRow.gridx = 0
+        colorPlaceholder.add(Label("Link colors: "), coloringRow)
+        coloringRow.gridx = 1
+        // add the first choice of the list manually
+        val linkColorChoices = mutableListOf("By Spot")
+        // get the rest of the LUTs from sciview and clean up their names
+        val availableLUTs = bridge.sciviewWin.getAvailableLUTs() as MutableList<String>
+        for (i in availableLUTs.indices) {
+            availableLUTs[i] = availableLUTs[i].removeSuffix(".lut")
+        }
+        linkColorChoices.addAll(availableLUTs)
+
+        // create dropdown menu for link LUTs
+        linkColorSelector = JComboBox(linkColorChoices.toTypedArray())
+        linkColorSelector.setSelectedItem("Fire")
+        colorPlaceholder.add(linkColorSelector, coloringRow)
+        linkColorSelector.addActionListener(chooseLinkColormap)
+
+        // Volume colors
+        coloringRow.gridx = 2
+        coloringRow.insets = Insets(0, 10, 0, 0)
+        colorPlaceholder.add(Label("Volume colors: "), coloringRow)
+        coloringRow.gridx = 3
+        volumeColorSelector = JComboBox(availableLUTs.toTypedArray())
+        volumeColorSelector.setSelectedItem("Grays")
+        colorPlaceholder.add(volumeColorSelector, coloringRow)
+        volumeColorSelector.addActionListener(chooseVolumeColormap)
+
+        // the four toggle buttons
+        c.gridy++
+        visToggleSpots = JButton("Toggle spots")
         visToggleSpots.addActionListener(toggleSpotsVisibility)
-        visToggleVols = JButton("Toggle visibility of VOLUME")
+        visToggleVols = JButton("Toggle volume")
         visToggleVols.addActionListener(toggleVolumeVisibility)
+        visToggleTracks = JButton("Toggle tracks")
+        visToggleTracks.addActionListener(toggleTrackVisivility)
+
         autoIntensityBtn = JToggleButton("Auto Intensity", bridge.isVolumeAutoAdjust)
         autoIntensityBtn.addActionListener(autoAdjustIntensity)
         //
-        val threeCenteredButtonsPlaceHolder = JPanel()
-        controlsWindowPanel.add(threeCenteredButtonsPlaceHolder, c)
+        val fourButtonsPlaceholder = JPanel()
+        controlsWindowPanel.add(fourButtonsPlaceholder, c)
         //
-        threeCenteredButtonsPlaceHolder.setLayout(GridBagLayout())
-        val bc = GridBagConstraints()
-        bc.fill = GridBagConstraints.HORIZONTAL
-        bc.weightx = 0.4
-        bc.gridx = 0
+        fourButtonsPlaceholder.setLayout(GridBagLayout())
+        val buttonRow = GridBagConstraints()
+        buttonRow.fill = GridBagConstraints.HORIZONTAL
+        buttonRow.anchor = GridBagConstraints.WEST
+        buttonRow.weightx = 0.4
+        buttonRow.gridx = 0
 //        bc.insets = Insets(0, 20, 0, 0)
-        threeCenteredButtonsPlaceHolder.add(autoIntensityBtn, bc)
-        bc.gridx = 1
-        bc.insets = Insets(0, 20, 0, 0)
-        threeCenteredButtonsPlaceHolder.add(visToggleSpots, bc)
-        bc.gridx = 2
-        bc.insets = Insets(0, 20, 0, 0)
-        threeCenteredButtonsPlaceHolder.add(visToggleVols, bc)
-//        bc.insets = Insets(0, 0, 0, 20)
+        fourButtonsPlaceholder.add(autoIntensityBtn, buttonRow)
+        buttonRow.gridx = 1
+        buttonRow.insets = Insets(0, 20, 0, 0)
+        fourButtonsPlaceholder.add(visToggleSpots, buttonRow)
+        buttonRow.gridx = 2
+        buttonRow.insets = Insets(0, 20, 0, 0)
+        fourButtonsPlaceholder.add(visToggleVols, buttonRow)
+        buttonRow.gridx = 3
+        buttonRow.insets = Insets(0, 20, 0, 0)
+        fourButtonsPlaceholder.add(visToggleTracks, buttonRow)
 
-        // -------------- button row --------------
+        // -------------- close button row --------------
         c.gridy++
-        c.gridx = 0
+        c.gridx = 1
         c.gridwidth = 1
-        c.anchor = GridBagConstraints.LINE_END
+        c.anchor = GridBagConstraints.EAST
         val closeBtn = JButton("Close")
         closeBtn.addActionListener { bridge.detachControllingUI() }
-        insertRColumnItem(closeBtn, c)
+        c.insets = Insets(0, 0, 10, 15)
+        controlsWindowPanel.add(closeBtn, c)
     }
 
     val sideSpace = 15
@@ -160,8 +258,8 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         controlsWindowPanel.add(JLabel(labelText), c)
     }
 
-    val spinnerMinDim = Dimension(200, 20)
-    val spinnerMaxDim = Dimension(1000, 20)
+    val spinnerMinDim = Dimension(40, 20)
+    val spinnerMaxDim = Dimension(200, 20)
     fun insertSpinner(
         model: SpinnerModel,
         updaterOnEvents: Consumer<Float>,
@@ -229,13 +327,37 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     val spinnerModelsWithListeners: MutableList<OwnerAwareSpinnerChangeListener> = ArrayList(10)
     val checkBoxesWithListeners: MutableList<JCheckBox> = ArrayList(10)
 
+    val chooseLinkColormap = ActionListener { _ ->
+        when (linkColorSelector.selectedItem) {
+            "By Spot" -> {
+                controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.ColorMode.SPOT
+                logger.info("Coloring links by spot color")
+            }
+            else -> {
+                controlledBridge.sphereLinkNodes.currentColorMode = SphereLinkNodes.ColorMode.LUT
+                controlledBridge.sphereLinkNodes.setLUT("${linkColorSelector.selectedItem}.lut")
+                logger.info("Coloring links with LUT ${linkColorSelector.selectedItem}")
+            }
+        }
+        controlledBridge.sphereLinkNodes.updateLinkColors(controlledBridge.recentColorizer ?: controlledBridge.noTSColorizer)
+    }
+
+    val chooseVolumeColormap = ActionListener {
+        controlledBridge.sciviewWin.setColormap(controlledBridge.volumeNode, "${volumeColorSelector.selectedItem}.lut")
+        logger.info("Coloring volume with LUT ${volumeColorSelector.selectedItem}")
+    }
+
     val toggleSpotsVisibility = ActionListener {
         val newState = !controlledBridge.sphereParent.visible
-        controlledBridge.setVisibilityOfSpots(newState)
+        controlledBridge.sphereParent.visible = newState
     }
     val toggleVolumeVisibility = ActionListener {
-        val newState = !controlledBridge.volChannelNode.visible
+        val newState = !controlledBridge.volumeNode.visible
         controlledBridge.setVisibilityOfVolume(newState)
+    }
+    val toggleTrackVisivility = ActionListener {
+        val newState = !controlledBridge.linkParent.visible
+        controlledBridge.linkParent.visible = newState
     }
 
     val autoAdjustIntensity = ActionListener {
@@ -290,25 +412,15 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         bridge.updateVolAutomatically = updVolAutoBackup
     }
 
-    //int SOURCE_ID = 0;
-    //int SOURCE_USED_RES_LEVEL = 0;
-    lateinit var INTENSITY_CONTRAST: SpinnerModel
-    lateinit var INTENSITY_SHIFT: SpinnerModel
-    lateinit var INTENSITY_CLAMP_AT_TOP: SpinnerModel
-    lateinit var INTENSITY_GAMMA: SpinnerModel
-    lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
+
     val rangeSliderListener = ChangeListener {
         controlledBridge.intensity.rangeMin = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toFloat()
         controlledBridge.intensity.rangeMax = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toFloat()
-        controlledBridge.volChannelNode.minDisplayRange = controlledBridge.intensity.rangeMin
-        controlledBridge.volChannelNode.maxDisplayRange = controlledBridge.intensity.rangeMax
+        controlledBridge.volumeNode.minDisplayRange = controlledBridge.intensity.rangeMin
+        controlledBridge.volumeNode.maxDisplayRange = controlledBridge.intensity.rangeMax
     }
 
-    //
-    lateinit var visToggleSpots: JButton
-    lateinit var visToggleVols: JButton
-    lateinit var autoIntensityBtn: JToggleButton
-    lateinit var lockGroupHandler: GroupLocksHandling
+
 
     init {
         this.controlledBridge = controlledBridge

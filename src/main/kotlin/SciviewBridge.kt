@@ -1,8 +1,13 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package org.mastodon.mamut
 
 import bdv.viewer.Source
+import bdv.viewer.SourceAndConverter
 import graphics.scenery.*
 import graphics.scenery.primitives.Cylinder
+import graphics.scenery.utils.extensions.minus
+import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import graphics.scenery.volumes.TransferFunction
 import graphics.scenery.volumes.Volume
@@ -25,11 +30,9 @@ import org.mastodon.ui.coloring.TagSetGraphColorGenerator
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import sc.iview.SciView
-import util.SphereNodes
+import util.SphereLinkNodes
 import javax.swing.JFrame
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
+import kotlin.math.*
 
 class SciviewBridge {
     private val logger by lazyLogger()
@@ -66,14 +69,17 @@ class SciviewBridge {
 
     //data sink stuff
     val sciviewWin: SciView
-    val sphereNodes: SphereNodes
+    val sphereLinkNodes: SphereLinkNodes
     //sink scene graph structuring nodes
     val axesParent: Node?
     val sphereParent: Group
-    var volChannelNode: Volume
+    val linkParent: Group
+    var volumeNode: Volume
     var spimSource: Source<out Any>
+    // the source and converter that contains our volume data
+    var sac: SourceAndConverter<*>
     var isVolumeAutoAdjust = false
-    val mastodonToImgCoordsTransfer: Vector3f
+    val sceneScale: Float = 10f
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
 
@@ -84,7 +90,8 @@ class SciviewBridge {
 
     constructor(
         mastodonMainWindow: ProjectModel,
-        sourceID: Int, sourceResLevel: Int,
+        sourceID: Int,
+        sourceResLevel: Int,
         targetSciviewWindow: SciView
     ) {
         mastodon = mastodonMainWindow
@@ -100,7 +107,7 @@ class SciviewBridge {
         sciviewWin.toggleSidebar()
         sciviewWin.floor?.visible = false
         sciviewWin.lights?.forEach { l: PointLight ->
-            if (l.name.startsWith("headli")) adjustHeadLight(l) else l.visible = false
+            if (l.name.startsWith("headli")) adjustHeadLight(l)
         }
         sciviewWin.camera?.children?.forEach { l: Node ->
             if (l.name.startsWith("headli") && l is PointLight) adjustHeadLight(l)
@@ -116,65 +123,56 @@ class SciviewBridge {
         this.sourceID = sourceID
         this.sourceResLevel = sourceResLevel
         spimSource = mastodon.sharedBdvData.sources[this.sourceID].spimSource
-        val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()
-        //SOURCE_USED_RES_LEVEL = spimSource.getNumMipmapLevels() > 1 ? 1 : 0;
-        val volumeDimsUsedResLevel = spimSource.getSource(0, this.sourceResLevel).dimensionsAsLongArray()
-        val volumeDownscale = floatArrayOf(
-            volumeDims[0].toFloat() / volumeDimsUsedResLevel[0].toFloat(),
-            volumeDims[1].toFloat() / volumeDimsUsedResLevel[1].toFloat(),
-            volumeDims[2].toFloat() / volumeDimsUsedResLevel[2].toFloat()
+
+        // number of pixels for each dimension at the highest res level
+        val volumeDims = spimSource.getSource(0, 0).dimensionsAsLongArray()    // TODO rename to something more meaningful
+        // number of pixels for each dimension of the volume at current res level
+        val volumeNumPixels = spimSource.getSource(0, this.sourceResLevel).dimensionsAsLongArray()
+        val volumeDownscale = Vector3f(
+            volumeDims[0].toFloat() / volumeNumPixels[0].toFloat(),
+            volumeDims[1].toFloat() / volumeNumPixels[1].toFloat(),
+            volumeDims[2].toFloat() / volumeNumPixels[2].toFloat()
         )
         logger.info("downscale factors: ${volumeDownscale[0]} x, ${volumeDownscale[1]} x, ${volumeDownscale[2]} x")
-        //
-        val voxelRes = getDisplayVoxelRatio(spimSource)
-        logger.info("pixel ratios: ${voxelRes[0]} x, ${voxelRes[1]} x, ${voxelRes[2]} x")
-        //
-        val volumeScale = Vector3f(
-            voxelRes[0] * voxelRes[0] * volumeDownscale[0] * volumeDownscale[0],
-            voxelRes[1] * voxelRes[1] * volumeDownscale[1] * volumeDownscale[1],
-            voxelRes[2] * voxelRes[2] * volumeDownscale[2] * volumeDownscale[2] * -1.0f
-        )
-        val spotsScale = Vector3f(
-            volumeDims[0] * voxelRes[0],
-            volumeDims[1] * voxelRes[1],
-            volumeDims[2] * voxelRes[2]
+
+        // get 3D+t volume data from Mastodon
+        sac = mastodon.sharedBdvData.sources[this.sourceID]
+
+        volumeNode = sciviewWin.addVolume(
+            sac as SourceAndConverter<UnsignedShortType>,
+            mastodon.sharedBdvData.numTimepoints,
+            "volume",
+            floatArrayOf(1f, 1f, 1f)
         )
 
-        val commonNodeName = ": " + mastodon.projectName
-        volChannelNode = sciviewWin.addVolume(spimSource.getSource(0, this.sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>, "Volume$commonNodeName", floatArrayOf(1f, 1f, 1f))
-        addVolumeToScene(
-            volChannelNode,
+        setVolumeRanges(
+            volumeNode,
             "Grays.lut",
-            volumeScale,
+            Vector3f(sceneScale),
             intensity.rangeMin,
             intensity.rangeMax
         )
+        // flip Z axis to align it with the synced BDV view
+        volumeNode.spatial().scale *= Vector3f(1f, 1f, -1f)
 
-        //spots stuff:
+        // add spots inside a sphereParent group, which makes it easier for them to inherit transforms and be manually pushed around
         sphereParent = Group()
-        sphereParent.name = "SPOTS$commonNodeName"
+        sphereParent.name = "SphereInstanceParent"
+        sphereParent.spatial().scale /= volumeDownscale
         sciviewWin.addNode(sphereParent)
-        val MAGIC_ONE_TENTH = 0.1f //probably something inside scenery...
-        spotsScale.mul(MAGIC_ONE_TENTH * volChannelNode.pixelToWorldRatio)
-        mastodonToImgCoordsTransfer = Vector3f(
-            voxelRes[0] * volumeDownscale[0],
-            voxelRes[1] * volumeDownscale[1],
-            voxelRes[2] * volumeDownscale[2]
-        )
-        sphereParent.spatial().scale = spotsScale
-        sphereParent.spatial().position = Vector3f(
-            volumeDimsUsedResLevel[0].toFloat(),
-            volumeDimsUsedResLevel[1].toFloat(),
-            volumeDimsUsedResLevel[2].toFloat()
-        )
-            .mul(-0.5f, 0.5f, 0.5f) //NB: y,z axes are flipped, see SphereNodes::setSphereNode()
-            .mul(mastodonToImgCoordsTransfer) //raw img coords to Mastodon internal coords
-            .mul(spotsScale) //apply the same scaling as if "going through the SphereNodes"
+        sphereParent.parent = volumeNode
 
+        linkParent = Group()
+        linkParent.name = "LinkInstanceParent"
+        linkParent.spatial().scale /= volumeDownscale
+        sciviewWin.addNode(linkParent)
+        linkParent.parent = volumeNode
+
+        logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
-        sphereNodes = SphereNodes(sciviewWin, sphereParent)
-        sphereNodes.showTheseSpots(mastodon, 0, noTSColorizer)
-
+        sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, sphereParent, linkParent)
+        sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
+        sphereLinkNodes.initializeInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
         //temporary handlers, originally for testing....
         registerKeyboardHandlers()
     }
@@ -188,26 +186,21 @@ class SciviewBridge {
         logger.info("Mastodon-sciview Bridge closing procedure: UI and keyboard handlers are removed now")
         sciviewWin.setActiveNode(axesParent)
         logger.info("Mastodon-sciview Bridge closing procedure: focus shifted away from our nodes")
-
-        //first make invisible, then remove...
-        setVisibilityOfVolume(false)
-        setVisibilityOfSpots(false)
-        logger.debug("Mastodon-sciview Bridge closing procedure: our nodes made hidden")
         val updateGraceTime = 100L // in ms
         try {
-            sciviewWin.deleteNode(volChannelNode, true)
+            sciviewWin.deleteNode(volumeNode, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: red volume removed")
             Thread.sleep(updateGraceTime)
-            sciviewWin.deleteNode(sphereParent, true)
+//            sciviewWin.deleteNode(sphereParent, true)
             logger.debug("Mastodon-sciview Bridge closing procedure: spots were removed")
         } catch (e: InterruptedException) { /* do nothing */
         }
         sciviewWin.deleteNode(axesParent, true)
     }
 
-    /** Adds a volume to the sciview scene, adjusts the transfer function to a ramp from [0, 0] to [1, 1]
+    /** Adds a volume to the sciview scene, scales it by [scale], adjusts the transfer function to a ramp from [0, 0] to [1, 1]
      * and sets the node children visibility to false. */
-    private fun addVolumeToScene(
+    private fun setVolumeRanges(
         v: Volume?,
         colorMapName: String,
         scale: Vector3f,
@@ -226,11 +219,6 @@ class SciviewBridge {
             //make Bounding Box Grid invisible
             it.children.forEach { n: Node -> n.visible = false }
         }
-
-        //FAILED to hook the volume nodes under the this.volumeParent node... so commented out for now
-        //(one could construct Volume w/o sciview.addVolume(), but I find that way too difficult)
-        //sciviewWin.deleteNode(v, true);
-        //this.volumeParent.addChild(v);
     }
 
     private var intensityBackup = intensity.copy()
@@ -263,6 +251,7 @@ class SciviewBridge {
     fun <T : IntegerType<T>?> volumeIntensityProcessing(
         srcImg: RandomAccessibleInterval<T>?
     ) {
+        logger.info("started volumeIntensityProcessing...")
         val gammaEnabledIntensityProcessor: (T) -> Unit =
             { src: T -> src?.setReal(
                     intensity.clampTop * ( //TODO, replace pow() with LUT for several gammas
@@ -282,31 +271,20 @@ class SciviewBridge {
                         )
                     )
             }
-        //choose one processor for the downstream job;
-        //it is seemingly a long code but it does the if-decision only once now
+
+        // choose processor depending on the gamma value selected
         val intensityProcessor = if (intensity.gamma != 1.0f)
             gammaEnabledIntensityProcessor else noGammaIntensityProcessor
 
         if (srcImg == null) logger.warn("volumeIntensityProcessing: srcImg is null !!!")
 
-        //massage input data into the red channel (LB guarantees that counterparting pixels are accessed)
+        // apply processor lambda to each pixel using ImgLib2
         LoopBuilder.setImages(srcImg)
             .multiThreaded()
             .forEachPixel(intensityProcessor)
 
     }
 
-    fun mastodonToImgCoord(inputMastodonCoord: FloatArray, destVec: Vector3f): Vector3f {
-        //yes, ugly... but avoids new allocations, yet can be still used "inplace" or "chaining"
-        destVec.set(
-            inputMastodonCoord[0] / mastodonToImgCoordsTransfer.x,
-            inputMastodonCoord[1] / mastodonToImgCoordsTransfer.y,
-            inputMastodonCoord[2] / mastodonToImgCoordsTransfer.z
-        )
-        return destVec
-    }
-
-    // --------------------------------------------------------------------------
     /** Create a BDV window and launch a [BdvNotifier] instance to synchronize time point and viewing direction. */
     fun openSyncedBDV(): MamutViewBdv {
         val bdvWin = mastodon.windowManager.createView(MamutViewBdv::class.java)
@@ -324,10 +302,9 @@ class SciviewBridge {
         return bdvWin
     }
 
-    // --------------------------------------------------------------------------
     private var recentTagSet: TagSetStructure.TagSet? = null
-    private var recentColorizer: GraphColorGenerator<Spot, Link>? = null
-    private val noTSColorizer = DefaultGraphColorGenerator<Spot, Link>()
+    var recentColorizer: GraphColorGenerator<Spot, Link>? = null
+    val noTSColorizer = DefaultGraphColorGenerator<Spot, Link>()
     private fun getCurrentColorizer(forThisBdv: MamutViewBdv): GraphColorGenerator<Spot, Link> {
         //NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending
         val colorizer: GraphColorGenerator<Spot, Link>
@@ -344,7 +321,6 @@ class SciviewBridge {
         return colorizer
     }
 
-    //------------------------------
     interface DisplayParamsProvider {
         val timepoint: Int
         val colorizer: GraphColorGenerator<Spot, Link>
@@ -383,21 +359,19 @@ class SciviewBridge {
             get() = recentColorizer ?: noTSColorizer
     }
 
-    //------------------------------
-    /** Calls [updateVolume] and [SphereNodes.showTheseSpots] to update the current volume and corresponding spots. */
+    /** Calls [updateVolume] and [SphereLinkNodes.showTheseSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
-        sphereNodes.showTheseSpots(
-            mastodon,
-            forThisBdv.timepoint, forThisBdv.colorizer
-        )
+        sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint, forThisBdv.colorizer)
+        sphereLinkNodes.updateLinkVisibility(forThisBdv.timepoint)
+        sphereLinkNodes.updateLinkColors(forThisBdv.colorizer)
     }
 
-    private var lastTpWhenVolumeWasUpdated = 0
+    var lastTpWhenVolumeWasUpdated = 0
     val detachedDPP_showsLastTimepoint: DisplayParamsProvider = DPP_Detached()
 
     /** Fetch the volume state at the current time point,
-     * then call [volumeIntensityProcessing] to adjust the intensity values*/
+     * then call [volumeIntensityProcessing] to adjust the intensity values */
     @JvmOverloads
     fun updateVolume(
         forThisBdv: DisplayParamsProvider = detachedDPP_showsLastTimepoint,
@@ -410,20 +384,16 @@ class SciviewBridge {
             if (currTP != lastTpWhenVolumeWasUpdated) {
                 lastTpWhenVolumeWasUpdated = currTP
 
-                val spotCoord = Vector3f()
-                val color = Vector3f()
-                logger.debug("COLORING: started")
                 val tp = forThisBdv.timepoint
-                val srcRAI = mastodon
-                    .sharedBdvData.sources[sourceID]
-                    .spimSource.getSource(tp, sourceResLevel)
-                volumeIntensityProcessing(srcRAI as RandomAccessibleInterval<UnsignedShortType>
-                )
+                volumeNode.goToTimepoint(tp)
             }
         }
     }
 
     private fun updateSciviewCamera(forThisBdv: MamutViewBdv) {
+        val auxTransform = AffineTransform3D()
+        val viewMatrix = Matrix4f()
+        val viewRotation = Quaternionf()
         forThisBdv.viewerPanelMamut.state().getViewerTransform(auxTransform)
         for (r in 0..2) for (c in 0..3) viewMatrix[c, r] = auxTransform[r, c].toFloat()
         viewMatrix.getUnnormalizedRotation(viewRotation)
@@ -435,26 +405,12 @@ class SciviewBridge {
         camSpatial.position = sciviewWin.camera?.forward!!.normalize().mul(-1f * dist)
     }
 
-    private val auxTransform = AffineTransform3D()
-    private val viewMatrix = Matrix4f()
-    private val viewRotation = Quaternionf()
-
-    // --------------------------------------------------------------------------
     fun setVisibilityOfVolume(state: Boolean) {
-        volChannelNode.visible = state
+        volumeNode.visible = state
         if (state) {
-            volChannelNode.children.stream()
+            volumeNode.children.stream()
                 .filter { c: Node -> c.name.startsWith("Bounding") }
                 .forEach { c: Node -> c.visible = false }
-        }
-    }
-
-    fun setVisibilityOfSpots(state: Boolean) {
-        sphereParent.visible = state
-        if (state) {
-            sphereParent
-                .getChildrenByName(SphereNodes.NAME_OF_NOT_USED_SPHERES)
-                .forEach { s: Node -> s.visible = false }
         }
     }
 
@@ -466,6 +422,7 @@ class SciviewBridge {
     }
 
     val detachedDPP_withOwnTime: DPP_DetachedOwnTime
+
     fun showTimepoint(timepoint: Int) {
         detachedDPP_withOwnTime.timepoint = timepoint
         updateSciviewContent(detachedDPP_withOwnTime)
@@ -473,36 +430,27 @@ class SciviewBridge {
 
     private fun registerKeyboardHandlers() {
 
-        val handler = sciviewWin.sceneryInputHandler
-        handler?.addKeyBinding(desc_DEC_SPH, key_DEC_SPH)
-        handler?.addBehaviour(desc_DEC_SPH, ClickBehaviour { _, _ ->
-            sphereNodes.decreaseSphereScale()
-            updateUI()
-        })
+        data class BehaviourTriple(val name: String, val key: String, val lambda: ClickBehaviour)
 
-        handler?.addKeyBinding(desc_INC_SPH, key_INC_SPH)
-        handler?.addBehaviour(desc_INC_SPH, ClickBehaviour { _, _ ->
-            sphereNodes.increaseSphereScale()
-            updateUI()
-        })
+        val handler = sciviewWin.sceneryInputHandler ?: throw IllegalStateException("Could not find input handler!")
 
-        handler?.addKeyBinding(desc_CTRL_WIN, key_CTRL_WIN)
-        handler?.addBehaviour(desc_CTRL_WIN, ClickBehaviour { _, _ -> createAndShowControllingUI() })
+        val behaviourCollection = arrayOf(
+            BehaviourTriple(desc_DEC_SPH, key_DEC_SPH, { _, _ -> sphereLinkNodes.decreaseSphereScale(); updateUI() }),
+            BehaviourTriple(desc_INC_SPH, key_INC_SPH, { _, _ -> sphereLinkNodes.increaseSphereScale(); updateUI() }),
+            BehaviourTriple(desc_DEC_LINK, key_DEC_LINK, { _, _ -> sphereLinkNodes.decreaseLinkScale(); updateUI() }),
+            BehaviourTriple(desc_INC_LINK, key_INC_LINK, { _, _ -> sphereLinkNodes.increaseLinkScale(); updateUI() }),
+            BehaviourTriple(desc_CTRL_WIN, key_CTRL_WIN, { _, _ -> createAndShowControllingUI() }),
+            BehaviourTriple(desc_CTRL_INFO, key_CTRL_INFO, { _, _ -> logger.info(this.toString()) }),
+            BehaviourTriple(desc_PREV_TP, key_PREV_TP, { _, _ -> detachedDPP_withOwnTime.prevTimepoint()
+                updateSciviewContent(detachedDPP_withOwnTime) }),
+            BehaviourTriple(desc_NEXT_TP, key_NEXT_TP, { _, _ -> detachedDPP_withOwnTime.nextTimepoint()
+                updateSciviewContent(detachedDPP_withOwnTime) })
+        )
 
-        handler?.addKeyBinding(desc_CTRL_INFO, key_CTRL_INFO)
-        handler?.addBehaviour(desc_CTRL_INFO, ClickBehaviour { _, _ -> logger.info(this.toString()) })
-
-        handler?.addKeyBinding(desc_PREV_TP, key_PREV_TP)
-        handler?.addBehaviour(desc_PREV_TP, ClickBehaviour { _, _ ->
-            detachedDPP_withOwnTime.prevTimepoint()
-            updateSciviewContent(detachedDPP_withOwnTime)
-        })
-
-        handler?.addKeyBinding(desc_NEXT_TP, key_NEXT_TP)
-        handler?.addBehaviour(desc_NEXT_TP, ClickBehaviour { _, _ ->
-            detachedDPP_withOwnTime.nextTimepoint()
-            updateSciviewContent(detachedDPP_withOwnTime)
-        })
+        behaviourCollection.forEach {
+            handler.addKeyBinding(it.name, it.key)
+            handler.addBehaviour(it.name, it.lambda)
+        }
     }
 
     private fun deregisterKeyboardHandlers() {
@@ -510,6 +458,8 @@ class SciviewBridge {
         if (handler != null) {
             listOf(desc_DEC_SPH,
                 desc_INC_SPH,
+                desc_DEC_LINK,
+                desc_INC_LINK,
                 desc_CTRL_WIN,
                 desc_CTRL_INFO,
                 desc_PREV_TP,
@@ -548,13 +498,13 @@ class SciviewBridge {
     }
 
     companion object {
-        fun getDisplayVoxelRatio(forThisSource: Source<*>): FloatArray {
+        fun getDisplayVoxelRatio(forThisSource: Source<*>): Vector3f {
             val vxAxisRatio = forThisSource.voxelDimensions.dimensionsAsDoubleArray()
             val finalRatio = FloatArray(vxAxisRatio.size)
             var minLength = vxAxisRatio[0]
             for (i in 1 until vxAxisRatio.size) minLength = min(vxAxisRatio[i], minLength)
             for (i in vxAxisRatio.indices) finalRatio[i] = (vxAxisRatio[i] / minLength).toFloat()
-            return finalRatio
+            return Vector3f(finalRatio[0], finalRatio[1], finalRatio[2])
         }
 
         // --------------------------------------------------------------------------
@@ -565,8 +515,8 @@ class SciviewBridge {
 
         fun addDataAxes(): Node {
             //add the data axes
-            val AXES_LINE_WIDTHS = 0.04f
-            val AXES_LINE_LENGTHS = 0.7f
+            val AXES_LINE_WIDTHS = 0.01f
+            val AXES_LINE_LENGTHS = 0.1f
             //
             val axesParent = Group()
             axesParent.name = "Data Axes"
@@ -595,12 +545,16 @@ class SciviewBridge {
         // --------------------------------------------------------------------------
         const val key_DEC_SPH = "O"
         const val key_INC_SPH = "shift O"
+        const val key_DEC_LINK = "L"
+        const val key_INC_LINK = "shift L"
         const val key_CTRL_WIN = "ctrl I"
         const val key_CTRL_INFO = "shift I"
         const val key_PREV_TP = "T"
         const val key_NEXT_TP = "shift T"
         const val desc_DEC_SPH = "decrease_initial_spheres_size"
         const val desc_INC_SPH = "increase_initial_spheres_size"
+        const val desc_DEC_LINK = "decrease_initial_links_size"
+        const val desc_INC_LINK = "increase_initial_links_size"
         const val desc_CTRL_WIN = "controlling_window"
         const val desc_CTRL_INFO = "controlling_info"
         const val desc_PREV_TP = "show_previous_timepoint"

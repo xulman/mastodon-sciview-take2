@@ -17,20 +17,14 @@ import sc.iview.event.NodeActivatedEvent
 class GroupLocksHandling(//controls sciview via this bridge obj
     private val bridge: SciviewBridge, mastodon: ProjectModel
 ) {
-    private val projectModel //controls Mastodon
-            : ProjectModel
-    private val vertices //shortcut to inside of Mastodon
-            : PoolCollectionWrapper<Spot>
+    //controls Mastodon
+    private val projectModel: ProjectModel = mastodon
+    //shortcut to inside of Mastodon
+    private val vertices: PoolCollectionWrapper<Spot> = projectModel.model.graph.vertices()
     private val navigationRequestsHandler: NavigationRequestsHandler = NavigationRequestsHandler()
     private val sciviewFocusHandler: SciviewEventListener = SciviewEventListener()
     private lateinit var myGroupHandle: GroupHandle
     private var isActive = false
-
-    init {
-        projectModel = mastodon
-        vertices = projectModel.model.graph.vertices()
-        //'cause it's not having any group handle yet
-    }
 
     fun createAndActivate(): GroupLocksPanel? {
         if (isActive) return null
