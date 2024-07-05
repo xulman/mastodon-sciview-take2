@@ -5,6 +5,8 @@ package org.mastodon.mamut
 import bdv.viewer.Source
 import bdv.viewer.SourceAndConverter
 import graphics.scenery.*
+import graphics.scenery.controls.behaviours.SelectCommand
+import graphics.scenery.controls.behaviours.WithCameraDelegateBase
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.minus
 import graphics.scenery.utils.extensions.times
@@ -29,9 +31,11 @@ import org.mastodon.ui.coloring.GraphColorGenerator
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
+import org.scijava.ui.behaviour.DragBehaviour
 import sc.iview.SciView
 import util.SphereLinkNodes
 import javax.swing.JFrame
+import javax.swing.Renderer
 import kotlin.math.*
 
 class SciviewBridge {
@@ -451,6 +455,53 @@ class SciviewBridge {
             handler.addKeyBinding(it.name, it.key)
             handler.addBehaviour(it.name, it.lambda)
         }
+
+        val react: (Scene.RaycastResult, Int, Int) -> Unit = { result, _, _ ->
+            logger.info("found matches ${result.matches}")
+        }
+
+        val scene = sciviewWin.camera?.getScene() ?: throw IllegalStateException("Could not find input scene!")
+
+        sciviewWin.getSceneryRenderer()?.let {r ->
+            handler.addBehaviour("Click Instance", SelectCommand(
+                "Click Instance", r, scene, { sciviewWin.camera }, action = react
+                )
+            )
+        }
+
+    }
+
+    inner class SelectInstance(
+        val name: String,
+        val scene: Scene,
+        val renderer: Renderer,
+        camera: () -> Camera?,
+        protected var action: ((Scene.RaycastResult, Int, Int) -> Unit) = { _, _, _ -> Unit }
+    ): ClickBehaviour, WithCameraDelegateBase(camera) {
+        override fun click(p0: Int, p1: Int) {
+            TODO("Not yet implemented")
+        }
+
+    }
+
+
+    inner class DragInstance(
+        val name: String,
+        camera: () -> Camera?,
+    ): DragBehaviour, WithCameraDelegateBase(camera) {
+
+        override fun init(p0: Int, p1: Int) {
+
+        }
+
+        override fun drag(p0: Int, p1: Int) {
+            TODO("Not yet implemented")
+        }
+
+        override fun end(p0: Int, p1: Int) {
+            TODO("Not yet implemented")
+        }
+
     }
 
     private fun deregisterKeyboardHandlers() {
