@@ -19,6 +19,7 @@ import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
 import net.imglib2.type.numeric.integer.UnsignedShortType
 import net.imglib2.view.Views
+import net.imglib2.KDTree
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -31,11 +32,9 @@ import org.mastodon.ui.coloring.GraphColorGenerator
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
-import org.scijava.ui.behaviour.DragBehaviour
 import sc.iview.SciView
 import util.SphereLinkNodes
 import javax.swing.JFrame
-import javax.swing.Renderer
 import kotlin.math.*
 
 class SciviewBridge {
@@ -165,6 +164,7 @@ class SciviewBridge {
         sphereParent.spatial().scale /= volumeDownscale
         sciviewWin.addNode(sphereParent)
         sphereParent.parent = volumeNode
+        logger.info("volume node scale is ${volumeNode.spatialOrNull()?.scale}")
 
         linkParent = Group()
         linkParent.name = "LinkInstanceParent"
@@ -456,53 +456,21 @@ class SciviewBridge {
             handler.addBehaviour(it.name, it.lambda)
         }
 
-        val react: (Scene.RaycastResult, Int, Int) -> Unit = { result, _, _ ->
-            logger.info("found matches ${result.matches}")
-        }
-
-        val scene = sciviewWin.camera?.getScene() ?: throw IllegalStateException("Could not find input scene!")
-
         sciviewWin.getSceneryRenderer()?.let {r ->
-            handler.addBehaviour("Click Instance", SelectCommand(
-                "Click Instance", r, scene, { sciviewWin.camera }, action = react
-                )
-            )
+            handler.addBehaviour("Click Instance", SelectSpotCommand())
+            handler.addKeyBinding("Click Instance", "ctrl button1")
         }
 
     }
 
-    inner class SelectInstance(
-        val name: String,
-        val scene: Scene,
-        val renderer: Renderer,
-        camera: () -> Camera?,
-        protected var action: ((Scene.RaycastResult, Int, Int) -> Unit) = { _, _, _ -> Unit }
-    ): ClickBehaviour, WithCameraDelegateBase(camera) {
-        override fun click(p0: Int, p1: Int) {
-            TODO("Not yet implemented")
+    inner class SelectSpotCommand: ClickBehaviour {
+        override fun click(x: Int, y: Int) {
+            val (worldPos, worldDir) = sciviewWin.camera?.screenPointToRay(x, y) ?: throw IllegalStateException("Could not find Sciview Camera for raycasting!")
+            sphereLinkNodes.selectSpot(worldPos, worldDir)
         }
-
     }
 
 
-    inner class DragInstance(
-        val name: String,
-        camera: () -> Camera?,
-    ): DragBehaviour, WithCameraDelegateBase(camera) {
-
-        override fun init(p0: Int, p1: Int) {
-
-        }
-
-        override fun drag(p0: Int, p1: Int) {
-            TODO("Not yet implemented")
-        }
-
-        override fun end(p0: Int, p1: Int) {
-            TODO("Not yet implemented")
-        }
-
-    }
 
     private fun deregisterKeyboardHandlers() {
         val handler = sciviewWin.sceneryInputHandler

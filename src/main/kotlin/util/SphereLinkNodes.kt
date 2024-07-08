@@ -8,6 +8,7 @@ import graphics.scenery.primitives.Arrow
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
+import net.imglib2.RealLocalizable
 import net.imglib2.display.ColorTable
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
@@ -141,14 +142,14 @@ class SphereLinkNodes(
             val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
 
-            if (spot.internalPoolIndex == 51 || spot.internalPoolIndex == 61) {
-                logger.info("for spot ${spot.internalPoolIndex}:")
-                logger.info("covariance is: $covariance")
-                logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
-                logger.info("eigenvectors are: $eigenvectors")
-                logger.info("axisLengths are: $axisLengths")
-                logger.info("rotation is: ${eigenvectors.matrixToQuaternion(true)}")
-            }
+//            if (spot.internalPoolIndex == 51 || spot.internalPoolIndex == 61) {
+//                logger.info("for spot ${spot.internalPoolIndex}:")
+//                logger.info("covariance is: $covariance")
+//                logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
+//                logger.info("eigenvectors are: $eigenvectors")
+//                logger.info("axisLengths are: $axisLengths")
+//                logger.info("rotation is: ${eigenvectors.matrixToQuaternion(true)}")
+//            }
 
             inst.spatial {
                 position = Vector3f(spotPosition)
@@ -305,6 +306,51 @@ class SphereLinkNodes(
         } else {
             this.instancedProperties["Color"] = { Random.random3DVectorFromRange(0f, 1f).xyzw() }
         }
+    }
+
+    fun selectSpot(origin: Vector3f, direction: Vector3f) {
+
+        val line = Cylinder.betweenPoints(origin, origin + direction.times(3f))
+        line.radius = 0.005f
+        line.material {
+            diffuse = Vector3f(1f, 0.5f, 0.5f)
+            ambient = Vector3f(1f, 0.5f, 0.5f)
+        }
+        sv.addNode(line)
+
+        val sortedSpots = sortInstancesByDistance(spotPool, origin)
+        logger.info("parent parent scale is ${sphereParentNode.parent?.spatialOrNull()?.scale}")
+        val start = TimeSource.Monotonic.markNow()
+        for (spot in sortedSpots) {
+            val spotPosition = spot.spatial().position / sphereParentNode.parent?.spatialOrNull()?.scale
+            val vectorToCenter = spotPosition - origin
+            val dotProduct = vectorToCenter.dot(direction)
+            if (dotProduct < 0) {
+                continue
+            }
+            val closestPoint = origin + direction * dotProduct
+            val distanceToCenter = (spotPosition - closestPoint).length()
+            val radius = spot.spatial().scale[spot.spatial().scale.minComponent()] / 2.5
+            logger.info("for ${spot.name} distance to center is $distanceToCenter, and radius is $radius")
+            if (distanceToCenter < radius) {
+                spot.instancedProperties["Color"] = { Vector4f(1f, 0f, 0f, 1f) }
+                break
+            }
+        }
+        val end = TimeSource.Monotonic.markNow()
+        logger.info("Spot picking took ${end - start}.")
+    }
+
+    /** Sort a list of instances by their distance to a given [origin] position (e.g. of the camera)
+     * @return a sorted copy of the mutable instance list.*/
+    fun sortInstancesByDistance(
+        spots: MutableList<InstancedNode. Instance>, origin: Vector3f
+    ): MutableList<InstancedNode.Instance> {
+        val start = TimeSource.Monotonic.markNow()
+        val sortedSpots = spots.sortedBy { it.spatial().position.distance(origin) }.toMutableList()
+        val end = TimeSource.Monotonic.markNow()
+        logger.info("Spot sorting took ${end - start}.")
+        return sortedSpots
     }
 
     /** Takes an integer-encoded RGB value and returns it as [Vector4f] where alpha is 1.0f. */
