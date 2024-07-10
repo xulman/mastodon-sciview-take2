@@ -456,8 +456,23 @@ class SciviewBridge {
             handler.addBehaviour(it.name, it.lambda)
         }
 
-        sciviewWin.getSceneryRenderer()?.let {r ->
-            handler.addBehaviour("Click Instance", SelectSpotCommand())
+//        sciviewWin.getSceneryRenderer()?.let {r ->
+//            handler.addBehaviour("Click Instance", SelectSpotCommand())
+//            handler.addKeyBinding("Click Instance", "ctrl button1")
+//        }
+
+        val scene = sciviewWin.camera?.getScene() ?: throw IllegalStateException("Could not find input scene!")
+
+        sciviewWin.getSceneryRenderer()?.let { r ->
+            handler.addBehaviour("Click Instance", SelectCommand(
+                "Click Instance", r, scene, { scene.findObserver() }, false, action = { result, _, _ ->
+                    logger.info("result is: $result")
+                    val spot = result.matches.first().node as? InstancedNode.Instance
+                    if (spot != null) {
+                        sphereLinkNodes.selectSpot(spot)
+                    }
+                }
+            ))
             handler.addKeyBinding("Click Instance", "ctrl button1")
         }
 
