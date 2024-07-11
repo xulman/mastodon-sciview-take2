@@ -128,7 +128,7 @@ class SphereLinkNodes(
             // otherwise create a new instance and add it to the pool
             else {
                 inst = mainSpot.addInstance()
-                inst.name = "${spot.internalPoolIndex}"
+                inst.name = "spot_${spot.internalPoolIndex}"
                 inst.addAttribute(Material::class.java, sphere.material())
                 inst.parent = sphereParentNode
                 spotPool.add(inst)
@@ -298,10 +298,42 @@ class SphereLinkNodes(
         }
     }
 
-    fun selectSpot(instance: InstancedNode.Instance) {
-        val selectedSpot = spots.find { it.internalPoolIndex == instance.name.toInt() }
+    /** Tries to find a spot in the current time point for the given [instance].
+     * It does that by filtering through the names of the spots.
+     * @return either a [Spot] or null. */
+    private fun findSpotFromInstance(instance: InstancedNode.Instance):Spot? {
+        if (instance.name.startsWith("spot")) {
+            val name = instance.name.removePrefix("spot_")
+            val selectedSpot = spots.find { it.internalPoolIndex == name.toInt() }
+            return selectedSpot
+        } else {
+            return null
+        }
+    }
 
-        mastodonData.focusModel.focusVertex(selectedSpot)
+    fun selectSpot(instance: InstancedNode.Instance) {
+        // if one accidentally clicks a link instance and triggers this function, don't continue
+        val selectedSpot = findSpotFromInstance(instance)
+        selectedSpot?.let {
+            // Remove previous selections first
+            clearSpotSelection()
+            mastodonData.focusModel.focusVertex(selectedSpot)
+            mastodonData.highlightModel.highlightVertex(selectedSpot)
+            mastodonData.selectionModel.setSelected(selectedSpot, true)
+        }
+    }
+
+    fun clearSpotSelection() {
+        mastodonData.focusModel.focusVertex(null)
+        mastodonData.selectionModel.clearSelection()
+        mastodonData.highlightModel.clearHighlight()
+    }
+
+    fun moveSpot(instance: InstancedNode.Instance, distance: Vector3f) {
+        val selectedSpot = findSpotFromInstance(instance)
+        selectedSpot?.let {
+            mastodonData.model.graph.vertexRef().refTo(selectedSpot).move(distance.toFloatArray())
+        }
     }
 
     /** Sort a list of instances by their distance to a given [origin] position (e.g. of the camera)

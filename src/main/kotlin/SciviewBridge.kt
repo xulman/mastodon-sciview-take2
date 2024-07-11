@@ -9,6 +9,7 @@ import graphics.scenery.controls.behaviours.SelectCommand
 import graphics.scenery.controls.behaviours.WithCameraDelegateBase
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.minus
+import graphics.scenery.utils.extensions.plus
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import graphics.scenery.volumes.TransferFunction
@@ -32,6 +33,7 @@ import org.mastodon.ui.coloring.GraphColorGenerator
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
+import org.scijava.ui.behaviour.DragBehaviour
 import sc.iview.SciView
 import util.SphereLinkNodes
 import javax.swing.JFrame
@@ -83,6 +85,7 @@ class SciviewBridge {
     var sac: SourceAndConverter<*>
     var isVolumeAutoAdjust = false
     val sceneScale: Float = 10f
+    var selectedSpot: InstancedNode.Instance? = null
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
 
@@ -462,18 +465,84 @@ class SciviewBridge {
 //        }
 
         val scene = sciviewWin.camera?.getScene() ?: throw IllegalStateException("Could not find input scene!")
+        val renderer = sciviewWin.getSceneryRenderer() ?: throw IllegalStateException("Could not find scenery renderer!")
 
-        sciviewWin.getSceneryRenderer()?.let { r ->
-            handler.addBehaviour("Click Instance", SelectCommand(
-                "Click Instance", r, scene, { scene.findObserver() }, false, action = { result, _, _ ->
-                    val spot = result.matches.first().node as? InstancedNode.Instance
-                    if (spot != null) {
-                        sphereLinkNodes.selectSpot(spot)
-                        sphereLinkNodes.showInstancedSpots(detachedDPP_withOwnTime.timepoint, detachedDPP_withOwnTime.colorizer)
+        val clickInstance = SelectCommand(
+            "Click Instance", renderer, scene, { scene.findObserver() },
+            ignoredObjects = listOf(Volume::class.java), action = { result, _, _ ->
+                if (result.matches.isNotEmpty()) {
+                    // Try to cast the result to an instance, or clear the existing selection if it fails
+                    selectedSpot = result.matches.first().node as? InstancedNode.Instance
+                    if (selectedSpot != null) {
+                        selectedSpot?.let { s ->
+                            sphereLinkNodes.selectSpot(s)
+                            sphereLinkNodes.showInstancedSpots(
+                                detachedDPP_withOwnTime.timepoint,
+                                detachedDPP_withOwnTime.colorizer
+                            )
+                        }
+                    } else {
+                        sphereLinkNodes.clearSpotSelection()
                     }
                 }
+            }
+        )
+
+        sciviewWin.getSceneryRenderer()?.let { r ->
+            // Triggered when the user clicks on any object
+            handler.addBehaviour("Click Instance", clickInstance)
+            handler.addKeyBinding("Click Instance", "button1")
+
+            handler.addBehaviour("Move Instance", MoveInstance(
+                { scene.findObserver() }, selectedSpot
             ))
-            handler.addKeyBinding("Click Instance", "ctrl button1")
+            handler.addKeyBinding("Move Instance", "SPACE")
+        }
+
+    }
+
+    inner class MoveInstance(
+        camera: () -> Camera?,
+        selectedSpot: InstancedNode.Instance?
+    ): DragBehaviour, WithCameraDelegateBase(camera) {
+
+        protected var currentHit: Vector3f = Vector3f()
+        protected var distance: Float = 0f
+
+        override fun init(x: Int, y: Int) {
+            cam?.let { cam ->
+                val (rayStart, rayDir) = cam.screenPointToRay(x, y)
+                rayDir.normalize()
+                if (selectedSpot != null) {
+                    distance = cam.spatial().position.distance(selectedSpot?.spatial()?.position)
+                    currentHit = rayStart + rayDir * distance
+                }
+            }
+        }
+
+        override fun drag(x: Int, y: Int) {
+            if (distance <= 0)
+                return
+
+            cam?.let { cam ->
+                selectedSpot?.let {
+                    val (rayStart, rayDir) = cam.screenPointToRay(x, y)
+                    rayDir.normalize()
+                    val newHit = rayStart + rayDir * distance
+                    val movement = newHit - currentHit
+                    movement.y *= -1f
+                    it.ifSpatial {
+                        // Rotation around camera's center
+                        val newPos = position + movement / worldScale() / volumeNode.spatial().scale / 1.7f
+                        selectedSpot?.spatialOrNull()?.position = newPos
+                        currentHit = newHit
+                    }
+                    sphereLinkNodes.moveSpot(selectedSpot!!, movement)
+                }
+            }
+        }
+
+        override fun end(p0: Int, p1: Int) {
         }
 
     }
