@@ -466,10 +466,10 @@ class SciviewBridge {
         sciviewWin.getSceneryRenderer()?.let { r ->
             handler.addBehaviour("Click Instance", SelectCommand(
                 "Click Instance", r, scene, { scene.findObserver() }, false, action = { result, _, _ ->
-                    logger.info("result is: $result")
                     val spot = result.matches.first().node as? InstancedNode.Instance
                     if (spot != null) {
                         sphereLinkNodes.selectSpot(spot)
+                        sphereLinkNodes.showInstancedSpots(detachedDPP_withOwnTime.timepoint, detachedDPP_withOwnTime.colorizer)
                     }
                 }
             ))
@@ -477,14 +477,6 @@ class SciviewBridge {
         }
 
     }
-
-    inner class SelectSpotCommand: ClickBehaviour {
-        override fun click(x: Int, y: Int) {
-            val (worldPos, worldDir) = sciviewWin.camera?.screenPointToRay(x, y) ?: throw IllegalStateException("Could not find Sciview Camera for raycasting!")
-            sphereLinkNodes.selectSpot(worldPos, worldDir)
-        }
-    }
-
 
 
     private fun deregisterKeyboardHandlers() {

@@ -109,7 +109,6 @@ class SphereLinkNodes(
 
         if (spotRef == null) spotRef = mastodonData.model.graph.vertexRef()
         val focusedSpotRef = mastodonData.focusModel.getFocusedVertex(spotRef)
-        mastodonData.selectionModel
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(timepoint)
         sv.blockOnNewNodes = false
 
@@ -129,7 +128,7 @@ class SphereLinkNodes(
             // otherwise create a new instance and add it to the pool
             else {
                 inst = mainSpot.addInstance()
-                inst.name = "${timepoint}_${spot.internalPoolIndex}"
+                inst.name = "${spot.internalPoolIndex}"
                 inst.addAttribute(Material::class.java, sphere.material())
                 inst.parent = sphereParentNode
                 spotPool.add(inst)
@@ -141,15 +140,6 @@ class SphereLinkNodes(
             covariance = Array2DRowRealMatrix(covArray)
             val (eigenvalues, eigenvectors) = computeEigen(covariance)
             axisLengths = computeSemiAxes(eigenvalues)
-
-//            if (spot.internalPoolIndex == 51 || spot.internalPoolIndex == 61) {
-//                logger.info("for spot ${spot.internalPoolIndex}:")
-//                logger.info("covariance is: $covariance")
-//                logger.info("eigenvalues are: ${eigenvalues.joinToString(", ")}")
-//                logger.info("eigenvectors are: $eigenvectors")
-//                logger.info("axisLengths are: $axisLengths")
-//                logger.info("rotation is: ${eigenvectors.matrixToQuaternion(true)}")
-//            }
 
             inst.spatial {
                 position = Vector3f(spotPosition)
@@ -308,42 +298,10 @@ class SphereLinkNodes(
         }
     }
 
-    fun selectSpot(origin: Vector3f, direction: Vector3f) {
-
-//        val line = Cylinder.betweenPoints(origin, origin + direction.times(3f))
-//        line.radius = 0.005f
-//        line.material {
-//            diffuse = Vector3f(1f, 0.5f, 0.5f)
-//            ambient = Vector3f(1f, 0.5f, 0.5f)
-//        }
-//        sv.addNode(line)
-
-        val sortedSpots = sortInstancesByDistance(spotPool, origin)
-        logger.info("parent parent scale is ${sphereParentNode.parent?.spatialOrNull()?.scale}")
-        val start = TimeSource.Monotonic.markNow()
-        for (spot in sortedSpots) {
-            logger.info("checking spot $spot")
-            val spotPosition = spot.spatial().position / sphereParentNode.parent?.spatialOrNull()?.scale
-            val vectorToCenter = spotPosition - origin
-            val dotProduct = vectorToCenter.dot(direction)
-            if (dotProduct < 0) {
-                continue
-            }
-            val closestPoint = origin + direction * dotProduct
-            val distanceToCenter = (spotPosition - closestPoint).length()
-            val radius = spot.spatial().scale[spot.spatial().scale.minComponent()] / 8
-            logger.info("for ${spot.name} distance to center is $distanceToCenter, and radius is $radius")
-            if (distanceToCenter < radius) {
-                spot.instancedProperties["Color"] = { Vector4f(1f, 0f, 0f, 1f) }
-                break
-            }
-        }
-        val end = TimeSource.Monotonic.markNow()
-        logger.info("Spot picking took ${end - start}.")
-    }
-
     fun selectSpot(instance: InstancedNode.Instance) {
-        instance.instancedProperties["Color"] = { Vector4f(1f, 0f, 0f, 1f) }
+        val selectedSpot = spots.find { it.internalPoolIndex == instance.name.toInt() }
+
+        mastodonData.focusModel.focusVertex(selectedSpot)
     }
 
     /** Sort a list of instances by their distance to a given [origin] position (e.g. of the camera)
