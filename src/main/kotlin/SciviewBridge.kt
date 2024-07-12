@@ -20,7 +20,6 @@ import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
 import net.imglib2.type.numeric.integer.UnsignedShortType
 import net.imglib2.view.Views
-import net.imglib2.KDTree
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -85,7 +84,11 @@ class SciviewBridge {
     var sac: SourceAndConverter<*>
     var isVolumeAutoAdjust = false
     val sceneScale: Float = 10f
-    var selectedSpot: InstancedNode.Instance? = null
+    // keep track of the currently selected spot globally so that edit behaviors can access it
+    var selectedSpotInstance: InstancedNode.Instance? = null
+    // prevent BDV from triggering the event watcher while a spot is edited in Sciview
+    var lockVertexHandling = false
+    var moveSpotInSciview: (Spot?) -> Unit?
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
 
@@ -180,7 +183,14 @@ class SciviewBridge {
         sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, sphereParent, linkParent)
         sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
         sphereLinkNodes.initializeInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
-        //temporary handlers, originally for testing....
+
+        // lambda function that is passed to the event handler and called when a vertex position change occurs
+        moveSpotInSciview = { spot: Spot? ->
+            logger.info("called moveSpotInSciview for spot $spot")
+            spot?.let {
+                selectedSpotInstance = sphereLinkNodes.findInstanceFromSpot(spot)
+                sphereLinkNodes.moveSpotInSciview(spot) }
+        }
         registerKeyboardHandlers()
     }
 
@@ -303,6 +313,7 @@ class SciviewBridge {
         BdvNotifier(
             { updateSciviewContent(bdvWinParamsProvider) },
             { updateSciviewCamera(bdvWin) },
+            { moveSpotInSciview },
             mastodon,
             bdvWin
         )
@@ -366,7 +377,7 @@ class SciviewBridge {
             get() = recentColorizer ?: noTSColorizer
     }
 
-    /** Calls [updateVolume] and [SphereLinkNodes.showTheseSpots] to update the current volume and corresponding spots. */
+    /** Calls [updateVolume] and [SphereLinkNodes.showInstancedSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
         sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint, forThisBdv.colorizer)
@@ -459,11 +470,6 @@ class SciviewBridge {
             handler.addBehaviour(it.name, it.lambda)
         }
 
-//        sciviewWin.getSceneryRenderer()?.let {r ->
-//            handler.addBehaviour("Click Instance", SelectSpotCommand())
-//            handler.addKeyBinding("Click Instance", "ctrl button1")
-//        }
-
         val scene = sciviewWin.camera?.getScene() ?: throw IllegalStateException("Could not find input scene!")
         val renderer = sciviewWin.getSceneryRenderer() ?: throw IllegalStateException("Could not find scenery renderer!")
 
@@ -472,9 +478,10 @@ class SciviewBridge {
             ignoredObjects = listOf(Volume::class.java), action = { result, _, _ ->
                 if (result.matches.isNotEmpty()) {
                     // Try to cast the result to an instance, or clear the existing selection if it fails
-                    selectedSpot = result.matches.first().node as? InstancedNode.Instance
-                    if (selectedSpot != null) {
-                        selectedSpot?.let { s ->
+                    selectedSpotInstance = result.matches.first().node as? InstancedNode.Instance
+                    if (selectedSpotInstance != null) {
+                        logger.info("selected instance $selectedSpotInstance")
+                        selectedSpotInstance?.let { s ->
                             sphereLinkNodes.selectSpot(s)
                             sphereLinkNodes.showInstancedSpots(
                                 detachedDPP_withOwnTime.timepoint,
@@ -494,27 +501,27 @@ class SciviewBridge {
             handler.addKeyBinding("Click Instance", "button1")
 
             handler.addBehaviour("Move Instance", MoveInstance(
-                { scene.findObserver() }, selectedSpot
-            ))
+                { scene.findObserver() } ))
             handler.addKeyBinding("Move Instance", "SPACE")
         }
 
     }
 
     inner class MoveInstance(
-        camera: () -> Camera?,
-        selectedSpot: InstancedNode.Instance?
+        camera: () -> Camera?
     ): DragBehaviour, WithCameraDelegateBase(camera) {
 
-        protected var currentHit: Vector3f = Vector3f()
-        protected var distance: Float = 0f
+        private var currentHit: Vector3f = Vector3f()
+        private var distance: Float = 0f
 
         override fun init(x: Int, y: Int) {
+            lockVertexHandling = true
+            logger.info("set lock handling to true")
             cam?.let { cam ->
                 val (rayStart, rayDir) = cam.screenPointToRay(x, y)
                 rayDir.normalize()
-                if (selectedSpot != null) {
-                    distance = cam.spatial().position.distance(selectedSpot?.spatial()?.position)
+                if (selectedSpotInstance != null) {
+                    distance = cam.spatial().position.distance(selectedSpotInstance?.spatial()?.position)
                     currentHit = rayStart + rayDir * distance
                 }
             }
@@ -525,7 +532,7 @@ class SciviewBridge {
                 return
 
             cam?.let { cam ->
-                selectedSpot?.let {
+                selectedSpotInstance?.let {
                     val (rayStart, rayDir) = cam.screenPointToRay(x, y)
                     rayDir.normalize()
                     val newHit = rayStart + rayDir * distance
@@ -534,17 +541,20 @@ class SciviewBridge {
                     it.ifSpatial {
                         // Rotation around camera's center
                         val newPos = position + movement / worldScale() / volumeNode.spatial().scale / 1.7f
-                        selectedSpot?.spatialOrNull()?.position = newPos
+                        selectedSpotInstance?.spatialOrNull()?.position = newPos
                         currentHit = newHit
                     }
-                    sphereLinkNodes.moveSpot(selectedSpot!!, movement)
+                    sphereLinkNodes.moveSpotInBDV(selectedSpotInstance!!, movement)
                 }
             }
         }
 
-        override fun end(p0: Int, p1: Int) {
+        override fun end(x: Int, y: Int) {
+            lockVertexHandling = false
+            logger.info("set lock handling to false")
+            sphereLinkNodes.showInstancedSpots(detachedDPP_withOwnTime.timepoint,
+                detachedDPP_withOwnTime.colorizer)
         }
-
     }
 
 

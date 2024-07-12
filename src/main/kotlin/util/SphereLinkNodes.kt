@@ -8,7 +8,6 @@ import graphics.scenery.primitives.Arrow
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
-import net.imglib2.RealLocalizable
 import net.imglib2.display.ColorTable
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
@@ -87,6 +86,7 @@ class SphereLinkNodes(
         timepoint: Int,
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
+        logger.info("called showInstancedSpots")
         // only create and add the main instance once during initialization
         if (mainSpotInstance == null) {
             sphere.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
@@ -128,12 +128,11 @@ class SphereLinkNodes(
             // otherwise create a new instance and add it to the pool
             else {
                 inst = mainSpot.addInstance()
-                inst.name = "spot_${spot.internalPoolIndex}"
                 inst.addAttribute(Material::class.java, sphere.material())
                 inst.parent = sphereParentNode
                 spotPool.add(inst)
             }
-
+            inst.name = "spot_${spot.internalPoolIndex}"
             // get spot covariance and calculate the scaling and rotation from it
             spot.localize(spotPosition)
             spot.getCovariance(covArray)
@@ -301,7 +300,7 @@ class SphereLinkNodes(
     /** Tries to find a spot in the current time point for the given [instance].
      * It does that by filtering through the names of the spots.
      * @return either a [Spot] or null. */
-    private fun findSpotFromInstance(instance: InstancedNode.Instance):Spot? {
+    fun findSpotFromInstance(instance: InstancedNode.Instance):Spot? {
         if (instance.name.startsWith("spot")) {
             val name = instance.name.removePrefix("spot_")
             val selectedSpot = spots.find { it.internalPoolIndex == name.toInt() }
@@ -309,6 +308,13 @@ class SphereLinkNodes(
         } else {
             return null
         }
+    }
+
+    /** Tries to find an instance in the current time point for the given [spot].
+     * It does that by filtering through the names of the instances.
+     * @return either an [InstancedNode.Instance] or null. */
+    fun findInstanceFromSpot(spot: Spot): InstancedNode.Instance? {
+        return spotPool.find { it.name.removePrefix("spot_").toInt() == spot.internalPoolIndex }
     }
 
     fun selectSpot(instance: InstancedNode.Instance) {
@@ -329,11 +335,20 @@ class SphereLinkNodes(
         mastodonData.highlightModel.clearHighlight()
     }
 
-    fun moveSpot(instance: InstancedNode.Instance, distance: Vector3f) {
-        val selectedSpot = findSpotFromInstance(instance)
+    /** Takes the given spot instance that was already moved in Sciview and moves it in the BDV window.  */
+    fun moveSpotInBDV(instance: InstancedNode.Instance?, distance: Vector3f) {
+        val selectedSpot = instance?.let { findSpotFromInstance(it) }
         selectedSpot?.let {
             mastodonData.model.graph.vertexRef().refTo(selectedSpot).move(distance.toFloatArray())
         }
+    }
+
+    /** Takes the given spot that was already moved in the BDV window and moves it in Sciview. */
+    fun moveSpotInSciview(spot: Spot) {
+        val selectedInstance = findInstanceFromSpot(spot)
+        val spotPosition = FloatArray(3)
+        spot.localize(spotPosition)
+        selectedInstance?.spatial()?.position = Vector3f(spotPosition)
     }
 
     /** Sort a list of instances by their distance to a given [origin] position (e.g. of the camera)
@@ -449,7 +464,7 @@ class SphereLinkNodes(
             }
         }
         val end = TimeSource.Monotonic.markNow()
-        logger.info("Updating link colors took ${end - start}.")
+        logger.debug("Updating link colors took ${end - start}.")
     }
 
     fun updateLinkVisibility(currentTP: Int) {
