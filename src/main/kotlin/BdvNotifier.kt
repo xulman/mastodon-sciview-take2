@@ -79,23 +79,33 @@ class BdvNotifier(
         TimePointListener, GraphChangeListener, VertexPositionListener<Spot>, PropertyChangeListener, FocusListener,
         ColoringChangedListener {
         override fun graphChanged() {  }
-        override fun vertexPositionChanged(vertex: Spot) = vertexChanged(vertex)
+        override fun vertexPositionChanged(vertex: Spot) {
+            logger.debug("called vertexChanged")
+            vertexChanged(vertex)
+        }
 
-        override fun transformChanged(affineTransform3D: AffineTransform3D?) = viewChanged()
+        override fun transformChanged(affineTransform3D: AffineTransform3D?) {
+            logger.debug("called transformChanged")
+            viewChanged()
+        }
 
         override fun timePointChanged(timePointIndex: Int) {
+            logger.debug("called timePointChanged")
             contentChanged()
         }
 
         override fun focusChanged() {
+            logger.debug("called focusChanged")
             contentChanged()
         }
 
         override fun propertyChange(propertyChangeEvent: PropertyChangeEvent) {
+            logger.debug("called propertyChange")
             contentChanged()
         }
 
         override fun coloringChanged() {
+            logger.debug("called coloringChanged")
             contentChanged()
         }
 
@@ -111,11 +121,12 @@ class BdvNotifier(
 
         fun vertexChanged(vertex: Spot) {
             timeStampOfLastEvent = System.currentTimeMillis()
-            isLastContentEventValid = true
+            isLastVertexEventValid = true
             movedSpot = vertex
         }
 
         var isLastContentEventValid = false
+        var isLastVertexEventValid = false
         var isLastViewEventValid = false
         var timeStampOfLastEvent: Long = 0
     }
@@ -148,9 +159,10 @@ class BdvNotifier(
             logger.debug("$SERVICE_NAME started")
             try {
                 while (keepWatching) {
-                    if ((eventsSource.isLastContentEventValid
+                    if ((eventsSource.isLastContentEventValid || eventsSource.isLastVertexEventValid
                         || eventsSource.isLastViewEventValid &&
-                        System.currentTimeMillis() - eventsSource.timeStampOfLastEvent > updateInterval) && !lockVertexUpdates
+                        System.currentTimeMillis() - eventsSource.timeStampOfLastEvent > updateInterval)
+                        && !lockVertexUpdates
                     ) {
                         if (eventsSource.isLastContentEventValid) {
                             logger.debug("$SERVICE_NAME: content event and silence detected -> processing it now")
@@ -162,14 +174,15 @@ class BdvNotifier(
                             eventsSource.isLastViewEventValid = false
                             viewEventProcessor.run()
                         }
-                        if (eventsSource.isLastContentEventValid) {
+                        if (eventsSource.isLastVertexEventValid) {
                             logger.debug("$SERVICE_NAME: vertex event and silence detected -> processing it now")
-                            eventsSource.isLastViewEventValid = false
+                            eventsSource.isLastVertexEventValid = false
                             vertexEventProcessor.invoke(movedSpot)
                         }
-                    } else sleep(updateInterval / 2)
+                    } else sleep(updateInterval / 10)
                 }
-            } catch (e: InterruptedException) { /* do nothing, silently stop */
+            } catch (e: InterruptedException) {
+                throw e
             }
             logger.debug("$SERVICE_NAME stopped")
         }

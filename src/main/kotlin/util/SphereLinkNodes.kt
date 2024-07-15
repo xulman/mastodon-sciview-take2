@@ -86,7 +86,6 @@ class SphereLinkNodes(
         timepoint: Int,
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
-        logger.info("called showInstancedSpots")
         // only create and add the main instance once during initialization
         if (mainSpotInstance == null) {
             sphere.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {

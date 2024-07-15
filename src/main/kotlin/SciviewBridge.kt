@@ -86,8 +86,9 @@ class SciviewBridge {
     val sceneScale: Float = 10f
     // keep track of the currently selected spot globally so that edit behaviors can access it
     var selectedSpotInstance: InstancedNode.Instance? = null
-    // prevent BDV from triggering the event watcher while a spot is edited in Sciview
-    var lockVertexHandling = false
+    // the event watcher for BDV, needed here to prevent BDV from
+    // triggering the event watcher while a spot is edited in Sciview
+    lateinit var bdvNotifier: BdvNotifier
     var moveSpotInSciview: (Spot?) -> Unit?
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
@@ -184,13 +185,14 @@ class SciviewBridge {
         sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
         sphereLinkNodes.initializeInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
 
-        // lambda function that is passed to the event handler and called when a vertex position change occurs
+        // lambda function that is passed to the event handler and called
+        // when a vertex position change occurs on the BDV side
         moveSpotInSciview = { spot: Spot? ->
-            logger.info("called moveSpotInSciview for spot $spot")
             spot?.let {
                 selectedSpotInstance = sphereLinkNodes.findInstanceFromSpot(spot)
                 sphereLinkNodes.moveSpotInSciview(spot) }
         }
+
         registerKeyboardHandlers()
     }
 
@@ -310,10 +312,10 @@ class SciviewBridge {
         //initial spots content:
         val bdvWinParamsProvider = DPP_BdvAdapter(bdvWin)
         updateSciviewContent(bdvWinParamsProvider)
-        BdvNotifier(
+        bdvNotifier = BdvNotifier(
             { updateSciviewContent(bdvWinParamsProvider) },
             { updateSciviewCamera(bdvWin) },
-            { moveSpotInSciview },
+            moveSpotInSciview as (Spot?) -> Unit,
             mastodon,
             bdvWin
         )
@@ -480,7 +482,7 @@ class SciviewBridge {
                     // Try to cast the result to an instance, or clear the existing selection if it fails
                     selectedSpotInstance = result.matches.first().node as? InstancedNode.Instance
                     if (selectedSpotInstance != null) {
-                        logger.info("selected instance $selectedSpotInstance")
+                        logger.debug("selected instance $selectedSpotInstance")
                         selectedSpotInstance?.let { s ->
                             sphereLinkNodes.selectSpot(s)
                             sphereLinkNodes.showInstancedSpots(
@@ -515,8 +517,7 @@ class SciviewBridge {
         private var distance: Float = 0f
 
         override fun init(x: Int, y: Int) {
-            lockVertexHandling = true
-            logger.info("set lock handling to true")
+            bdvNotifier.lockVertexUpdates = true
             cam?.let { cam ->
                 val (rayStart, rayDir) = cam.screenPointToRay(x, y)
                 rayDir.normalize()
@@ -550,8 +551,7 @@ class SciviewBridge {
         }
 
         override fun end(x: Int, y: Int) {
-            lockVertexHandling = false
-            logger.info("set lock handling to false")
+            bdvNotifier.lockVertexUpdates = false
             sphereLinkNodes.showInstancedSpots(detachedDPP_withOwnTime.timepoint,
                 detachedDPP_withOwnTime.colorizer)
         }
