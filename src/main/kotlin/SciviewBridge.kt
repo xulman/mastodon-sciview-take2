@@ -486,8 +486,8 @@ class SciviewBridge {
                         selectedSpotInstance?.let { s ->
                             sphereLinkNodes.selectSpot(s)
                             sphereLinkNodes.showInstancedSpots(
-                                detachedDPP_withOwnTime.timepoint,
-                                detachedDPP_withOwnTime.colorizer
+                                detachedDPP_showsLastTimepoint.timepoint,
+                                detachedDPP_showsLastTimepoint.colorizer
                             )
                         }
                     } else {
@@ -552,8 +552,8 @@ class SciviewBridge {
 
         override fun end(x: Int, y: Int) {
             bdvNotifier.lockVertexUpdates = false
-            sphereLinkNodes.showInstancedSpots(detachedDPP_withOwnTime.timepoint,
-                detachedDPP_withOwnTime.colorizer)
+            sphereLinkNodes.showInstancedSpots(detachedDPP_showsLastTimepoint.timepoint,
+                detachedDPP_showsLastTimepoint.colorizer)
         }
     }
 
