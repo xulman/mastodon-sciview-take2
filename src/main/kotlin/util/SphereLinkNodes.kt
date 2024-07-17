@@ -8,6 +8,7 @@ import graphics.scenery.primitives.Arrow
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
+import net.imagej.ops.Ops.Logic.Bool
 import net.imglib2.display.ColorTable
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
@@ -141,7 +142,7 @@ class SphereLinkNodes(
 
             inst.spatial {
                 position = Vector3f(spotPosition)
-                scale = Vector3f(sphereScaleFactor)
+                scale = Vector3f(sphereScaleFactor *  sqrt(spot.boundingSphereRadiusSquared.toFloat()) / 50f)
                 // TODO add ellipsoid scale & rotation to instances
                 // scale = axisLengths * sphereScaleFactor * 0.5f
                 // rotation = eigenvectors.toQuaternion()
@@ -299,7 +300,7 @@ class SphereLinkNodes(
     /** Tries to find a spot in the current time point for the given [instance].
      * It does that by filtering through the names of the spots.
      * @return either a [Spot] or null. */
-    fun findSpotFromInstance(instance: InstancedNode.Instance):Spot? {
+    fun findSpotFromInstance(instance: InstancedNode.Instance): Spot? {
         if (instance.name.startsWith("spot")) {
             val name = instance.name.removePrefix("spot_")
             val selectedSpot = spots.find { it.internalPoolIndex == name.toInt() }
@@ -309,11 +310,22 @@ class SphereLinkNodes(
         }
     }
 
-    /** Tries to find an instance in the current time point for the given [spot].
-     * It does that by filtering through the names of the instances.
+    /** Tries to find a spot instance in the current time point for the given [spot].
+     * It does that by filtering through the names of the instances, which contain the internalPoolIndex.
      * @return either an [InstancedNode.Instance] or null. */
     fun findInstanceFromSpot(spot: Spot): InstancedNode.Instance? {
         return spotPool.find { it.name.removePrefix("spot_").toInt() == spot.internalPoolIndex }
+    }
+
+    /** Tries to find a link instance for the given [link].
+     * It does that by filtering through the names, which contain the internalPoolIndex. */
+    fun findInstanceFromLink(link: Link): InstancedNode.Instance? {
+        val results = links.filterValues { it.instance.name.toInt() == link.internalPoolIndex }
+        return if (results.isNotEmpty()) {
+            results.entries.first().value.instance
+        } else {
+            null
+        }
     }
 
     fun selectSpot(instance: InstancedNode.Instance) {
@@ -342,12 +354,50 @@ class SphereLinkNodes(
         }
     }
 
-    /** Takes the given spot that was already moved in the BDV window and moves it in Sciview. */
-    fun moveSpotInSciview(spot: Spot) {
+    /** Takes the given spot that was already moved in the BDV window and moves it in Sciview.
+     * It also updates the connected edges and it is also called when a vertex is scaled on the BDV side. */
+    fun moveAndScaleSpotInSciview(spot: Spot) {
         val selectedInstance = findInstanceFromSpot(spot)
         val spotPosition = FloatArray(3)
         spot.localize(spotPosition)
-        selectedInstance?.spatial()?.position = Vector3f(spotPosition)
+        selectedInstance?.spatial {
+            position = Vector3f(spotPosition)
+            scale = Vector3f(sphereScaleFactor *  sqrt(spot.boundingSphereRadiusSquared.toFloat()) / 50f)
+        }
+        val edges = spot.incomingEdges() + spot.outgoingEdges()
+        for (edge in edges) {
+            findInstanceFromLink(edge)?.let {
+                setLinkTransforms(edge.source, edge.target, it)
+            }
+        }
+    }
+
+    /** Called when a spot is scaled in the sciview window.
+     * This function then scales both the instance and the vertex on the BDV side.
+     * Setting the [direction] to means to scale up, false means scale down. */
+    fun scaleSpotAndInstance(instance: InstancedNode.Instance?, direction: Boolean) {
+        val factor = if (direction) 1.1 else 0.9
+        instance?.let {
+            val spot = findSpotFromInstance(it)
+            val covArray = Array(3) { DoubleArray(3) }
+            spot?.getCovariance(covArray)
+            for (i in covArray.indices) {
+                for (j in covArray[i].indices) {
+                    covArray[i][j] *= factor
+                }
+            }
+            spot?.setCovariance(covArray)
+            mastodonData.model.graph.notifyGraphChanged()
+            it.spatial().scale *= Vector3f(factor.toFloat())
+        }
+    }
+
+    fun updateLinkTransforms(edges: MutableList<Link>) {
+        for (edge in edges) {
+            findInstanceFromLink(edge)?.let {
+                setLinkTransforms(edge.source, edge.target, it)
+            }
+        }
     }
 
     /** Sort a list of instances by their distance to a given [origin] position (e.g. of the camera)
@@ -427,7 +477,7 @@ class SphereLinkNodes(
         val start = TimeSource.Monotonic.markNow()
         // TODO use coroutines for this
         mastodonData.model.graph.edges().forEach { edge ->
-            addLink(edge.source, edge.target, mainLink, colorizer)
+            addLink(edge, mainLink, colorizer)
         }
         val end = TimeSource.Monotonic.markNow()
         logger.info("Initial edge traversel took ${end - start}.")
@@ -511,34 +561,42 @@ class SphereLinkNodes(
 //        events?.publish(NodeChangedEvent(linksNodesHub))
     }
 
-    fun addLink(from: Spot, to: Spot, mainInstance: InstancedNode, colorizer: GraphColorGenerator<Spot, Link>) {
+    /** Adds a link instance to the link parent and also adds it to the [links] hashmap. */
+    private fun addLink(edge: Link, mainInstance: InstancedNode, colorizer: GraphColorGenerator<Spot, Link>) {
 
-        // temporary container to get the position as array
-        val pos = FloatArray(3)
-
-        from.localize(pos)
-        val posOrigin = Vector3f(pos)
-        to.localize(pos)
-        val posTarget = Vector3f(pos)
-
-        //NB: posOrigin is base of the "vector" link, posTarget is the "vector" link itself
-        posTarget.sub(posOrigin)
+        val from = edge.source
+        val to = edge.target
         val inst = mainInstance.addInstance()
         inst.addAttribute(Material::class.java, cylinder.material())
         val factor = to.timepoint / numTimePoints.toDouble()
         val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
 
+        setLinkTransforms(from, to, inst)
         inst.instancedProperties["Color"] = { color }
+        inst.name = "${edge.internalPoolIndex}"
+        inst.parent = linkParentNode
+        // add a new key-value pair to the hash map
+        links[to.hashCode()] = LinkNode(inst, from, to, to.timepoint)
+    }
+
+    /** Takes a cylinder instance [inst] and two spots, [from] and [to], and positions the cylinder between them. */
+    fun setLinkTransforms(from: Spot, to: Spot, inst: InstancedNode.Instance) {
+
+        // temporary container to get the position as array
+        val pos = FloatArray(3)
+        from.localize(pos)
+        val posOrigin = Vector3f(pos)
+        to.localize(pos)
+        val posTarget = Vector3f(pos)
+        posTarget.sub(posOrigin)
+
         inst.spatial {
             scale.set(linkSize, posTarget.length().toDouble(), linkSize)
             rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posTarget).normalize()
             position = Vector3f(posOrigin)
         }
-        inst.name = from.label + " --> " + to.label
-        inst.parent = linkParentNode
-        // add a new key-value pair to the hash map
-        links[to.hashCode()] = LinkNode(inst, from, to, to.timepoint)
     }
+
 
     /** Recursive method that traverses the links of the provided [origin] up until the given timepoint [toTP].
      * Forward search is enabled when [forward] is true, otherwise it searches backwards. */
@@ -569,12 +627,12 @@ class SphereLinkNodes(
 //                    searchAndConnectSpots(originRef, toTP, colorizer, true)
 //                }
 //            }
-            for (l in spot.outgoingEdges()) {
-                if (l.getTarget(targetRef).timepoint > spot.timepoint && targetRef.timepoint <= toTP) {
-                    addLink(spot, targetRef, mainInstance, colorizer)
-                    searchAndConnectSpots(targetRef, toTP, colorizer, true)
-                }
-            }
+//            for (l in spot.outgoingEdges()) {
+//                if (l.getTarget(targetRef).timepoint > spot.timepoint && targetRef.timepoint <= toTP) {
+//                    addLink(spot, targetRef, mainInstance, colorizer)
+//                    searchAndConnectSpots(targetRef, toTP, colorizer, true)
+//                }
+//            }
 //            spot.modelGraph.releaseRef(spot)
             spot.modelGraph.releaseRef(targetRef)
         }

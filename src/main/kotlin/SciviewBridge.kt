@@ -86,7 +86,7 @@ class SciviewBridge {
     val sceneScale: Float = 10f
     // keep track of the currently selected spot globally so that edit behaviors can access it
     var selectedSpotInstance: InstancedNode.Instance? = null
-    // the event watcher for BDV, needed here to prevent BDV from
+    // the event watcher for BDV, needed here for the lock handling to prevent BDV from
     // triggering the event watcher while a spot is edited in Sciview
     lateinit var bdvNotifier: BdvNotifier
     var moveSpotInSciview: (Spot?) -> Unit?
@@ -190,7 +190,7 @@ class SciviewBridge {
         moveSpotInSciview = { spot: Spot? ->
             spot?.let {
                 selectedSpotInstance = sphereLinkNodes.findInstanceFromSpot(spot)
-                sphereLinkNodes.moveSpotInSciview(spot) }
+                sphereLinkNodes.moveAndScaleSpotInSciview(spot) }
         }
 
         registerKeyboardHandlers()
@@ -464,7 +464,11 @@ class SciviewBridge {
             BehaviourTriple(desc_PREV_TP, key_PREV_TP, { _, _ -> detachedDPP_withOwnTime.prevTimepoint()
                 updateSciviewContent(detachedDPP_withOwnTime) }),
             BehaviourTriple(desc_NEXT_TP, key_NEXT_TP, { _, _ -> detachedDPP_withOwnTime.nextTimepoint()
-                updateSciviewContent(detachedDPP_withOwnTime) })
+                updateSciviewContent(detachedDPP_withOwnTime) }),
+            BehaviourTriple("Scale Instance Up", "ctrl E",
+                {_, _ -> sphereLinkNodes.scaleSpotAndInstance(selectedSpotInstance, true)}),
+            BehaviourTriple("Scale Instance Down", "ctrl Q",
+                {_, _ -> sphereLinkNodes.scaleSpotAndInstance(selectedSpotInstance, false)}),
         )
 
         behaviourCollection.forEach {
@@ -482,7 +486,7 @@ class SciviewBridge {
                     // Try to cast the result to an instance, or clear the existing selection if it fails
                     selectedSpotInstance = result.matches.first().node as? InstancedNode.Instance
                     if (selectedSpotInstance != null) {
-                        logger.debug("selected instance $selectedSpotInstance")
+                        logger.debug("selected instance {}", selectedSpotInstance)
                         selectedSpotInstance?.let { s ->
                             sphereLinkNodes.selectSpot(s)
                             sphereLinkNodes.showInstancedSpots(
@@ -515,6 +519,7 @@ class SciviewBridge {
 
         private var currentHit: Vector3f = Vector3f()
         private var distance: Float = 0f
+        private var edges: MutableList<Link> = ArrayList()
 
         override fun init(x: Int, y: Int) {
             bdvNotifier.lockVertexUpdates = true
@@ -524,6 +529,13 @@ class SciviewBridge {
                 if (selectedSpotInstance != null) {
                     distance = cam.spatial().position.distance(selectedSpotInstance?.spatial()?.position)
                     currentHit = rayStart + rayDir * distance
+                    val spot = sphereLinkNodes.findSpotFromInstance(selectedSpotInstance!!)
+                    mastodon.model.graph.vertexRef().refTo(spot).incomingEdges().forEach {
+                        edges.add(it)
+                    }
+                    mastodon.model.graph.vertexRef().refTo(spot).outgoingEdges().forEach {
+                        edges.add(it)
+                    }
                 }
             }
         }
@@ -546,6 +558,8 @@ class SciviewBridge {
                         currentHit = newHit
                     }
                     sphereLinkNodes.moveSpotInBDV(selectedSpotInstance!!, movement)
+                    sphereLinkNodes.updateLinkTransforms(edges)
+                    sphereLinkNodes.links.values
                 }
             }
         }
