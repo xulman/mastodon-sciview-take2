@@ -36,6 +36,7 @@ import org.scijava.ui.behaviour.DragBehaviour
 import sc.iview.SciView
 import util.SphereLinkNodes
 import javax.swing.JFrame
+import kotlin.concurrent.timer
 import kotlin.math.*
 
 class SciviewBridge {
@@ -182,8 +183,9 @@ class SciviewBridge {
         logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, sphereParent, linkParent)
+
         sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
-        sphereLinkNodes.initializeInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
+        sphereLinkNodes.showInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
 
         // lambda function that is passed to the event handler and called
         // when a vertex position change occurs on the BDV side
@@ -316,6 +318,7 @@ class SciviewBridge {
             { updateSciviewContent(bdvWinParamsProvider) },
             { updateSciviewCamera(bdvWin) },
             moveSpotInSciview as (Spot?) -> Unit,
+            { sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider.colorizer) },
             mastodon,
             bdvWin
         )

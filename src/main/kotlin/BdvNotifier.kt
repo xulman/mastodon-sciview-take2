@@ -30,6 +30,7 @@ class BdvNotifier(
     updateTimepointProcessor: Runnable,
     updateViewProcessor: Runnable,
     updateVertexProcessor: (Spot?) -> Unit,
+    updateGraphProcessor: Runnable,
     mastodon: ProjectModel,
     bdvWindow: MamutViewBdv,
     // Don't trigger updates while a vertex is being moved from the sciview side
@@ -47,7 +48,7 @@ class BdvNotifier(
         //(this is _delayed_ handling of the data, skipping over any intermediate changes)
         val cumulatingEventsHandlerThread = BdvEventsCatcherThread(
             bdvUpdateListener, 10,
-            updateTimepointProcessor, updateViewProcessor, updateVertexProcessor
+            updateTimepointProcessor, updateViewProcessor, updateVertexProcessor, updateGraphProcessor
         )
 
         //register the BDV listener and start the thread
@@ -78,7 +79,11 @@ class BdvNotifier(
     internal inner class BdvEventsWatcher(val myBdvIamServicing: MamutViewBdv) : TransformListener<AffineTransform3D?>,
         TimePointListener, GraphChangeListener, VertexPositionListener<Spot>, PropertyChangeListener, FocusListener,
         ColoringChangedListener {
-        override fun graphChanged() {  }
+        override fun graphChanged() {
+            logger.debug("Called graphChanged")
+            timeStampOfLastEvent = System.currentTimeMillis()
+            isLastGraphEventValid = true
+        }
         override fun vertexPositionChanged(vertex: Spot) {
             logger.debug("called vertexChanged")
             vertexChanged(vertex)
@@ -128,6 +133,7 @@ class BdvNotifier(
         var isLastContentEventValid = false
         var isLastVertexEventValid = false
         var isLastViewEventValid = false
+        var isLastGraphEventValid = false
         var timeStampOfLastEvent: Long = 0
     }
 
@@ -148,7 +154,8 @@ class BdvNotifier(
         val updateInterval: Long,
         val timepointProcessor: Runnable,
         val viewEventProcessor: Runnable,
-        val vertexEventProcessor: (Spot?) -> Unit
+        val vertexEventProcessor: (Spot?) -> Unit,
+        val graphEventProcessor: Runnable
     ) : Thread(SERVICE_NAME) {
         var keepWatching = true
         fun stopTheWatching() {
@@ -178,6 +185,11 @@ class BdvNotifier(
                             logger.debug("$SERVICE_NAME: vertex event and silence detected -> processing it now")
                             eventsSource.isLastVertexEventValid = false
                             vertexEventProcessor.invoke(movedSpot)
+                        }
+                        if (eventsSource.isLastGraphEventValid) {
+                            logger.info("$SERVICE_NAME: graph event and silence detected -> processing it now")
+                            eventsSource.isLastGraphEventValid = false
+                            graphEventProcessor.run()
                         }
                     } else sleep(updateInterval / 10)
                 }

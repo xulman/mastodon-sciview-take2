@@ -8,7 +8,6 @@ import graphics.scenery.primitives.Arrow
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
-import net.imagej.ops.Ops.Logic.Bool
 import net.imglib2.display.ColorTable
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
@@ -46,7 +45,8 @@ class SphereLinkNodes(
     var numTimePoints: Int
     lateinit var lut: ColorTable
     var currentColorMode: ColorMode
-    val spotPool: MutableList<InstancedNode.Instance> = ArrayList()
+    val spotPool: MutableList<InstancedNode.Instance> = mutableListOf()
+    val linkPool: MutableList<InstancedNode.Instance> = mutableListOf()
     private var spotRef: Spot? = null
     var events: EventService? = null
 
@@ -87,6 +87,7 @@ class SphereLinkNodes(
         timepoint: Int,
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
+        val tStart = TimeSource.Monotonic.markNow()
         // only create and add the main instance once during initialization
         if (mainSpotInstance == null) {
             sphere.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
@@ -100,6 +101,12 @@ class SphereLinkNodes(
             val mainSpot = InstancedNode(sphere)
             // Instanced properties should be aligned to 4*32bit boundaries, hence the use of Vector4f instead of Vector3f here
             mainSpot.instancedProperties["Color"] = { Vector4f(1f) }
+
+            // initialize the whole pool with instances once
+            for (i in spotPool.indices) {
+                spotPool[i] = mainSpot.addInstance()
+            }
+
             sv.addNode(mainSpot, parent = sphereParentNode)
             mainSpotInstance = mainSpot
         }
@@ -164,6 +171,8 @@ class SphereLinkNodes(
         while (i < spotPool.size) {
             spotPool[i++].visible = false
         }
+        val tElapsed = TimeSource.Monotonic.markNow() - tStart
+        logger.info("Spot updates took $tElapsed")
     }
 
     private fun computeEigen(covariance: Array2DRowRealMatrix): Pair<DoubleArray, RealMatrix> {
@@ -334,9 +343,9 @@ class SphereLinkNodes(
         selectedSpot?.let {
             // Remove previous selections first
             clearSpotSelection()
-            mastodonData.focusModel.focusVertex(selectedSpot)
-            mastodonData.highlightModel.highlightVertex(selectedSpot)
-            mastodonData.selectionModel.setSelected(selectedSpot, true)
+            mastodonData.focusModel.focusVertex(it)
+            mastodonData.highlightModel.highlightVertex(it)
+            mastodonData.selectionModel.setSelected(it, true)
         }
     }
 
@@ -374,7 +383,7 @@ class SphereLinkNodes(
 
     /** Called when a spot is scaled in the sciview window.
      * This function then scales both the instance and the vertex on the BDV side.
-     * Setting the [direction] to means to scale up, false means scale down. */
+     * Setting the [direction] to true means to scale up, false means scale down. */
     fun scaleSpotAndInstance(instance: InstancedNode.Instance?, direction: Boolean) {
         val factor = if (direction) 1.1 else 0.9
         instance?.let {
@@ -454,36 +463,109 @@ class SphereLinkNodes(
         logger.debug("Decreasing scale to $linkScaleFactor, by factor $factor")
     }
 
-    fun initializeInstancedLinks(
+    /** Shows or initializes the main links instance, publishes it to the scene and populates it with instances from the current Mastodon graph. */
+    fun showInstancedLinks(
         colorMode: ColorMode,
         colorizer: GraphColorGenerator<Spot, Link>
     ) {
-        cylinder.setMaterial(ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag")) {
-            diffuse = Vector3f(1.0f, 1.0f, 1.0f)
-            ambient = Vector3f(1.0f, 1.0f, 1.0f)
-            specular = Vector3f(.0f, 1.0f, 1.0f)
-            metallic = 0.0f
-            roughness = 1.0f
-        }
-        currentColorMode = colorMode
-        val mainLink = InstancedNode(cylinder)
-        mainLink.instancedProperties["Color"] = { Vector4f(1f) }
-        sv.addNode(mainLink, parent = linkParentNode)
+        val tStart = TimeSource.Monotonic.markNow()
 
+        links.clear()
+        if (mainLinkInstance == null) {
+            cylinder.setMaterial(
+                ShaderMaterial.fromFiles("DeferredInstancedColor.vert", "DeferredInstancedColor.frag" )
+            ) {
+                diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+                ambient = Vector3f(1.0f, 1.0f, 1.0f)
+                specular = Vector3f(.0f, 1.0f, 1.0f)
+                metallic = 0.0f
+                roughness = 1.0f
+            }
+            val mainLink = InstancedNode(cylinder)
+            mainLink.instancedProperties["Color"] = { Vector4f(1f) }
+
+            // initialize the whole pool with instances once
+            for (i in linkPool.indices) {
+                linkPool[i] = mainLink.addInstance()
+            }
+
+            sv.addNode(mainLink, parent = linkParentNode)
+            mainLinkInstance = mainLink
+        }
+
+        val mainLink = mainLinkInstance ?: throw IllegalStateException("InstancedLink is null, instance was not initialized.")
+
+        currentColorMode = colorMode
         spots = mastodonData.model.spatioTemporalIndex.getSpatialIndex(0)
         numTimePoints = mastodonData.maxTimepoint
-        mainLinkInstance = mainLink
 
+        var inst: InstancedNode.Instance
+        var index = 0
         val start = TimeSource.Monotonic.markNow()
         // TODO use coroutines for this
+        logger.info("we have ${mastodonData.model.graph.edges().size} mastodon edges")
         mastodonData.model.graph.edges().forEach { edge ->
-            addLink(edge, mainLink, colorizer)
+
+            // reuse a link instance from the pool if the pool is large enough
+            if (index < linkPool.size) {
+                inst = linkPool[index]
+                inst.visible = true
+            }
+            // otherwise create a new instance and add it to the pool
+            else {
+                inst = mainLink.addInstance()
+                inst.addAttribute(Material::class.java, cylinder.material())
+                inst.parent = linkParentNode
+                linkPool.add(inst)
+            }
+
+            val from = edge.source
+            val to = edge.target
+
+            setLinkTransforms(from, to, inst)
+            inst.instancedProperties["Color"] = { Vector4f(1f, 1f, 1f, 1f) }
+            inst.name = "${edge.internalPoolIndex}"
+            inst.parent = linkParentNode
+            // add a new key-value pair to the hash map
+            links[to.hashCode()] = LinkNode(inst, from, to, to.timepoint)
+
+            index++
         }
+
+        // turn all leftover links from the pool invisible
+        var i = index
+        while (i < spotPool.size) {
+            spotPool[i++].visible = false
+        }
+        logger.info("link content is ${links.size}, and mainLinkInstance has ${mainLinkInstance!!.instances.size} links")
         val end = TimeSource.Monotonic.markNow()
-        logger.info("Initial edge traversel took ${end - start}.")
+
+        logger.info("Edge traversel took ${end - start}.")
         logger.info("Found a total of ${links.size} links. Should be ${mastodonData.model.graph.edges().size}.")
         // first update the link colors without providing a colorizer, because no BDV window has been opened yet
-        updateLinkColors(null)
+        updateLinkColors(colorizer)
+
+
+        val tElapsed = TimeSource.Monotonic.markNow() - tStart
+        logger.info("Link updates took $tElapsed")
+    }
+
+    /** Takes a cylinder instance [inst] and two spots, [from] and [to], and positions the cylinder between them. */
+    fun setLinkTransforms(from: Spot, to: Spot, inst: InstancedNode.Instance) {
+
+        // temporary container to get the position as array
+        val pos = FloatArray(3)
+        from.localize(pos)
+        val posOrigin = Vector3f(pos)
+        to.localize(pos)
+        val posTarget = Vector3f(pos)
+        posTarget.sub(posOrigin)
+
+        inst.spatial {
+            scale.set(linkSize, posTarget.length().toDouble(), linkSize)
+            rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posTarget).normalize()
+            position = Vector3f(posOrigin)
+        }
     }
 
     /** Traverse and update the colors of all [links] using the provided color mode [cm].
@@ -561,42 +643,9 @@ class SphereLinkNodes(
 //        events?.publish(NodeChangedEvent(linksNodesHub))
     }
 
-    /** Adds a link instance to the link parent and also adds it to the [links] hashmap. */
-    private fun addLink(edge: Link, mainInstance: InstancedNode, colorizer: GraphColorGenerator<Spot, Link>) {
-
-        val from = edge.source
-        val to = edge.target
-        val inst = mainInstance.addInstance()
-        inst.addAttribute(Material::class.java, cylinder.material())
-        val factor = to.timepoint / numTimePoints.toDouble()
-        val color = unpackRGB(lut.lookupARGB(0.0, 1.0, factor))
-
-        setLinkTransforms(from, to, inst)
-        inst.instancedProperties["Color"] = { color }
-        inst.name = "${edge.internalPoolIndex}"
-        inst.parent = linkParentNode
-        // add a new key-value pair to the hash map
-        links[to.hashCode()] = LinkNode(inst, from, to, to.timepoint)
+    fun addLinkToMastodon(from: Spot, to: Spot) {
+        mastodonData.model.graph.addEdge(from, to)
     }
-
-    /** Takes a cylinder instance [inst] and two spots, [from] and [to], and positions the cylinder between them. */
-    fun setLinkTransforms(from: Spot, to: Spot, inst: InstancedNode.Instance) {
-
-        // temporary container to get the position as array
-        val pos = FloatArray(3)
-        from.localize(pos)
-        val posOrigin = Vector3f(pos)
-        to.localize(pos)
-        val posTarget = Vector3f(pos)
-        posTarget.sub(posOrigin)
-
-        inst.spatial {
-            scale.set(linkSize, posTarget.length().toDouble(), linkSize)
-            rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posTarget).normalize()
-            position = Vector3f(posOrigin)
-        }
-    }
-
 
     /** Recursive method that traverses the links of the provided [origin] up until the given timepoint [toTP].
      * Forward search is enabled when [forward] is true, otherwise it searches backwards. */
