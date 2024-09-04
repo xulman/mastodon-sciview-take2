@@ -45,8 +45,8 @@ class SphereLinkNodes(
     var numTimePoints: Int
     lateinit var lut: ColorTable
     var currentColorMode: ColorMode
-    val spotPool: MutableList<InstancedNode.Instance> = mutableListOf()
-    val linkPool: MutableList<InstancedNode.Instance> = mutableListOf()
+    val spotPool: MutableList<InstancedNode.Instance> = ArrayList(10000)
+    val linkPool: MutableList<InstancedNode.Instance> = ArrayList(10000)
     private var spotRef: Spot? = null
     var events: EventService? = null
 
@@ -103,8 +103,8 @@ class SphereLinkNodes(
             mainSpot.instancedProperties["Color"] = { Vector4f(1f) }
 
             // initialize the whole pool with instances once
-            for (i in spotPool.indices) {
-                spotPool[i] = mainSpot.addInstance()
+            for (i in 0..<10000) {
+                spotPool.add(mainSpot.addInstance())
             }
 
             sv.addNode(mainSpot, parent = sphereParentNode)
@@ -485,8 +485,8 @@ class SphereLinkNodes(
             mainLink.instancedProperties["Color"] = { Vector4f(1f) }
 
             // initialize the whole pool with instances once
-            for (i in linkPool.indices) {
-                linkPool[i] = mainLink.addInstance()
+            for (i in 0..<10000) {
+                linkPool.add(mainLink.addInstance())
             }
 
             sv.addNode(mainLink, parent = linkParentNode)
