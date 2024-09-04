@@ -513,6 +513,7 @@ class SphereLinkNodes(
             }
             // otherwise create a new instance and add it to the pool
             else {
+                logger.info("adding new link to the pool for whatever reaoson")
                 inst = mainLink.addInstance()
                 inst.addAttribute(Material::class.java, cylinder.material())
                 inst.parent = linkParentNode
@@ -534,8 +535,8 @@ class SphereLinkNodes(
 
         // turn all leftover links from the pool invisible
         var i = index
-        while (i < spotPool.size) {
-            spotPool[i++].visible = false
+        while (i < linkPool.size) {
+            linkPool[i++].visible = false
         }
         logger.info("link content is ${links.size}, and mainLinkInstance has ${mainLinkInstance!!.instances.size} links")
         val end = TimeSource.Monotonic.markNow()
