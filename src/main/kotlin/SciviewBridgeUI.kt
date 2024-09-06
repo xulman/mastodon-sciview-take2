@@ -233,9 +233,14 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         c.gridx = 1
         c.gridwidth = 1
         c.anchor = GridBagConstraints.EAST
+        val eyetrackingButton = JButton("Start Eye Tracking")
+        eyetrackingButton.addActionListener { bridge.launchEyeTracking() }
+        controlsWindowPanel.add(eyetrackingButton, c)
+        c.insets = Insets(0, 20, 0, 0)
+        c.gridx = 2
         val closeBtn = JButton("Close")
         closeBtn.addActionListener { bridge.detachControllingUI() }
-        c.insets = Insets(0, 0, 10, 15)
+        c.insets = Insets(0, 0, 0, 15)
         controlsWindowPanel.add(closeBtn, c)
     }
 
