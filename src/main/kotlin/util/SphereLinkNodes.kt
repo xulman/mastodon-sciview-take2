@@ -24,6 +24,7 @@ import org.mastodon.spatial.SpatialIndex
 import org.mastodon.ui.coloring.GraphColorGenerator
 import org.scijava.event.EventService
 import sc.iview.SciView
+import sc.iview.commands.demo.advanced.HedgehogAnalysis
 import java.awt.Color
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -101,10 +102,13 @@ class SphereLinkNodes(
             val mainSpot = InstancedNode(sphere)
             // Instanced properties should be aligned to 4*32bit boundaries, hence the use of Vector4f instead of Vector3f here
             mainSpot.instancedProperties["Color"] = { Vector4f(1f) }
-
+            var inst: InstancedNode.Instance
             // initialize the whole pool with instances once
             for (i in 0..<10000) {
-                spotPool.add(mainSpot.addInstance())
+                inst = mainSpot.addInstance()
+                inst.addAttribute(Material::class.java, sphere.material())
+                inst.parent = sphereParentNode
+                spotPool.add(inst)
             }
 
             sv.addNode(mainSpot, parent = sphereParentNode)
@@ -126,6 +130,7 @@ class SphereLinkNodes(
         var axisLengths: Vector3f
 
         var index = 0
+        logger.info("we have ${spots.size()} spots in this Mastodon time point.")
         for (spot in spots) {
             // reuse a spot instance from the pool if the pool is large enough
             if (index < spotPool.size) {
@@ -488,7 +493,7 @@ class SphereLinkNodes(
             for (i in 0..<10000) {
                 linkPool.add(mainLink.addInstance())
             }
-
+            logger.info("initialized mainLinkInstance")
             sv.addNode(mainLink, parent = linkParentNode)
             mainLinkInstance = mainLink
         }
@@ -503,7 +508,7 @@ class SphereLinkNodes(
         var index = 0
         val start = TimeSource.Monotonic.markNow()
         // TODO use coroutines for this
-        logger.info("we have ${mastodonData.model.graph.edges().size} mastodon edges")
+        logger.info("iterating over ${mastodonData.model.graph.edges().size} mastodon edges...")
         mastodonData.model.graph.edges().forEach { edge ->
 
             // reuse a link instance from the pool if the pool is large enough
@@ -513,7 +518,7 @@ class SphereLinkNodes(
             }
             // otherwise create a new instance and add it to the pool
             else {
-                logger.info("adding new link to the pool for whatever reaoson")
+                logger.info("adding new link to the pool for whatever reason")
                 inst = mainLink.addInstance()
                 inst.addAttribute(Material::class.java, cylinder.material())
                 inst.parent = linkParentNode
@@ -561,7 +566,6 @@ class SphereLinkNodes(
         to.localize(pos)
         val posTarget = Vector3f(pos)
         posTarget.sub(posOrigin)
-
         inst.spatial {
             scale.set(linkSize, posTarget.length().toDouble(), linkSize)
             rotation = Quaternionf().rotateTo(Vector3f(0f, 1f, 0f), posTarget).normalize()
@@ -604,6 +608,22 @@ class SphereLinkNodes(
             // turns the link on if it is within range, otherwise turns it off
             link.value.instance.visible = link.value.tp in currentTP - linkBackwardRange..currentTP + linkForwardRange
         }
+    }
+
+    var prevVertex: Spot? = null
+
+    /** Passed to the EyeTrackingDemo to send vertices from the tracking to here. */
+    val addLinkToMastodon: (HedgehogAnalysis.SpineGraphVertex) -> Unit = { spineVertex ->
+
+        val v = mastodonData.model.graph.addVertex()
+        val pos = spineVertex.position.toFloatArray().map { it.toDouble() }.toDoubleArray()
+
+        v.init(spineVertex.timepoint, pos, 1.0)
+        if (prevVertex != null) {
+            val e = mastodonData.model.graph.addEdge(prevVertex, v)
+            mastodonData.model.graph.notifyGraphChanged()
+        }
+        prevVertex = v
     }
 
     val linkSize = 2.0
