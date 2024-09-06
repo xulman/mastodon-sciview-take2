@@ -30,10 +30,12 @@ import org.mastodon.model.tag.TagSetStructure
 import org.mastodon.ui.coloring.DefaultGraphColorGenerator
 import org.mastodon.ui.coloring.GraphColorGenerator
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator
+import org.scijava.command.CommandService
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import org.scijava.ui.behaviour.DragBehaviour
 import sc.iview.SciView
+import sc.iview.commands.demo.advanced.EyeTrackingDemo
 import util.SphereLinkNodes
 import javax.swing.JFrame
 import kotlin.concurrent.timer
@@ -306,24 +308,28 @@ class SciviewBridge {
 
     }
 
+    private var bdvWinParamsProvider: DisplayParamsProvider? = null
+
     /** Create a BDV window and launch a [BdvNotifier] instance to synchronize time point and viewing direction. */
-    fun openSyncedBDV(): MamutViewBdv {
+    fun openSyncedBDV() {
         val bdvWin = mastodon.windowManager.createView(MamutViewBdv::class.java)
         bdvWin.frame.setTitle("BDV linked to ${sciviewWin.getName()}")
-
-        //initial spots content:
-        val bdvWinParamsProvider = DPP_BdvAdapter(bdvWin)
-        updateSciviewContent(bdvWinParamsProvider)
-        bdvNotifier = BdvNotifier(
-            { updateSciviewContent(bdvWinParamsProvider) },
-            { updateSciviewCamera(bdvWin) },
-            moveSpotInSciview as (Spot?) -> Unit,
-            { sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider.colorizer) },
-            mastodon,
-            bdvWin
-        )
-        return bdvWin
-    }
+            //initial spots content:
+            bdvWinParamsProvider = DPP_BdvAdapter(bdvWin)
+            bdvWinParamsProvider?.let {
+                updateSciviewContent(it)
+                bdvNotifier = BdvNotifier(
+                    { updateSciviewContent(it) },
+                    { updateSciviewCamera(bdvWin) },
+                    moveSpotInSciview as (Spot?) -> Unit,
+                    // update graph routine: this redraws the track segments and resets the stored previous vertex to be empty
+                    { sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, it.colorizer)
+                    sphereLinkNodes.prevVertex = null},
+                    mastodon,
+                    bdvWin
+                )
+            }
+       }
 
     private var recentTagSet: TagSetStructure.TagSet? = null
     var recentColorizer: GraphColorGenerator<Spot, Link>? = null
@@ -572,6 +578,19 @@ class SciviewBridge {
             sphereLinkNodes.showInstancedSpots(detachedDPP_showsLastTimepoint.timepoint,
                 detachedDPP_showsLastTimepoint.colorizer)
         }
+    }
+
+    fun launchEyeTracking() {
+        val command = sciviewWin.scijavaContext!!.getService(CommandService::class.java)
+        val argMap = HashMap<String, Any>()
+        argMap["sciview"] = sciviewWin
+        argMap["mastodonCallbackLinkCreate"] = sphereLinkNodes.addLinkToMastodon
+        argMap["mastodonUpdateGraph"] = {
+            logger.info("called mastodonUpdateGraph")
+            updateSciviewContent(bdvWinParamsProvider!!)
+            sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
+        }
+        command.run(EyeTrackingDemo::class.java, true, argMap)
     }
 
 
