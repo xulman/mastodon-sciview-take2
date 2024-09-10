@@ -7,6 +7,7 @@ import net.imglib2.img.imageplus.ImagePlusImgFactory
 import net.imglib2.type.numeric.real.FloatType
 import net.imglib2.util.Intervals
 import net.imglib2.view.Views
+import org.joml.Vector3f
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -21,14 +22,14 @@ class SphericalDatasetGenerator {
             val ij = ImageJ()
 
             // Run the example
-            SphericalDatasetGenerator().run()
+            SphericalDatasetGenerator().run(ij)
 
             // Display the ImageJ window
             ij.ui().showUI()
         }
     }
 
-    fun run() {
+    fun run(ij: ImageJ) {
         // Define dimensions
         val width = 100L
         val height = 100L
@@ -64,13 +65,12 @@ class SphericalDatasetGenerator {
                             (z - centerZ).pow(2)
                 )
 
-                val intensity = if (distance <= radius) {
-                    (1 - distance / radius).coerceIn(0.0, 1.0)
-                } else {
-                    0.0
+                val intensity = when {
+                    distance <= radius -> (radius - distance) / radius
+                    else -> 0.0
                 }
 
-                cursor.get().set(intensity.toFloat())
+                cursor.get().setReal(intensity.toFloat())
             }
         }
 
