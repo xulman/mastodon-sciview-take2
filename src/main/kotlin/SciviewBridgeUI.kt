@@ -24,6 +24,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var INTENSITY_CLAMP_AT_TOP: SpinnerModel
     lateinit var INTENSITY_GAMMA: SpinnerModel
     lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
+    lateinit var MIPMAP_LEVEL: SpinnerNumberModel
     //
     lateinit var visToggleSpots: JButton
     lateinit var visToggleVols: JButton
@@ -107,6 +108,21 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
             c
         )
 
+        // MIPMAP levels
+        c.gridy++
+        c.gridx = 0
+        insertLabel("Choose Mipmap Level", c)
+        c.gridx = 1
+        MIPMAP_LEVEL = SpinnerNumberModel(0, 0, 6, 1)
+        insertSpinner(MIPMAP_LEVEL, { level: Float ->
+            controlledBridge?.let {
+                // update the UI spinner to allow spinning up to the mipmap level found in the volume
+                // subtract 1 to go from range 0 to max
+                it.associatedUI?.setMaxMipmapLevel(it.sac.spimSource.numMipmapLevels - 1)
+                it.setMipmapLevel(level)
+            }
+        }, c)
+
         // -------------- separator --------------
         c.gridy++
         insertSeparator(c)
@@ -126,7 +142,6 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
             10000
         )
         INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener)
-
 
         // links window range
         c.gridy++
@@ -158,7 +173,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         )
 
 
-        // color parameters
+        // ----------- color parameters --------------
         c.gridy++
         c.gridwidth = 4
         val colorPlaceholder = JPanel()
@@ -228,7 +243,7 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         buttonRow.insets = Insets(0, 20, 0, 0)
         fourButtonsPlaceholder.add(visToggleTracks, buttonRow)
 
-        // -------------- close button row --------------
+        // ---------- Eye Tracking Button ---------------
         c.gridy++
         c.gridx = 1
         c.gridwidth = 1
@@ -236,16 +251,25 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         val eyetrackingButton = JButton("Start Eye Tracking")
         eyetrackingButton.addActionListener { bridge.launchEyeTracking() }
         controlsWindowPanel.add(eyetrackingButton, c)
-        c.insets = Insets(0, 20, 0, 0)
-        c.gridx = 2
+
+        // -------------- close button row --------------
+        c.gridy++
+        c.gridx = 1
+        c.gridwidth = 1
         val closeBtn = JButton("Close")
         closeBtn.addActionListener { bridge.detachControllingUI() }
-        c.insets = Insets(0, 0, 0, 15)
+        c.insets = Insets(0, 0, 15, 15)
         controlsWindowPanel.add(closeBtn, c)
+    }
+
+    /** Sets the maximum mipmap level found in the volume node as the spinner's max value. */
+    fun setMaxMipmapLevel(level: Int) {
+        MIPMAP_LEVEL.maximum = level
     }
 
     val sideSpace = 15
     val noteSpace = Insets(2, sideSpace, 8, 2 * sideSpace)
+
     fun insertNote(noteText: String?, c: GridBagConstraints) {
         val prevGridW = c.gridwidth
         val prevInsets = c.insets

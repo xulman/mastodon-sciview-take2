@@ -324,7 +324,8 @@ class SciviewBridge {
                     moveSpotInSciview as (Spot?) -> Unit,
                     // update graph routine: this redraws the track segments and resets the stored previous vertex to be empty
                     { sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, it.colorizer)
-                    sphereLinkNodes.prevVertex = null},
+                    sphereLinkNodes.prevVertex = null
+                    logger.info("sphereLinkNodes.prevVertex is now ${sphereLinkNodes.prevVertex}, should be null")},
                     mastodon,
                     bdvWin
                 )
@@ -334,6 +335,7 @@ class SciviewBridge {
     private var recentTagSet: TagSetStructure.TagSet? = null
     var recentColorizer: GraphColorGenerator<Spot, Link>? = null
     val noTSColorizer = DefaultGraphColorGenerator<Spot, Link>()
+
     private fun getCurrentColorizer(forThisBdv: MamutViewBdv): GraphColorGenerator<Spot, Link> {
         //NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending
         val colorizer: GraphColorGenerator<Spot, Link>
@@ -441,6 +443,11 @@ class SciviewBridge {
                 .filter { c: Node -> c.name.startsWith("Bounding") }
                 .forEach { c: Node -> c.visible = false }
         }
+    }
+
+    /** Sets the detail level of the volume node. */
+    fun setMipmapLevel(level: Float) {
+        volumeNode.multiResolutionLevelLimits = level.toInt() to level.toInt() + 1
     }
 
     fun focusSpot(name: String) {
