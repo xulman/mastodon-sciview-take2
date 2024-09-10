@@ -130,7 +130,7 @@ class SphereLinkNodes(
         var axisLengths: Vector3f
 
         var index = 0
-        logger.info("we have ${spots.size()} spots in this Mastodon time point.")
+        logger.debug("we have ${spots.size()} spots in this Mastodon time point.")
         for (spot in spots) {
             // reuse a spot instance from the pool if the pool is large enough
             if (index < spotPool.size) {
@@ -177,7 +177,7 @@ class SphereLinkNodes(
             spotPool[i++].visible = false
         }
         val tElapsed = TimeSource.Monotonic.markNow() - tStart
-        logger.info("Spot updates took $tElapsed")
+        logger.debug("Spot updates took $tElapsed")
     }
 
     private fun computeEigen(covariance: Array2DRowRealMatrix): Pair<DoubleArray, RealMatrix> {
@@ -518,7 +518,6 @@ class SphereLinkNodes(
             }
             // otherwise create a new instance and add it to the pool
             else {
-                logger.info("adding new link to the pool for whatever reason")
                 inst = mainLink.addInstance()
                 inst.addAttribute(Material::class.java, cylinder.material())
                 inst.parent = linkParentNode
