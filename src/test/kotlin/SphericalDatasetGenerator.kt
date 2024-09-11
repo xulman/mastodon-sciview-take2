@@ -74,8 +74,9 @@ class SphericalDatasetGenerator {
             }
         }
 
-        // Display the result
-        ImageJFunctions.show(img, "3D+time Spherical Dataset")
+        val imp = ImageJFunctions.wrap(img, "3D+time Spherical Dataset")
+        imp.setDimensions(1, depth.toInt(), frames.toInt())
+        imp.show()
 
         println("3D+time dataset created with dimensions: ${Intervals.dimensionsAsLongArray(img).contentToString()}")
     }
