@@ -1,0 +1,76 @@
+
+import bdv.util.AxisOrder
+import bvv.core.VolumeViewerOptions
+import graphics.scenery.*
+import graphics.scenery.backends.Renderer
+import graphics.scenery.primitives.Cylinder
+import graphics.scenery.volumes.TransferFunction
+import graphics.scenery.volumes.Volume
+import ij.IJ
+import ij.ImagePlus
+import net.imglib2.img.Img
+import net.imglib2.img.display.imagej.ImageJFunctions
+import net.imglib2.type.numeric.integer.UnsignedShortType
+import org.joml.Vector3f
+import sc.iview.commands.demo.ResourceLoader
+import java.nio.file.Paths
+
+class VolumeSamplingTest: SceneryBase("VolumeSamplingTest") {
+
+    override fun init() {
+        renderer = hub.add(
+            SceneryElement.Renderer,
+            Renderer.createRenderer(hub, applicationName, scene, windowWidth, windowHeight)
+        )
+
+        val cam: Camera = DetachedHeadCamera()
+        with(cam) {
+            spatial {
+                position = Vector3f(0.0f, 0.0f, 5.0f)
+            }
+            perspectiveCamera(50.0f, 512, 512)
+
+            scene.addChild(this)
+        }
+
+        Light.createLightTetrahedron<PointLight>(spread = 4.0f, radius = 15.0f, intensity = 3f)
+            .forEach { scene.addChild(it) }
+
+        val volume = Volume.fromXML(
+            Paths.get(javaClass.getResource("sphere_dataset.xml")?.toURI()!!).toString(),
+            hub,
+            VolumeViewerOptions()
+        )
+        volume.spatial().scale = Vector3f(40.0f)
+        volume.transferFunction = TransferFunction.ramp(0.001f, .9f, 0.3f)
+        volume.goToTimepoint(20)
+        scene.addChild(volume)
+
+
+        val p1 = Icosphere(0.1f, 2)
+        p1.spatial().position = Vector3f(0.2f, -.5f, -1.5f)
+        p1.material().diffuse = Vector3f(0.3f, 0.3f, 1f)
+        scene.addChild(p1)
+
+        val p2 = Icosphere(0.1f, 2)
+        p2.spatial().position = Vector3f(-.3f,0.5f,1.5f)
+        p2.material().diffuse = Vector3f(0.3f, 1f, 0.3f)
+        scene.addChild(p2)
+
+        val connector = Cylinder.betweenPoints(p1.spatial().position, p2.spatial().position)
+        connector.material().diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        scene.addChild(connector)
+    }
+
+    override fun inputSetup() {
+        setupCameraModeSwitching()
+    }
+
+    companion object {
+        @JvmStatic
+        fun main(args: Array<String>) {
+            VolumeSamplingTest().main()
+        }
+    }
+
+}
