@@ -100,13 +100,13 @@ class SphereLinkNodes(
             }
 
             val mainSpot = InstancedNode(sphere)
+            mainSpot.name = "SpotInstance"
             // Instanced properties should be aligned to 4*32bit boundaries, hence the use of Vector4f instead of Vector3f here
             mainSpot.instancedProperties["Color"] = { Vector4f(1f) }
             var inst: InstancedNode.Instance
             // initialize the whole pool with instances once
             for (i in 0..<10000) {
                 inst = mainSpot.addInstance()
-                inst.addAttribute(Material::class.java, sphere.material())
                 inst.parent = sphereParentNode
                 spotPool.add(inst)
             }
@@ -140,7 +140,6 @@ class SphereLinkNodes(
             // otherwise create a new instance and add it to the pool
             else {
                 inst = mainSpot.addInstance()
-                inst.addAttribute(Material::class.java, sphere.material())
                 inst.parent = sphereParentNode
                 spotPool.add(inst)
             }
@@ -154,7 +153,7 @@ class SphereLinkNodes(
 
             inst.spatial {
                 position = Vector3f(spotPosition)
-                scale = Vector3f(sphereScaleFactor *  sqrt(spot.boundingSphereRadiusSquared.toFloat()) / 50f)
+                scale = Vector3f(sphereScaleFactor *  sqrt(spot.boundingSphereRadiusSquared.toFloat()) / 10f)
                 // TODO add ellipsoid scale & rotation to instances
                 // scale = axisLengths * sphereScaleFactor * 0.5f
                 // rotation = eigenvectors.toQuaternion()
@@ -487,6 +486,7 @@ class SphereLinkNodes(
                 roughness = 1.0f
             }
             val mainLink = InstancedNode(cylinder)
+            mainLink.name = "LinkInstance"
             mainLink.instancedProperties["Color"] = { Vector4f(1f) }
 
             // initialize the whole pool with instances once
@@ -519,7 +519,7 @@ class SphereLinkNodes(
             // otherwise create a new instance and add it to the pool
             else {
                 inst = mainLink.addInstance()
-                inst.addAttribute(Material::class.java, cylinder.material())
+//                inst.addAttribute(Material::class.java, cylinder.material())
                 inst.parent = linkParentNode
                 linkPool.add(inst)
             }
