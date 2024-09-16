@@ -1,21 +1,13 @@
 
-import bdv.util.AxisOrder
 import bvv.core.VolumeViewerOptions
 import graphics.scenery.*
 import graphics.scenery.backends.Renderer
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.MaybeIntersects
 import graphics.scenery.utils.extensions.minus
-import graphics.scenery.utils.extensions.xyzw
 import graphics.scenery.volumes.TransferFunction
 import graphics.scenery.volumes.Volume
-import ij.IJ
-import ij.ImagePlus
-import net.imglib2.img.Img
-import net.imglib2.img.display.imagej.ImageJFunctions
-import net.imglib2.type.numeric.integer.UnsignedShortType
 import org.joml.Vector3f
-import sc.iview.commands.demo.ResourceLoader
 import java.nio.file.Paths
 import java.text.DecimalFormat
 import kotlin.concurrent.thread
