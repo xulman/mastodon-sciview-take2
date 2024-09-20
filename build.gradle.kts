@@ -23,7 +23,7 @@ dependencies {
 
     implementation("org.slf4j:slf4j-simple:1.7.36")
 
-    implementation("org.mastodon:mastodon:1.0.0-beta-28")
+    implementation("com.github.elephant-track:elephant-client:0.5.0")
 
     implementation("com.fasterxml.jackson.core:jackson-databind:2.16.1")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.16.1")
