@@ -60,6 +60,7 @@ class GroupLocksHandling(//controls sciview via this bridge obj
         }
 
         override fun timepointChanged() {
+            println("timepointChanged to ${myGroupHandle.getModel(projectModel.TIMEPOINT).timepoint}")
             bridge.showTimepoint(myGroupHandle.getModel(projectModel.TIMEPOINT).timepoint)
         }
     }

@@ -5,8 +5,11 @@ package org.mastodon.mamut
 import bdv.viewer.Source
 import bdv.viewer.SourceAndConverter
 import graphics.scenery.*
+import graphics.scenery.controls.behaviours.SelectCommand
+import graphics.scenery.controls.behaviours.WithCameraDelegateBase
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.minus
+import graphics.scenery.utils.extensions.plus
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
 import graphics.scenery.volumes.TransferFunction
@@ -27,11 +30,15 @@ import org.mastodon.model.tag.TagSetStructure
 import org.mastodon.ui.coloring.DefaultGraphColorGenerator
 import org.mastodon.ui.coloring.GraphColorGenerator
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator
+import org.scijava.command.CommandService
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
+import org.scijava.ui.behaviour.DragBehaviour
 import sc.iview.SciView
+import sc.iview.commands.demo.advanced.EyeTrackingDemo
 import util.SphereLinkNodes
 import javax.swing.JFrame
+import kotlin.concurrent.timer
 import kotlin.math.*
 
 class SciviewBridge {
@@ -80,6 +87,12 @@ class SciviewBridge {
     var sac: SourceAndConverter<*>
     var isVolumeAutoAdjust = false
     val sceneScale: Float = 10f
+    // keep track of the currently selected spot globally so that edit behaviors can access it
+    var selectedSpotInstance: InstancedNode.Instance? = null
+    // the event watcher for BDV, needed here for the lock handling to prevent BDV from
+    // triggering the event watcher while a spot is edited in Sciview
+    lateinit var bdvNotifier: BdvNotifier
+    var moveSpotInSciview: (Spot?) -> Unit?
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
 
@@ -161,6 +174,7 @@ class SciviewBridge {
         sphereParent.spatial().scale /= volumeDownscale
         sciviewWin.addNode(sphereParent)
         sphereParent.parent = volumeNode
+        logger.info("volume node scale is ${volumeNode.spatialOrNull()?.scale}")
 
         linkParent = Group()
         linkParent.name = "LinkInstanceParent"
@@ -171,9 +185,18 @@ class SciviewBridge {
         logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
         sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, sphereParent, linkParent)
+
         sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
-        sphereLinkNodes.initializeInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
-        //temporary handlers, originally for testing....
+        sphereLinkNodes.showInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
+
+        // lambda function that is passed to the event handler and called
+        // when a vertex position change occurs on the BDV side
+        moveSpotInSciview = { spot: Spot? ->
+            spot?.let {
+                selectedSpotInstance = sphereLinkNodes.findInstanceFromSpot(spot)
+                sphereLinkNodes.moveAndScaleSpotInSciview(spot) }
+        }
+
         registerKeyboardHandlers()
     }
 
@@ -285,26 +308,34 @@ class SciviewBridge {
 
     }
 
+    private var bdvWinParamsProvider: DisplayParamsProvider? = null
+
     /** Create a BDV window and launch a [BdvNotifier] instance to synchronize time point and viewing direction. */
-    fun openSyncedBDV(): MamutViewBdv {
+    fun openSyncedBDV() {
         val bdvWin = mastodon.windowManager.createView(MamutViewBdv::class.java)
         bdvWin.frame.setTitle("BDV linked to ${sciviewWin.getName()}")
-
-        //initial spots content:
-        val bdvWinParamsProvider = DPP_BdvAdapter(bdvWin)
-        updateSciviewContent(bdvWinParamsProvider)
-        BdvNotifier(
-            { updateSciviewContent(bdvWinParamsProvider) },
-            { updateSciviewCamera(bdvWin) },
-            mastodon,
-            bdvWin
-        )
-        return bdvWin
-    }
+            //initial spots content:
+            bdvWinParamsProvider = DPP_BdvAdapter(bdvWin)
+            bdvWinParamsProvider?.let {
+                updateSciviewContent(it)
+                bdvNotifier = BdvNotifier(
+                    { updateSciviewContent(it) },
+                    { updateSciviewCamera(bdvWin) },
+                    moveSpotInSciview as (Spot?) -> Unit,
+                    // update graph routine: this redraws the track segments and resets the stored previous vertex to be empty
+                    { sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, it.colorizer)
+                    sphereLinkNodes.prevVertex = null
+                    logger.info("sphereLinkNodes.prevVertex is now ${sphereLinkNodes.prevVertex}, should be null")},
+                    mastodon,
+                    bdvWin
+                )
+            }
+       }
 
     private var recentTagSet: TagSetStructure.TagSet? = null
     var recentColorizer: GraphColorGenerator<Spot, Link>? = null
     val noTSColorizer = DefaultGraphColorGenerator<Spot, Link>()
+
     private fun getCurrentColorizer(forThisBdv: MamutViewBdv): GraphColorGenerator<Spot, Link> {
         //NB: trying to avoid re-creating of new TagSetGraphColorGenerator objs with every new content rending
         val colorizer: GraphColorGenerator<Spot, Link>
@@ -359,7 +390,7 @@ class SciviewBridge {
             get() = recentColorizer ?: noTSColorizer
     }
 
-    /** Calls [updateVolume] and [SphereLinkNodes.showTheseSpots] to update the current volume and corresponding spots. */
+    /** Calls [updateVolume] and [SphereLinkNodes.showInstancedSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
         updateVolume(forThisBdv)
         sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint, forThisBdv.colorizer)
@@ -414,6 +445,11 @@ class SciviewBridge {
         }
     }
 
+    /** Sets the detail level of the volume node. */
+    fun setMipmapLevel(level: Float) {
+        volumeNode.multiResolutionLevelLimits = level.toInt() to level.toInt() + 1
+    }
+
     fun focusSpot(name: String) {
         val nodes = sphereParent.getChildrenByName(name)
         if (nodes.isNotEmpty()) {
@@ -444,14 +480,126 @@ class SciviewBridge {
             BehaviourTriple(desc_PREV_TP, key_PREV_TP, { _, _ -> detachedDPP_withOwnTime.prevTimepoint()
                 updateSciviewContent(detachedDPP_withOwnTime) }),
             BehaviourTriple(desc_NEXT_TP, key_NEXT_TP, { _, _ -> detachedDPP_withOwnTime.nextTimepoint()
-                updateSciviewContent(detachedDPP_withOwnTime) })
+                updateSciviewContent(detachedDPP_withOwnTime) }),
+            BehaviourTriple("Scale Instance Up", "ctrl E",
+                {_, _ -> sphereLinkNodes.scaleSpotAndInstance(selectedSpotInstance, true)}),
+            BehaviourTriple("Scale Instance Down", "ctrl Q",
+                {_, _ -> sphereLinkNodes.scaleSpotAndInstance(selectedSpotInstance, false)}),
         )
 
         behaviourCollection.forEach {
             handler.addKeyBinding(it.name, it.key)
             handler.addBehaviour(it.name, it.lambda)
         }
+
+        val scene = sciviewWin.camera?.getScene() ?: throw IllegalStateException("Could not find input scene!")
+        val renderer = sciviewWin.getSceneryRenderer() ?: throw IllegalStateException("Could not find scenery renderer!")
+
+        val clickInstance = SelectCommand(
+            "Click Instance", renderer, scene, { scene.findObserver() },
+            ignoredObjects = listOf(Volume::class.java), action = { result, _, _ ->
+                if (result.matches.isNotEmpty()) {
+                    // Try to cast the result to an instance, or clear the existing selection if it fails
+                    selectedSpotInstance = result.matches.first().node as? InstancedNode.Instance
+                    if (selectedSpotInstance != null) {
+                        logger.debug("selected instance {}", selectedSpotInstance)
+                        selectedSpotInstance?.let { s ->
+                            sphereLinkNodes.selectSpot(s)
+                            sphereLinkNodes.showInstancedSpots(
+                                detachedDPP_showsLastTimepoint.timepoint,
+                                detachedDPP_showsLastTimepoint.colorizer
+                            )
+                        }
+                    } else {
+                        sphereLinkNodes.clearSpotSelection()
+                    }
+                }
+            }
+        )
+
+        sciviewWin.getSceneryRenderer()?.let { r ->
+            // Triggered when the user clicks on any object
+            handler.addBehaviour("Click Instance", clickInstance)
+            handler.addKeyBinding("Click Instance", "button1")
+
+            handler.addBehaviour("Move Instance", MoveInstance(
+                { scene.findObserver() } ))
+            handler.addKeyBinding("Move Instance", "SPACE")
+        }
+
     }
+
+    inner class MoveInstance(
+        camera: () -> Camera?
+    ): DragBehaviour, WithCameraDelegateBase(camera) {
+
+        private var currentHit: Vector3f = Vector3f()
+        private var distance: Float = 0f
+        private var edges: MutableList<Link> = ArrayList()
+
+        override fun init(x: Int, y: Int) {
+            bdvNotifier.lockVertexUpdates = true
+            cam?.let { cam ->
+                val (rayStart, rayDir) = cam.screenPointToRay(x, y)
+                rayDir.normalize()
+                if (selectedSpotInstance != null) {
+                    distance = cam.spatial().position.distance(selectedSpotInstance?.spatial()?.position)
+                    currentHit = rayStart + rayDir * distance
+                    val spot = sphereLinkNodes.findSpotFromInstance(selectedSpotInstance!!)
+                    mastodon.model.graph.vertexRef().refTo(spot).incomingEdges().forEach {
+                        edges.add(it)
+                    }
+                    mastodon.model.graph.vertexRef().refTo(spot).outgoingEdges().forEach {
+                        edges.add(it)
+                    }
+                }
+            }
+        }
+
+        override fun drag(x: Int, y: Int) {
+            if (distance <= 0)
+                return
+
+            cam?.let { cam ->
+                selectedSpotInstance?.let {
+                    val (rayStart, rayDir) = cam.screenPointToRay(x, y)
+                    rayDir.normalize()
+                    val newHit = rayStart + rayDir * distance
+                    val movement = newHit - currentHit
+                    movement.y *= -1f
+                    it.ifSpatial {
+                        // Rotation around camera's center
+                        val newPos = position + movement / worldScale() / volumeNode.spatial().scale / 1.7f
+                        selectedSpotInstance?.spatialOrNull()?.position = newPos
+                        currentHit = newHit
+                    }
+                    sphereLinkNodes.moveSpotInBDV(selectedSpotInstance!!, movement)
+                    sphereLinkNodes.updateLinkTransforms(edges)
+                    sphereLinkNodes.links.values
+                }
+            }
+        }
+
+        override fun end(x: Int, y: Int) {
+            bdvNotifier.lockVertexUpdates = false
+            sphereLinkNodes.showInstancedSpots(detachedDPP_showsLastTimepoint.timepoint,
+                detachedDPP_showsLastTimepoint.colorizer)
+        }
+    }
+
+    fun launchEyeTracking() {
+        val command = sciviewWin.scijavaContext!!.getService(CommandService::class.java)
+        val argMap = HashMap<String, Any>()
+        argMap["sciview"] = sciviewWin
+        argMap["mastodonCallbackLinkCreate"] = sphereLinkNodes.addLinkToMastodon
+        argMap["mastodonUpdateGraph"] = {
+            logger.info("called mastodonUpdateGraph")
+            updateSciviewContent(bdvWinParamsProvider!!)
+            sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
+        }
+        command.run(EyeTrackingDemo::class.java, true, argMap)
+    }
+
 
     private fun deregisterKeyboardHandlers() {
         val handler = sciviewWin.sceneryInputHandler
