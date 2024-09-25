@@ -21,29 +21,34 @@ import java.beans.PropertyChangeListener
  * reference (to the underlying Mastodon data that the BDV window
  * operates over) must be provided.
  *
- * @param updateContentProcessor  handler of the scene rebuilding event
+ * @param updateTimepointProcessor  handler of the scene rebuilding event
  * @param updateViewProcessor  handler of the scene viewing-angle event
  * @param mastodon  the underlying Mastodon data
  * @param bdvWindow  BDV window that operated on the underlying Mastodon data
  */
 class BdvNotifier(
-    updateContentProcessor: Runnable,
+    updateTimepointProcessor: Runnable,
     updateViewProcessor: Runnable,
+    updateVertexProcessor: (Spot?) -> Unit,
+    updateGraphProcessor: Runnable,
     mastodon: ProjectModel,
-    bdvWindow: MamutViewBdv
+    bdvWindow: MamutViewBdv,
+    // Don't trigger updates while a vertex is being moved from the sciview side
+    var lockVertexUpdates: Boolean = false
 ) {
     private val logger by lazyLogger()
+    var movedSpot: Spot? = null
 
     init {
         //create a listener for it (which will _immediately_ collect updates from BDV)
-        val bdvUpdateListener: BdvEventsWatcher = BdvEventsWatcher(bdvWindow)
+        val bdvUpdateListener = BdvEventsWatcher(bdvWindow)
 
         //create a thread that would be watching over the listener and would take only
         //the most recent data if no updates came from BDV for a little while
         //(this is _delayed_ handling of the data, skipping over any intermediate changes)
-        val cumulatingEventsHandlerThread: BdvEventsCatherThread = BdvEventsCatherThread(
+        val cumulatingEventsHandlerThread = BdvEventsCatcherThread(
             bdvUpdateListener, 10,
-            updateContentProcessor, updateViewProcessor
+            updateTimepointProcessor, updateViewProcessor, updateVertexProcessor, updateGraphProcessor
         )
 
         //register the BDV listener and start the thread
@@ -69,31 +74,43 @@ class BdvNotifier(
     }
 
     /**
-     * this class only registers timestamp of the most recently
-     * occurred relevant BDV/Mastodon event, it recognized two types
-     * of events: events requiring scene camera repositioning, and events
-     * requiring scene content rebuild
-     */
+     * This class only registers timestamp of the most recently occurred relevant BDV/Mastodon event, it recognized
+     * two types of events: events requiring scene camera repositioning, and events requiring scene content rebuild. */
     internal inner class BdvEventsWatcher(val myBdvIamServicing: MamutViewBdv) : TransformListener<AffineTransform3D?>,
         TimePointListener, GraphChangeListener, VertexPositionListener<Spot>, PropertyChangeListener, FocusListener,
         ColoringChangedListener {
-        override fun graphChanged() = contentChanged()
-        override fun vertexPositionChanged(vertex: Spot) = contentChanged()
-        override fun transformChanged(affineTransform3D: AffineTransform3D?) = viewChanged()
+        override fun graphChanged() {
+            logger.debug("Called graphChanged")
+            timeStampOfLastEvent = System.currentTimeMillis()
+            isLastGraphEventValid = true
+        }
+        override fun vertexPositionChanged(vertex: Spot) {
+            logger.debug("called vertexChanged")
+            vertexChanged(vertex)
+        }
+
+        override fun transformChanged(affineTransform3D: AffineTransform3D?) {
+            logger.debug("called transformChanged")
+            viewChanged()
+        }
 
         override fun timePointChanged(timePointIndex: Int) {
+            logger.debug("called timePointChanged")
             contentChanged()
         }
 
         override fun focusChanged() {
+            logger.debug("called focusChanged")
             contentChanged()
         }
 
         override fun propertyChange(propertyChangeEvent: PropertyChangeEvent) {
+            logger.debug("called propertyChange")
             contentChanged()
         }
 
         override fun coloringChanged() {
+            logger.debug("called coloringChanged")
             contentChanged()
         }
 
@@ -107,8 +124,16 @@ class BdvNotifier(
             isLastViewEventValid = true
         }
 
+        fun vertexChanged(vertex: Spot) {
+            timeStampOfLastEvent = System.currentTimeMillis()
+            isLastVertexEventValid = true
+            movedSpot = vertex
+        }
+
         var isLastContentEventValid = false
+        var isLastVertexEventValid = false
         var isLastViewEventValid = false
+        var isLastGraphEventValid = false
         var timeStampOfLastEvent: Long = 0
     }
 
@@ -124,11 +149,13 @@ class BdvNotifier(
      * (and not out-dated) event(s) pending, and if so, it calls the respective
      * eventHandler(s)
      */
-    internal inner class BdvEventsCatherThread(
+    internal inner class BdvEventsCatcherThread(
         val eventsSource: BdvEventsWatcher,
         val updateInterval: Long,
-        val contentEventProcessor: Runnable,
-        val viewEventProcessor: Runnable
+        val timepointProcessor: Runnable,
+        val viewEventProcessor: Runnable,
+        val vertexEventProcessor: (Spot?) -> Unit,
+        val graphEventProcessor: Runnable
     ) : Thread(SERVICE_NAME) {
         var keepWatching = true
         fun stopTheWatching() {
@@ -139,20 +166,35 @@ class BdvNotifier(
             logger.debug("$SERVICE_NAME started")
             try {
                 while (keepWatching) {
-                    if (eventsSource.isLastContentEventValid || eventsSource.isLastViewEventValid && System.currentTimeMillis() - eventsSource.timeStampOfLastEvent > updateInterval) {
+                    if ((eventsSource.isLastContentEventValid || eventsSource.isLastVertexEventValid
+                        || eventsSource.isLastViewEventValid &&
+                        System.currentTimeMillis() - eventsSource.timeStampOfLastEvent > updateInterval)
+                        && !lockVertexUpdates
+                    ) {
                         if (eventsSource.isLastContentEventValid) {
-                            logger.debug("$SERVICE_NAME: content event and silence detected -> processing it now");
+                            logger.debug("$SERVICE_NAME: content event and silence detected -> processing it now")
                             eventsSource.isLastContentEventValid = false
-                            contentEventProcessor.run()
+                            timepointProcessor.run()
                         }
                         if (eventsSource.isLastViewEventValid) {
-                            logger.debug("$SERVICE_NAME: view event and silence detected -> processing it now");
+                            logger.debug("$SERVICE_NAME: view event and silence detected -> processing it now")
                             eventsSource.isLastViewEventValid = false
                             viewEventProcessor.run()
                         }
-                    } else sleep(updateInterval / 2)
+                        if (eventsSource.isLastVertexEventValid) {
+                            logger.debug("$SERVICE_NAME: vertex event and silence detected -> processing it now")
+                            eventsSource.isLastVertexEventValid = false
+                            vertexEventProcessor.invoke(movedSpot)
+                        }
+                        if (eventsSource.isLastGraphEventValid) {
+                            logger.info("$SERVICE_NAME: graph event and silence detected -> processing it now")
+                            eventsSource.isLastGraphEventValid = false
+                            graphEventProcessor.run()
+                        }
+                    } else sleep(updateInterval / 10)
                 }
-            } catch (e: InterruptedException) { /* do nothing, silently stop */
+            } catch (e: InterruptedException) {
+                throw e
             }
             logger.debug("$SERVICE_NAME stopped")
         }
