@@ -377,16 +377,24 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     }
 
     val toggleSpotsVisibility = ActionListener {
-        val newState = !controlledBridge.sphereParent.visible
-        controlledBridge.sphereParent.visible = newState
+        val spots = controlledBridge.volumeNode.getChildrenByName("SpotInstance").first()
+        val newState = !spots.visible
+        spots.visible = newState
     }
     val toggleVolumeVisibility = ActionListener {
+        val spots = controlledBridge.volumeNode.getChildrenByName("SpotInstance").first()
+        val spotVis = spots.visible
+        val links = controlledBridge.volumeNode.getChildrenByName("LinkInstance").first()
+        val linksVis = links.visible
         val newState = !controlledBridge.volumeNode.visible
         controlledBridge.setVisibilityOfVolume(newState)
+        spots.visible = spotVis
+        links.visible = linksVis
     }
     val toggleTrackVisivility = ActionListener {
-        val newState = !controlledBridge.linkParent.visible
-        controlledBridge.linkParent.visible = newState
+        val links = controlledBridge.volumeNode.getChildrenByName("LinkInstance").first()
+        val newState = !links.visible
+        links.visible = newState
     }
 
     val autoAdjustIntensity = ActionListener {

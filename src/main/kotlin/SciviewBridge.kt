@@ -12,6 +12,8 @@ import graphics.scenery.utils.extensions.minus
 import graphics.scenery.utils.extensions.plus
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.lazyLogger
+import graphics.scenery.volumes.BufferedVolume
+import graphics.scenery.volumes.RAIVolume
 import graphics.scenery.volumes.TransferFunction
 import graphics.scenery.volumes.Volume
 import net.imglib2.RandomAccessibleInterval
@@ -38,6 +40,7 @@ import sc.iview.SciView
 import sc.iview.commands.demo.advanced.EyeTrackingDemo
 import util.SphereLinkNodes
 import javax.swing.JFrame
+import kotlin.concurrent.thread
 import kotlin.concurrent.timer
 import kotlin.math.*
 
@@ -79,8 +82,8 @@ class SciviewBridge {
     val sphereLinkNodes: SphereLinkNodes
     //sink scene graph structuring nodes
     val axesParent: Node?
-    val sphereParent: Group
-    val linkParent: Group
+//    val sphereParent: Group
+//    val linkParent: Group
     var volumeNode: Volume
     var spimSource: Source<out Any>
     // the source and converter that contains our volume data
@@ -168,23 +171,11 @@ class SciviewBridge {
         // flip Z axis to align it with the synced BDV view
         volumeNode.spatial().scale *= Vector3f(1f, 1f, -1f)
 
-        // add spots inside a sphereParent group, which makes it easier for them to inherit transforms and be manually pushed around
-        sphereParent = Group()
-        sphereParent.name = "SphereInstanceParent"
-        sphereParent.spatial().scale /= volumeDownscale
-        sciviewWin.addNode(sphereParent)
-        sphereParent.parent = volumeNode
         logger.info("volume node scale is ${volumeNode.spatialOrNull()?.scale}")
-
-        linkParent = Group()
-        linkParent.name = "LinkInstanceParent"
-        linkParent.spatial().scale /= volumeDownscale
-        sciviewWin.addNode(linkParent)
-        linkParent.parent = volumeNode
 
         logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
-        sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, sphereParent, linkParent)
+        sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, volumeNode, volumeNode)
 
         sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
         sphereLinkNodes.showInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
@@ -450,13 +441,6 @@ class SciviewBridge {
         volumeNode.multiResolutionLevelLimits = level.toInt() to level.toInt() + 1
     }
 
-    fun focusSpot(name: String) {
-        val nodes = sphereParent.getChildrenByName(name)
-        if (nodes.isNotEmpty()) {
-            sciviewWin.setActiveCenteredNode(nodes[0])
-        }
-    }
-
     val detachedDPP_withOwnTime: DPP_DetachedOwnTime
 
     fun showTimepoint(timepoint: Int) {
@@ -497,7 +481,7 @@ class SciviewBridge {
 
         val clickInstance = SelectCommand(
             "Click Instance", renderer, scene, { scene.findObserver() },
-            ignoredObjects = listOf(Volume::class.java), action = { result, _, _ ->
+            ignoredObjects = listOf(Volume::class.java, RAIVolume::class.java, BufferedVolume::class.java), action = { result, _, _ ->
                 if (result.matches.isNotEmpty()) {
                     // Try to cast the result to an instance, or clear the existing selection if it fails
                     selectedSpotInstance = result.matches.first().node as? InstancedNode.Instance

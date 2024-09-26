@@ -52,11 +52,11 @@ class GroupLocksHandling(//controls sciview via this bridge obj
 
     internal inner class NavigationRequestsHandler : NavigationListener<Spot, Link>, TimepointListener {
         override fun navigateToVertex(vertex: Spot) {
-            if (isActive) focusSciviewToNode(vertex.label)
+//            if (isActive) focusSciviewToNode(vertex.label)
         }
 
         override fun navigateToEdge(edge: Link) {
-            if (isActive) focusSciviewToNode(edge.source.label)
+//            if (isActive) focusSciviewToNode(edge.source.label)
         }
 
         override fun timepointChanged() {
@@ -79,9 +79,5 @@ class GroupLocksHandling(//controls sciview via this bridge obj
             //TODO: this is triggering also our handler (see above navigateToVertex()) !
             myGroupHandle.getModel(projectModel.NAVIGATION).notifyNavigateToVertex(res.get())
         }
-    }
-
-    fun focusSciviewToNode(name: String) {
-        bridge.focusSpot(name)
     }
 }
