@@ -579,9 +579,15 @@ class SciviewBridge {
         argMap["mastodonUpdateGraph"] = {
             logger.info("called mastodonUpdateGraph")
             updateSciviewContent(bdvWinParamsProvider!!)
+            sphereLinkNodes.prevVertex = null
             sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
         }
         command.run(EyeTrackingDemo::class.java, true, argMap)
+    }
+
+    fun stopEyeTracking() {
+        sciviewWin.toggleVRRendering()
+        sciviewWin.deleteNode(sciviewWin.find("shell"))
     }
 
 
