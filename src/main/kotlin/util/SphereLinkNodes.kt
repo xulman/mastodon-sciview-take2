@@ -617,7 +617,7 @@ class SphereLinkNodes(
         val v = mastodonData.model.graph.addVertex()
         val pos = spineVertex.position.toFloatArray().map { it.toDouble() }.toDoubleArray()
 
-        v.init(spineVertex.timepoint, pos, 1.0)
+        v.init(spineVertex.timepoint, pos, 20.0)
         if (prevVertex != null) {
             val e = mastodonData.model.graph.addEdge(prevVertex, v)
             e.init()
