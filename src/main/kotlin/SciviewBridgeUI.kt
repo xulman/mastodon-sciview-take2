@@ -8,7 +8,6 @@ import java.awt.*
 import java.awt.event.ActionListener
 import java.util.function.Consumer
 import javax.swing.*
-import javax.swing.border.EmptyBorder
 import javax.swing.event.ChangeEvent
 import javax.swing.event.ChangeListener
 
@@ -35,6 +34,8 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
     lateinit var lockGroupHandler: GroupLocksHandling
     lateinit var linkColorSelector: JComboBox<String>
     lateinit var volumeColorSelector: JComboBox<String>
+    lateinit var startEyeTracking: JButton
+    lateinit var stopEyeTracking: JButton
 
     // -------------------------------------------------------------------------------------------
     private fun populatePane() {
@@ -222,35 +223,46 @@ class SciviewBridgeUI(controlledBridge: SciviewBridge, populateThisContainer: Co
         autoIntensityBtn = JToggleButton("Auto Intensity", bridge.isVolumeAutoAdjust)
         autoIntensityBtn.addActionListener(autoAdjustIntensity)
         //
-        val fourButtonsPlaceholder = JPanel()
-        controlsWindowPanel.add(fourButtonsPlaceholder, c)
+        val visButtonsPlaceholder = JPanel()
+        controlsWindowPanel.add(visButtonsPlaceholder, c)
         //
-        fourButtonsPlaceholder.setLayout(GridBagLayout())
-        val buttonRow = GridBagConstraints()
-        buttonRow.fill = GridBagConstraints.HORIZONTAL
-        buttonRow.anchor = GridBagConstraints.WEST
-        buttonRow.weightx = 0.4
-        buttonRow.gridx = 0
+        visButtonsPlaceholder.setLayout(GridBagLayout())
+        val visButtonRow = GridBagConstraints()
+        visButtonRow.fill = GridBagConstraints.HORIZONTAL
+        visButtonRow.anchor = GridBagConstraints.WEST
+        visButtonRow.weightx = 0.4
+        visButtonRow.gridx = 0
 //        bc.insets = Insets(0, 20, 0, 0)
-        fourButtonsPlaceholder.add(autoIntensityBtn, buttonRow)
-        buttonRow.gridx = 1
-        buttonRow.insets = Insets(0, 20, 0, 0)
-        fourButtonsPlaceholder.add(visToggleSpots, buttonRow)
-        buttonRow.gridx = 2
-        buttonRow.insets = Insets(0, 20, 0, 0)
-        fourButtonsPlaceholder.add(visToggleVols, buttonRow)
-        buttonRow.gridx = 3
-        buttonRow.insets = Insets(0, 20, 0, 0)
-        fourButtonsPlaceholder.add(visToggleTracks, buttonRow)
+        visButtonsPlaceholder.add(autoIntensityBtn, visButtonRow)
+        visButtonRow.gridx = 1
+        visButtonRow.insets = Insets(0, 20, 0, 0)
+        visButtonsPlaceholder.add(visToggleSpots, visButtonRow)
+        visButtonRow.gridx = 2
+        visButtonRow.insets = Insets(0, 20, 0, 0)
+        visButtonsPlaceholder.add(visToggleVols, visButtonRow)
+        visButtonRow.gridx = 3
+        visButtonRow.insets = Insets(0, 20, 0, 0)
+        visButtonsPlaceholder.add(visToggleTracks, visButtonRow)
 
-        // ---------- Eye Tracking Button ---------------
+        // ---------- Eye Tracking Buttons ---------------
         c.gridy++
-        c.gridx = 1
-        c.gridwidth = 1
-        c.anchor = GridBagConstraints.EAST
-        val eyetrackingButton = JButton("Start Eye Tracking")
-        eyetrackingButton.addActionListener { bridge.launchEyeTracking() }
-        controlsWindowPanel.add(eyetrackingButton, c)
+
+        startEyeTracking = JButton("Start Eye Tracking")
+        startEyeTracking.addActionListener { bridge.launchEyeTracking() }
+        stopEyeTracking = JButton("Stop Eye Tracking")
+        stopEyeTracking.addActionListener { bridge.stopEyeTracking() }
+
+        val trackingBtnPlaceholder = JPanel()
+        controlsWindowPanel.add(trackingBtnPlaceholder, c)
+        val trackButtonRow = GridBagConstraints()
+        trackButtonRow.fill = GridBagConstraints.HORIZONTAL
+        trackButtonRow.anchor = GridBagConstraints.WEST
+        trackButtonRow.weightx = 0.2
+        trackButtonRow.gridx = 0
+        trackingBtnPlaceholder.add(startEyeTracking, trackButtonRow)
+        trackButtonRow.gridx = 1
+        trackButtonRow.insets = Insets(0, 20, 0, 0)
+        trackingBtnPlaceholder.add(stopEyeTracking, trackButtonRow)
 
         // -------------- close button row --------------
         c.gridy++
