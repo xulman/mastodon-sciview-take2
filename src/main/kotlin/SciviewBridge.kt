@@ -32,16 +32,13 @@ import org.mastodon.model.tag.TagSetStructure
 import org.mastodon.ui.coloring.DefaultGraphColorGenerator
 import org.mastodon.ui.coloring.GraphColorGenerator
 import org.mastodon.ui.coloring.TagSetGraphColorGenerator
-import org.scijava.command.CommandService
 import org.scijava.event.EventService
 import org.scijava.ui.behaviour.ClickBehaviour
 import org.scijava.ui.behaviour.DragBehaviour
 import sc.iview.SciView
-import sc.iview.commands.demo.advanced.EyeTrackingDemo
+import sc.iview.commands.demo.advanced.EyeTracking
 import util.SphereLinkNodes
 import javax.swing.JFrame
-import kotlin.concurrent.thread
-import kotlin.concurrent.timer
 import kotlin.math.*
 
 class SciviewBridge {
@@ -98,6 +95,8 @@ class SciviewBridge {
     var moveSpotInSciview: (Spot?) -> Unit?
     var associatedUI: SciviewBridgeUI? = null
     var uiFrame: JFrame? = null
+
+    lateinit var eyeTracking: EyeTracking
 
     constructor(
         mastodonMainWindow: ProjectModel,
@@ -572,22 +571,21 @@ class SciviewBridge {
     }
 
     fun launchEyeTracking() {
-        val command = sciviewWin.scijavaContext!!.getService(CommandService::class.java)
-        val argMap = HashMap<String, Any>()
-        argMap["sciview"] = sciviewWin
-        argMap["mastodonCallbackLinkCreate"] = sphereLinkNodes.addLinkToMastodon
-        argMap["mastodonUpdateGraph"] = {
-            logger.info("called mastodonUpdateGraph")
-            updateSciviewContent(bdvWinParamsProvider!!)
-            sphereLinkNodes.prevVertex = null
-            sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
-        }
-        command.run(EyeTrackingDemo::class.java, true, argMap)
+        eyeTracking = EyeTracking(
+            sphereLinkNodes.addLinkToMastodon,
+            {
+                logger.info("called mastodonUpdateGraph")
+                updateSciviewContent(bdvWinParamsProvider!!)
+                sphereLinkNodes.prevVertex = null
+                sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
+            },
+            sciviewWin
+        )
+        eyeTracking.run()
     }
 
     fun stopEyeTracking() {
-        sciviewWin.toggleVRRendering()
-        sciviewWin.deleteNode(sciviewWin.find("shell"))
+        eyeTracking.stop()
     }
 
 
