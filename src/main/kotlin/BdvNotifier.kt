@@ -81,7 +81,7 @@ class BdvNotifier(
         TimePointListener, GraphChangeListener, VertexPositionListener<Spot>, PropertyChangeListener, FocusListener,
         ColoringChangedListener {
         override fun graphChanged() {
-            logger.info("Called graphChanged")
+            logger.debug("Called graphChanged")
             timeStampOfLastEvent = System.currentTimeMillis()
             isLastGraphEventValid = true
         }
