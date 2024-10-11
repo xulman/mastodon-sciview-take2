@@ -309,13 +309,17 @@ class SciviewBridge {
             bdvWinParamsProvider?.let {
                 updateSciviewContent(it)
                 bdvNotifier = BdvNotifier(
+                    // time point processor
                     { updateSciviewContent(it) },
+                    // view update processor
                     { updateSciviewCamera(bdvWin) },
+                    // vertex update processor
                     moveSpotInSciview as (Spot?) -> Unit,
-                    // update graph routine: this redraws the track segments and resets the stored previous vertex to be empty
-                    { sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, it.colorizer)
-                    sphereLinkNodes.prevVertex = null
-                    logger.info("sphereLinkNodes.prevVertex is now ${sphereLinkNodes.prevVertex}, should be null")},
+                    // graph update processor: redraws track segments and spots
+                    {
+                        sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, it.colorizer)
+                        sphereLinkNodes.showInstancedSpots(it.timepoint, it.colorizer)
+                    },
                     mastodon,
                     bdvWin
                 )

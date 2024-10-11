@@ -5,6 +5,7 @@ import bdv.viewer.TransformListener
 import graphics.scenery.utils.lazyLogger
 import net.imglib2.realtransform.AffineTransform3D
 import org.mastodon.graph.GraphChangeListener
+import org.mastodon.graph.GraphListener
 import org.mastodon.mamut.model.Spot
 import org.mastodon.mamut.views.bdv.MamutViewBdv
 import org.mastodon.model.FocusListener
@@ -80,7 +81,7 @@ class BdvNotifier(
         TimePointListener, GraphChangeListener, VertexPositionListener<Spot>, PropertyChangeListener, FocusListener,
         ColoringChangedListener {
         override fun graphChanged() {
-            logger.debug("Called graphChanged")
+            logger.info("Called graphChanged")
             timeStampOfLastEvent = System.currentTimeMillis()
             isLastGraphEventValid = true
         }
@@ -166,7 +167,7 @@ class BdvNotifier(
             logger.debug("$SERVICE_NAME started")
             try {
                 while (keepWatching) {
-                    if ((eventsSource.isLastContentEventValid || eventsSource.isLastVertexEventValid
+                    if ((eventsSource.isLastContentEventValid || eventsSource.isLastVertexEventValid || eventsSource.isLastGraphEventValid
                         || eventsSource.isLastViewEventValid &&
                         System.currentTimeMillis() - eventsSource.timeStampOfLastEvent > updateInterval)
                         && !lockVertexUpdates
