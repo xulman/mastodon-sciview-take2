@@ -39,6 +39,7 @@ import sc.iview.SciView
 import sc.iview.commands.demo.advanced.EyeTracking
 import util.SphereLinkNodes
 import javax.swing.JFrame
+import kotlin.concurrent.thread
 import kotlin.math.*
 
 class SciviewBridge {
@@ -575,17 +576,19 @@ class SciviewBridge {
     }
 
     fun launchEyeTracking() {
-        eyeTracking = EyeTracking(
-            sphereLinkNodes.addLinkToMastodon,
-            {
-                logger.info("called mastodonUpdateGraph")
-                updateSciviewContent(bdvWinParamsProvider!!)
-                sphereLinkNodes.prevVertex = null
-                sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
-            },
-            sciviewWin
-        )
-        eyeTracking.run()
+        thread {
+            eyeTracking = EyeTracking(
+                sphereLinkNodes.addLinkToMastodon,
+                {
+                    logger.info("called mastodonUpdateGraph")
+                    updateSciviewContent(bdvWinParamsProvider!!)
+                    sphereLinkNodes.prevVertex = null
+                    sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
+                },
+                sciviewWin
+            )
+            eyeTracking.run()
+        }
     }
 
     fun stopEyeTracking() {
