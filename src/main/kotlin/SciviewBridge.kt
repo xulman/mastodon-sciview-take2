@@ -37,12 +37,13 @@ import org.scijava.ui.behaviour.ClickBehaviour
 import org.scijava.ui.behaviour.DragBehaviour
 import sc.iview.SciView
 import sc.iview.commands.demo.advanced.EyeTracking
+import sc.iview.commands.demo.advanced.TimepointObserver
 import util.SphereLinkNodes
 import javax.swing.JFrame
 import kotlin.concurrent.thread
 import kotlin.math.*
 
-class SciviewBridge {
+class SciviewBridge: TimepointObserver {
     private val logger by lazyLogger()
     //data source stuff
     val mastodon: ProjectModel
@@ -62,6 +63,7 @@ class SciviewBridge {
     )
 
     var updateVolAutomatically = true
+
     override fun toString(): String {
         val sb = StringBuilder("Mastodon-sciview bridge internal settings:\n")
         sb.append("   SOURCE_ID = $sourceID\n")
@@ -587,14 +589,24 @@ class SciviewBridge {
                 },
                 sciviewWin
             )
+            // register the bridge as an observer to the timepoint changes by the user in VR,
+            // allowing us to get updates via the onTimepointUpdated() function
+            eyeTracking.registerObserver(this)
             eyeTracking.run()
         }
     }
 
     fun stopEyeTracking() {
+        eyeTracking.unregisterObserver(this)
+        logger.info("Removed timepoint observer from VR bindings.")
         eyeTracking.stop()
     }
 
+    /** Implementation of the [TimepointObserver] interface; this method is called whenever the VR user triggers
+     *  a timepoint change or plays the animation */
+    override fun onTimePointChanged(timepoint: Int) {
+        showTimepoint(timepoint)
+    }
 
     private fun deregisterKeyboardHandlers() {
         val handler = sciviewWin.sceneryInputHandler
