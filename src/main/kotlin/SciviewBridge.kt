@@ -135,7 +135,7 @@ class SciviewBridge: TimepointObserver {
 
         //add "root" with data axes
         axesParent = addDataAxes()
-        sciviewWin.addNode<Node?>(axesParent)
+        sciviewWin.addNode(axesParent)
 
         //get necessary metadata - from image data
         this.sourceID = sourceID
@@ -600,6 +600,11 @@ class SciviewBridge: TimepointObserver {
         eyeTracking.unregisterObserver(this)
         logger.info("Removed timepoint observer from VR bindings.")
         eyeTracking.stop()
+        // ensure that the volume is visible again (could be turned invisible during the calibration)
+        volumeNode.visible = true
+        sciviewWin.centerOnNode(axesParent)
+        sciviewWin.requestPropEditorRefresh()
+        registerKeyboardHandlers()
     }
 
     /** Implementation of the [TimepointObserver] interface; this method is called whenever the VR user triggers
