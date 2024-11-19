@@ -22,6 +22,7 @@ import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
 import net.imglib2.type.numeric.integer.UnsignedShortType
 import net.imglib2.view.Views
+import net.miginfocom.swing.MigLayout
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -40,6 +41,7 @@ import sc.iview.commands.demo.advanced.EyeTracking
 import sc.iview.commands.demo.advanced.TimepointObserver
 import util.SphereLinkNodes
 import javax.swing.JFrame
+import javax.swing.JPanel
 import kotlin.concurrent.thread
 import kotlin.math.*
 
@@ -96,7 +98,7 @@ class SciviewBridge: TimepointObserver {
     // triggering the event watcher while a spot is edited in Sciview
     lateinit var bdvNotifier: BdvNotifier
     var moveSpotInSciview: (Spot?) -> Unit?
-    var associatedUI: SciviewBridgeUI? = null
+    var associatedUI: SciviewBridgeUIMig? = null
     var uiFrame: JFrame? = null
 
     lateinit var eyeTracking: EyeTracking
@@ -634,8 +636,10 @@ class SciviewBridge: TimepointObserver {
     @JvmOverloads
     fun createAndShowControllingUI(windowTitle: String? = "Controls for " + sciviewWin.getName()): JFrame {
         return JFrame(windowTitle).apply {
+            val panel = JPanel(MigLayout("insets 15", "[grow][grow]", "[][]"))
+            contentPane.add(panel)
             setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE)
-            associatedUI = SciviewBridgeUI(this@SciviewBridge, contentPane)
+            associatedUI = SciviewBridgeUIMig(this@SciviewBridge, panel)
             pack()
             isVisible = true
         }

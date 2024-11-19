@@ -52,7 +52,7 @@ object StartSciviewBridgeDirectly {
                 bridge.close() //calls also bridge.detachControllingUI();
             })
         } catch (e: Exception) {
-            println("Got this exception: " + e.message)
+            throw e
         }
     }
 }

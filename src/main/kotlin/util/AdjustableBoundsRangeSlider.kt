@@ -1,11 +1,9 @@
 package util
 
 import bdv.ui.rangeslider.RangeSlider
+import net.miginfocom.swing.MigLayout
 import java.awt.*
-import javax.swing.JLabel
-import javax.swing.JSpinner
-import javax.swing.SpinnerNumberModel
-import javax.swing.UIManager
+import javax.swing.*
 import javax.swing.event.ChangeEvent
 import kotlin.math.max
 import kotlin.math.min
@@ -64,7 +62,7 @@ class AdjustableBoundsRangeSlider(
 
     companion object {
         fun createAndPlaceHere(
-            intoThisComponent: Container,
+            intoThisComponent: JPanel,
             initialLowValue: Int,
             initialHighValue: Int,
             initialMin: Int,
@@ -74,51 +72,36 @@ class AdjustableBoundsRangeSlider(
             require(!(initialHighValue < initialMin || initialHighValue > initialMax)) { "Refuse to create slider showing \"high\" value that's outside the slider's min and max range." }
             require(!(initialMin < MIN_BOUND_LIMIT || initialMin > MAX_BOUND_LIMIT)) { "Required MIN bound is outside the interval assumed by this governing class." }
             require(!(initialMax < MIN_BOUND_LIMIT || initialMax > MAX_BOUND_LIMIT)) { "Required MAX bound is outside the interval assumed by this governing class." }
-            val gridBagLayout = GridBagLayout()
-            intoThisComponent.setLayout(gridBagLayout)
-            val c = GridBagConstraints()
-            c.anchor = GridBagConstraints.LINE_START
-            c.fill = GridBagConstraints.HORIZONTAL
-            val defaultInset = c.insets
 
-            //set to the current wanted range
+            // Set to the current wanted range
             val slider = RangeSlider(initialMin, initialMax)
             slider.setValue(initialLowValue)
             slider.setUpperValue(initialHighValue)
-            val lowSpinner = JSpinner(
-                createAppropriateSpinnerModel(initialLowValue)
-            )
-            val highSpinner = JSpinner(
-                createAppropriateSpinnerModel(initialHighValue)
-            )
+            val lowSpinner = JSpinner(createAppropriateSpinnerModel(initialLowValue))
+            val highSpinner = JSpinner(createAppropriateSpinnerModel(initialHighValue))
             val lowBoundInformer = JLabel(initialMin.toString())
             val highBoundInformer = JLabel(initialMax.toString())
 
-            //from bigdataviewer-core/src/main/java/bdv/ui/convertersetupeditor/BoundedRangePanel.java,
-            //method updateBoundLabelFonts(), L283
+            // Font setup (copied from the original logic)
             val labelFont = UIManager.getFont("Label.font")
             val font = Font(labelFont.name, labelFont.style, 10)
-            lowBoundInformer.setFont(font)
-            highBoundInformer.setFont(font)
-            c.gridheight = 2
-            c.gridy = 0
-            c.weightx = 0.05
-            c.gridx = 0
-            intoThisComponent.add(lowSpinner, c)
-            c.weightx = 0.85
-            c.gridx = 1
-            c.insets = Insets(defaultInset.top, 5, defaultInset.bottom, 5)
-            intoThisComponent.add(slider, c)
-            c.insets = defaultInset
-            c.weightx = 0.05
-            c.gridx = 2
-            intoThisComponent.add(highSpinner, c)
-            c.gridheight = 1
-            c.gridx = 3
-            c.insets = Insets(defaultInset.top, 5, defaultInset.bottom, defaultInset.right)
-            intoThisComponent.add(highBoundInformer, c)
-            c.gridy = 1
-            intoThisComponent.add(lowBoundInformer, c)
+            lowBoundInformer.font = font
+            highBoundInformer.font = font
+
+            // Use MigLayout to position components
+            intoThisComponent.layout = MigLayout(
+                "insets 5",  // Insets around the panel
+                "[grow,fill]10[grow,fill]10[fill]10[fill]", // Columns layout
+                "" // Rows layout, dynamically adjusts
+            )
+
+            intoThisComponent.add(lowSpinner, "cell 0 0")
+            intoThisComponent.add(slider, "cell 1 0, spanx 2, growx") // Span across two columns
+            intoThisComponent.add(highSpinner, "cell 3 0")
+
+            intoThisComponent.add(lowBoundInformer, "cell 0 1")
+            intoThisComponent.add(highBoundInformer, "cell 3 1")
+
             return AdjustableBoundsRangeSlider(slider, lowSpinner, highSpinner, lowBoundInformer, highBoundInformer)
         }
     }
