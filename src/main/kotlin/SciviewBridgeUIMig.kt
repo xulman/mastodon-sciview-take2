@@ -35,16 +35,16 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
     private fun populatePane() {
         val bridge = this.controlledBridge ?: throw IllegalStateException("The passed bridge cannot be null.")
 
-        windowPanel.layout = MigLayout("", "[][grow]", "")
+        windowPanel.layout = MigLayout("insets 15", "[grow,leading] [grow]", "")
 
         // Lock Group Handling and Mastodon
         lockGroupHandler = GroupLocksHandling(bridge, bridge.mastodon)
-        windowPanel.add(lockGroupHandler.createAndActivate()!!, "span, growx")
+        windowPanel.add(lockGroupHandler.createAndActivate()!!, "growx")
 
         val openBdvBtn = JButton("Open synced Mastodon BDV").apply {
             addActionListener { bridge.openSyncedBDV() }
         }
-        windowPanel.add(openBdvBtn, "span, growx")
+        windowPanel.add(openBdvBtn, "growx, wrap")
 
         // Intensity controls
         windowPanel.add(
@@ -110,7 +110,7 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
 
 
         // Adding dropdowns for link LUTs and volume colors
-        val colorSelectorPanel = JPanel(MigLayout("fillx, insets 0", "[right][grow, fill]", ""))
+        val colorSelectorPanel = JPanel(MigLayout("fillx, insets 0", "[right][grow, fill]"))
 
         // Link colors dropdown
         colorSelectorPanel.add(JLabel("Link colors:"), "gapright 10")
@@ -131,7 +131,7 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
         volumeColorSelector = JComboBox(availableLUTs.toTypedArray())
         volumeColorSelector.setSelectedItem("Grays")
         volumeColorSelector.addActionListener(chooseVolumeColormap)
-        colorSelectorPanel.add(volumeColorSelector, "wrap")
+        colorSelectorPanel.add(volumeColorSelector)
 
         // Add the color selector panel to the main panel
         windowPanel.add(colorSelectorPanel, "span, growx, wrap")
@@ -144,7 +144,7 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
             addActionListener(autoAdjustIntensity)
         }
 
-        val visButtons = JPanel(MigLayout("fillx", "[grow]")).apply {
+        val visButtons = JPanel(MigLayout("fillx, insets 0", "[grow]")).apply {
             add(autoIntensityBtn, "growx")
             add(visToggleSpots, "growx")
             add(visToggleVols, "growx")
@@ -155,7 +155,7 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
         // Eye Tracking
         startEyeTracking = JButton("Start Eye Tracking").apply { addActionListener { bridge.launchEyeTracking() } }
         stopEyeTracking = JButton("Stop Eye Tracking").apply { addActionListener { bridge.stopEyeTracking() } }
-        windowPanel.add(JPanel(MigLayout("fillx")).apply {
+        windowPanel.add(JPanel(MigLayout("fillx, insets 0")).apply {
             add(startEyeTracking, "growx")
             add(stopEyeTracking, "growx")
         }, "span, growx")
@@ -165,6 +165,7 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
         windowPanel.add(closeBtn, "span, right")
     }
 
+
     fun addLabeledSpinner(labelText: String, spinnerModel: SpinnerNumberModel, onChange: (Number) -> Unit) {
         val label = JLabel(labelText)
         val spinner = JSpinner(spinnerModel)
@@ -173,7 +174,7 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
 
         // Adding the label and spinner to the panel
         windowPanel.add(label)
-        windowPanel.add(spinner, "wrap")
+        windowPanel.add(spinner, "w 150, right, wrap")
     }
 
     /** Sets the maximum mipmap level found in the volume node as the spinner's max value. */

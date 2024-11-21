@@ -636,8 +636,8 @@ class SciviewBridge: TimepointObserver {
     @JvmOverloads
     fun createAndShowControllingUI(windowTitle: String? = "Controls for " + sciviewWin.getName()): JFrame {
         return JFrame(windowTitle).apply {
-            val panel = JPanel(MigLayout("insets 15", "[grow][grow]", "[][]"))
-            contentPane.add(panel)
+            val panel = JPanel()
+            add(panel)
             setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE)
             associatedUI = SciviewBridgeUIMig(this@SciviewBridge, panel)
             pack()

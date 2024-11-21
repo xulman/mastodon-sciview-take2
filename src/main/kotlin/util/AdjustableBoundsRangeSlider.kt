@@ -4,7 +4,6 @@ import bdv.ui.rangeslider.RangeSlider
 import net.miginfocom.swing.MigLayout
 import java.awt.*
 import javax.swing.*
-import javax.swing.event.ChangeEvent
 import kotlin.math.max
 import kotlin.math.min
 
@@ -62,7 +61,7 @@ class AdjustableBoundsRangeSlider(
 
     companion object {
         fun createAndPlaceHere(
-            intoThisComponent: JPanel,
+            mainPanel: JPanel,
             initialLowValue: Int,
             initialHighValue: Int,
             initialMin: Int,
@@ -82,25 +81,29 @@ class AdjustableBoundsRangeSlider(
             val lowBoundInformer = JLabel(initialMin.toString())
             val highBoundInformer = JLabel(initialMax.toString())
 
-            // Font setup (copied from the original logic)
+            // Font setup
             val labelFont = UIManager.getFont("Label.font")
             val font = Font(labelFont.name, labelFont.style, 10)
             lowBoundInformer.font = font
             highBoundInformer.font = font
 
             // Use MigLayout to position components
-            intoThisComponent.layout = MigLayout(
-                "insets 5",  // Insets around the panel
-                "[grow,fill]10[grow,fill]10[fill]10[fill]", // Columns layout
-                "" // Rows layout, dynamically adjusts
+            val sliderPanel = JPanel(
+                MigLayout(
+                    "fillx, insets 0",  // Insets around the panel
+                    "[left][center, fill][right]", // Columns layout
+                    "" // Rows layout, dynamically adjusts
+                )
             )
 
-            intoThisComponent.add(lowSpinner, "cell 0 0")
-            intoThisComponent.add(slider, "cell 1 0, spanx 2, growx") // Span across two columns
-            intoThisComponent.add(highSpinner, "cell 3 0")
+            sliderPanel.add(lowSpinner)
+            sliderPanel.add(slider, "w 300, growx")
+            sliderPanel.add(highSpinner,"wrap")
 
-            intoThisComponent.add(lowBoundInformer, "cell 0 1")
-            intoThisComponent.add(highBoundInformer, "cell 3 1")
+            sliderPanel.add(lowBoundInformer, "left")
+            sliderPanel.add(highBoundInformer, "skip, right")
+
+            mainPanel.add(sliderPanel, "span 2, growx, wrap")
 
             return AdjustableBoundsRangeSlider(slider, lowSpinner, highSpinner, lowBoundInformer, highBoundInformer)
         }
