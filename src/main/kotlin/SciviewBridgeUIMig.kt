@@ -14,12 +14,12 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
     val windowPanel: JPanel
     private val logger by lazyLogger()
 
-    lateinit var INTENSITY_CONTRAST: SpinnerModel
-    lateinit var INTENSITY_SHIFT: SpinnerModel
-    lateinit var INTENSITY_CLAMP_AT_TOP: SpinnerModel
-    lateinit var INTENSITY_GAMMA: SpinnerModel
-    lateinit var INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM: AdjustableBoundsRangeSlider
-    lateinit var MIPMAP_LEVEL: SpinnerNumberModel
+    lateinit var intensityContrastSpinner: SpinnerModel
+    lateinit var intensityShiftSpinner: SpinnerModel
+    lateinit var intensityClampTopSpinner: SpinnerModel
+    lateinit var intensityGammaSpinner: SpinnerModel
+    lateinit var intensityRangeSlider: AdjustableBoundsRangeSlider
+    lateinit var mipmapSpinner: SpinnerNumberModel
     lateinit var visToggleSpots: JButton
     lateinit var visToggleVols: JButton
     lateinit var visToggleTracks: JButton
@@ -53,46 +53,46 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
         )
         windowPanel.add(JLabel("   pow( min(contrast*v + shift, not_above)/not_above, gamma ) *not_above"), "span")
 
-        addLabeledSpinner(
+        intensityContrastSpinner = addLabeledSpinner(
             "Apply on Volume this contrast factor:",
             SpinnerNumberModel(1.0, -100.0, 100.0, 0.5)
-        ) { value -> bridge.intensity.contrast = value as Float }
+        ) { value -> bridge.intensity.contrast = value.toFloat() }
 
-        addLabeledSpinner(
+        intensityShiftSpinner = addLabeledSpinner(
             "Apply on Volume this shifting bias:",
             SpinnerNumberModel(0.0, -65535.0, 65535.0, 50.0)
-        ) { value -> bridge.intensity.shift = value as Float }
+        ) { value -> bridge.intensity.shift = value.toFloat() }
 
-        addLabeledSpinner(
+        intensityGammaSpinner = addLabeledSpinner(
             "Apply on Volume this gamma level:",
             SpinnerNumberModel(1.0, 0.1, 3.0, 0.1)
-        ) { value -> bridge.intensity.gamma = value as Float }
+        ) { value -> bridge.intensity.gamma = value.toFloat() }
 
-        addLabeledSpinner(
+        intensityClampTopSpinner = addLabeledSpinner(
             "Clamp all voxels so that their values are not above:",
             SpinnerNumberModel(700.0, 0.0, 65535.0, 50.0)
-        ) { value -> bridge.intensity.clampTop = value as Float }
+        ) { value -> bridge.intensity.clampTop = value.toFloat() }
 
         // MIPMAP Level
-        addLabeledSpinner("Choose Mipmap Level", SpinnerNumberModel(0, 0, 6, 1)) { level ->
-            controlledBridge?.let {
-                it.associatedUI?.setMaxMipmapLevel(it.sac.spimSource.numMipmapLevels - 1)
-                it.setMipmapLevel(level as Float)
-            }
+        mipmapSpinner = addLabeledSpinner("Choose Mipmap Level", SpinnerNumberModel(0, 0, 6, 1)) { level ->
+            controlledBridge?.setMipmapLevel(level.toFloat())
+        }
+        controlledBridge?.let {
+            setMaxMipmapLevel(it.spimSource.numMipmapLevels - 1)
         }
 
         // Range Slider
-        INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM = AdjustableBoundsRangeSlider.createAndPlaceHere(
+        intensityRangeSlider = AdjustableBoundsRangeSlider.createAndPlaceHere(
             windowPanel,
             bridge.intensity.rangeMin.toInt(),
             bridge.intensity.rangeMax.toInt(),
             0,
             10000
         )
-        INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.addChangeListener(rangeSliderListener)
+        intensityRangeSlider.addChangeListener(rangeSliderListener)
 
         // Link range spinners
-        addLabeledSpinner(
+        linkRangeBackwards = addLabeledSpinner(
             "Link window range backwards",
             SpinnerNumberModel(bridge.mastodon.maxTimepoint, 0, bridge.mastodon.maxTimepoint, 1)
         ) { value ->
@@ -100,14 +100,13 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
             bridge.sphereLinkNodes.updateLinkVisibility(bridge.lastTpWhenVolumeWasUpdated)
         }
 
-        addLabeledSpinner(
+        linkRangeForwards = addLabeledSpinner(
             "Link window range forwards",
             SpinnerNumberModel(bridge.mastodon.maxTimepoint, 0, bridge.mastodon.maxTimepoint, 1)
         ) { value ->
             bridge.sphereLinkNodes.linkForwardRange = value.toInt()
             bridge.sphereLinkNodes.updateLinkVisibility(bridge.lastTpWhenVolumeWasUpdated)
         }
-
 
         // Adding dropdowns for link LUTs and volume colors
         val colorSelectorPanel = JPanel(MigLayout("fillx, insets 0", "[right][grow, fill]"))
@@ -166,7 +165,7 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
     }
 
 
-    fun addLabeledSpinner(labelText: String, spinnerModel: SpinnerNumberModel, onChange: (Number) -> Unit) {
+    fun addLabeledSpinner(labelText: String, spinnerModel: SpinnerNumberModel, onChange: (Number) -> Unit): SpinnerNumberModel {
         val label = JLabel(labelText)
         val spinner = JSpinner(spinnerModel)
 
@@ -175,16 +174,17 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
         // Adding the label and spinner to the panel
         windowPanel.add(label)
         windowPanel.add(spinner, "w 150, right, wrap")
+        return spinnerModel
     }
 
     /** Sets the maximum mipmap level found in the volume node as the spinner's max value. */
     fun setMaxMipmapLevel(level: Int) {
-        MIPMAP_LEVEL.maximum = level
+        mipmapSpinner.maximum = level
     }
 
     val rangeSliderListener = ChangeListener {
-        controlledBridge.intensity.rangeMin = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.value.toFloat()
-        controlledBridge.intensity.rangeMax = INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.upperValue.toFloat()
+        controlledBridge.intensity.rangeMin = intensityRangeSlider.value.toFloat()
+        controlledBridge.intensity.rangeMax = intensityRangeSlider.upperValue.toFloat()
         controlledBridge.volumeNode.minDisplayRange = controlledBridge.intensity.rangeMin
         controlledBridge.volumeNode.maxDisplayRange = controlledBridge.intensity.rangeMax
     }
@@ -241,20 +241,20 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
         //that trigger (not all of them) the expensive volume updating
 
         bridge.updateVolAutomatically = false
-        INTENSITY_CONTRAST.value = bridge.intensity.contrast
-        INTENSITY_SHIFT.value = bridge.intensity.shift
-        INTENSITY_CLAMP_AT_TOP.value = bridge.intensity.clampTop
-        INTENSITY_GAMMA.value = bridge.intensity.gamma
+        intensityContrastSpinner.value = bridge.intensity.contrast
+        intensityShiftSpinner.value = bridge.intensity.shift
+        intensityClampTopSpinner.value = bridge.intensity.clampTop
+        intensityGammaSpinner.value = bridge.intensity.gamma
         val upperValBackup = bridge.intensity.rangeMax
 
-        INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
+        intensityRangeSlider
             .rangeSlider
             .value = bridge.intensity.rangeMin.toInt()
         //NB: this triggers a "value changed listener" which updates _both_ the value and upperValue,
         //    which resets the value with the new one (so no change in the end) but clears upperValue
         //    to the value the dialog was left with (forgets the new upperValue effectively)
         bridge.intensity.rangeMax = upperValBackup
-        INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM
+        intensityRangeSlider
             .rangeSlider
             .upperValue = bridge.intensity.rangeMax.toInt()
 
@@ -269,7 +269,7 @@ class SciviewBridgeUIMig(controlledBridge: SciviewBridge, populateThisContainer:
         linkColorSelector.removeActionListener(chooseLinkColormap)
         volumeColorSelector.removeActionListener(chooseVolumeColormap)
 
-        INTENSITY_RANGE_MINMAX_CTRL_GUI_ELEM.removeChangeListener(rangeSliderListener)
+        intensityRangeSlider.removeChangeListener(rangeSliderListener)
         visToggleSpots.removeActionListener(toggleSpotsVisibility)
         visToggleVols.removeActionListener(toggleVolumeVisibility)
         autoIntensityBtn.removeActionListener(autoAdjustIntensity)

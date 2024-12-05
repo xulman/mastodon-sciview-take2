@@ -22,7 +22,6 @@ import net.imglib2.realtransform.AffineTransform3D
 import net.imglib2.type.numeric.IntegerType
 import net.imglib2.type.numeric.integer.UnsignedShortType
 import net.imglib2.view.Views
-import net.miginfocom.swing.MigLayout
 import org.joml.Matrix4f
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -154,6 +153,7 @@ class SciviewBridge: TimepointObserver {
             volumeDims[2].toFloat() / volumeNumPixels[2].toFloat()
         )
         logger.info("downscale factors: ${volumeDownscale[0]} x, ${volumeDownscale[1]} x, ${volumeDownscale[2]} x")
+        logger.info("number of mipmap levels: ${spimSource.numMipmapLevels}")
 
         // get 3D+t volume data from Mastodon
         sac = mastodon.sharedBdvData.sources[this.sourceID]
@@ -164,6 +164,7 @@ class SciviewBridge: TimepointObserver {
             "volume",
             floatArrayOf(1f, 1f, 1f)
         )
+        logger.info("current mipmap range: ${volumeNode.multiResolutionLevelLimits}")
 
         setVolumeRanges(
             volumeNode,
@@ -239,6 +240,7 @@ class SciviewBridge: TimepointObserver {
         }
     }
 
+    /** We backup the current contrast/min/max values so that we can revert back if we toggle off the auto intensity */
     private var intensityBackup = intensity.copy()
 
     /** Makes an educated guess about the value range of the volume and adjusts the min/max range values accordingly. */
@@ -256,15 +258,16 @@ class SciviewBridge: TimepointObserver {
             //TODO: change MIN and MAX to proper values
             logger.debug("Clamp at ${intensity.clampTop}," +
                     " range min to ${intensity.rangeMin} and range max to ${intensity.rangeMax}")
-            updateVolume(force = true)
+            updateVolumeTP(force = true)
             updateUI()
         } else {
             intensity = intensityBackup.copy()
-            updateVolume(force = true)
+            updateVolumeTP(force = true)
             updateUI()
         }
     }
 
+    // TODO for now this is not used because it introduces lag to timeline scrubbing. Should maybe be done on the GPU instead?
     /** Change voxel values based on the intensity values like contrast, shift, gamma, etc. */
     fun <T : IntegerType<T>?> volumeIntensityProcessing(
         srcImg: RandomAccessibleInterval<T>?
@@ -301,6 +304,12 @@ class SciviewBridge: TimepointObserver {
             .multiThreaded()
             .forEachPixel(intensityProcessor)
 
+    }
+
+    /** Overload that implicitly uses the existing [spimSource] for [volumeIntensityProcessing] */
+    fun volumeIntensityProcessing() {
+        val srcImg = spimSource.getSource(detachedDPP_withOwnTime.timepoint, sourceResLevel) as RandomAccessibleInterval<UnsignedShortType>
+        volumeIntensityProcessing(srcImg)
     }
 
     private var bdvWinParamsProvider: DisplayParamsProvider? = null
@@ -389,9 +398,9 @@ class SciviewBridge: TimepointObserver {
             get() = recentColorizer ?: noTSColorizer
     }
 
-    /** Calls [updateVolume] and [SphereLinkNodes.showInstancedSpots] to update the current volume and corresponding spots. */
+    /** Calls [updateVolumeTP] and [SphereLinkNodes.showInstancedSpots] to update the current volume and corresponding spots. */
     fun updateSciviewContent(forThisBdv: DisplayParamsProvider) {
-        updateVolume(forThisBdv)
+        updateVolumeTP(forThisBdv)
         sphereLinkNodes.showInstancedSpots(forThisBdv.timepoint, forThisBdv.colorizer)
         sphereLinkNodes.updateLinkVisibility(forThisBdv.timepoint)
         sphereLinkNodes.updateLinkColors(forThisBdv.colorizer)
@@ -403,7 +412,7 @@ class SciviewBridge: TimepointObserver {
     /** Fetch the volume state at the current time point,
      * then call [volumeIntensityProcessing] to adjust the intensity values */
     @JvmOverloads
-    fun updateVolume(
+    fun updateVolumeTP(
         forThisBdv: DisplayParamsProvider = detachedDPP_showsLastTimepoint,
         force: Boolean = false
     ) {
