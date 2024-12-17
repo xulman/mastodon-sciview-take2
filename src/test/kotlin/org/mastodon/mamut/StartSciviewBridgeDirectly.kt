@@ -40,7 +40,7 @@ object StartSciviewBridgeDirectly {
             //git clone https://github.com/mastodon-sc/mastodon-example-data.git
             //String projectPath = "/home/ulman/Mette/e1/E1_reduced.mastodon";
 //            val projectPath = "/home/ulman/devel/sciview_hack2/mastodon-example-data/tgmm-mini/tgmm-mini.mastodon"
-            val projectPath = "C:/Software/datasets/mastodon-example-data/tgmm-mini/tgmm-mini.mastodon"
+            val projectPath = "C:/CASUS/datasets/mastodon-example-data/tgmm-mini/tgmm-mini.mastodon"
             // --------------->>  <<---------------
             val sv = createSciview()
             val mastodon = giveMeMastodonOfThisProject(sv.scijavaContext, projectPath)
