@@ -135,7 +135,7 @@ class SciviewBridge: TimepointObserver {
         sciviewWin.camera?.spatial()?.move(30f, 2)
 
         //add "root" with data axes
-        axesParent = addDataAxes()
+        axesParent = constructDataAxes()
         sciviewWin.addNode(axesParent)
 
         //get necessary metadata - from image data
@@ -180,7 +180,7 @@ class SciviewBridge: TimepointObserver {
 
         logger.info("volume size is ${volumeNode.boundingBox!!.max - volumeNode.boundingBox!!.min}")
         //add the sciview-side displaying handler for the spots
-        sphereLinkNodes = SphereLinkNodes(sciviewWin, mastodon, volumeNode, volumeNode)
+        sphereLinkNodes = SphereLinkNodes(sciviewWin, this, mastodon, volumeNode, volumeNode)
 
         sphereLinkNodes.showInstancedSpots(0, noTSColorizer)
         sphereLinkNodes.showInstancedLinks(SphereLinkNodes.ColorMode.LUT, colorizer = noTSColorizer)
@@ -215,6 +215,22 @@ class SciviewBridge: TimepointObserver {
         } catch (e: InterruptedException) { /* do nothing */
         }
         sciviewWin.deleteNode(axesParent, true)
+    }
+
+    /** Convert a [Vector3f] from sciview space into Mastodon's voxel coordinate space.
+     * This assumes the volume has a centered origin. */
+    fun sciviewToMastodonCoords(v: Vector3f) : Vector3f {
+        val offset = volumeNode.boundingBox!!.max * 0.5f
+        val scaledV = v.div(volumeNode.pixelToWorldRatio).div(sceneScale) * Vector3f(1f, -1f, -1f)
+        return scaledV + offset
+    }
+
+    /** Convert a [Vector3f] from Mastodon's voxel coordinate space into sciview space.
+     * This assumes the volume has a centered origin. */
+    fun mastodonToSciviewCoords(v: Vector3f) : Vector3f {
+        val offset = volumeNode.boundingBox!!.max * 0.5f
+        val offsetV = v - offset
+        return offsetV.times(volumeNode.pixelToWorldRatio).times(sceneScale).div(1f, -1f, -1f)
     }
 
     /** Adds a volume to the sciview scene, scales it by [scale], adjusts the transfer function to a ramp from [0, 0] to [1, 1]
@@ -591,13 +607,17 @@ class SciviewBridge: TimepointObserver {
     fun launchEyeTracking() {
         thread {
             eyeTracking = EyeTracking(
+                // linkCreationCallback:
                 sphereLinkNodes.addLinkToMastodon,
+                // finalTrackCallback:
                 {
                     logger.info("called mastodonUpdateGraph")
                     updateSciviewContent(bdvWinParamsProvider!!)
                     sphereLinkNodes.prevVertex = null
                     sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
                 },
+                // spotCreationCallback:
+                sphereLinkNodes.addSpotToMastodon,
                 sciviewWin
             )
             // register the bridge as an observer to the timepoint changes by the user in VR,
@@ -686,7 +706,7 @@ class SciviewBridge: TimepointObserver {
             hl.spatial().rotation = Quaternionf().rotateY(Math.PI.toFloat())
         }
 
-        fun addDataAxes(): Node {
+        fun constructDataAxes(): Node {
             //add the data axes
             val AXES_LINE_WIDTHS = 0.01f
             val AXES_LINE_LENGTHS = 0.1f
