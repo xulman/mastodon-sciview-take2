@@ -249,7 +249,7 @@ class SciviewBridge: TimepointObserver {
             it.maxDisplayRange = displayRangeMax
             val tf = TransferFunction()
             tf.addControlPoint(0f, 0f)
-            tf.addControlPoint(1f, 1f)
+            tf.addControlPoint(1f, 0.7f)
             it.transferFunction = tf
             //make Bounding Box Grid invisible
             it.children.forEach { n: Node -> n.visible = false }
@@ -477,7 +477,10 @@ class SciviewBridge: TimepointObserver {
     val detachedDPP_withOwnTime: DPP_DetachedOwnTime
 
     fun showTimepoint(timepoint: Int) {
-        detachedDPP_withOwnTime.timepoint = timepoint
+
+        val maxTP = detachedDPP_withOwnTime.max
+        // if we play backwards, start with the highest TP once we reach below 0, otherwise play forward and wrap at maxTP
+        detachedDPP_withOwnTime.timepoint = if (timepoint < 0) maxTP else timepoint % maxTP
         updateSciviewContent(detachedDPP_withOwnTime)
     }
 
@@ -608,12 +611,11 @@ class SciviewBridge: TimepointObserver {
         thread {
             eyeTracking = EyeTracking(
                 // linkCreationCallback:
-                sphereLinkNodes.addLinkToMastodon,
+                sphereLinkNodes.addTrackToMastodon,
                 // finalTrackCallback:
                 {
                     logger.info("called mastodonUpdateGraph")
                     updateSciviewContent(bdvWinParamsProvider!!)
-                    sphereLinkNodes.prevVertex = null
                     sphereLinkNodes.showInstancedLinks(sphereLinkNodes.currentColorMode, bdvWinParamsProvider!!.colorizer)
                 },
                 // spotCreationCallback:

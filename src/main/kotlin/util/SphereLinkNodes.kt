@@ -8,7 +8,6 @@ import graphics.scenery.primitives.Arrow
 import graphics.scenery.primitives.Cylinder
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.utils.lazyLogger
-import graphics.scenery.volumes.RAIVolume
 import net.imglib2.display.ColorTable
 import org.apache.commons.math3.linear.Array2DRowRealMatrix
 import org.apache.commons.math3.linear.EigenDecomposition
@@ -26,7 +25,7 @@ import org.mastodon.spatial.SpatialIndex
 import org.mastodon.ui.coloring.GraphColorGenerator
 import org.scijava.event.EventService
 import sc.iview.SciView
-import sc.iview.commands.demo.advanced.HedgehogAnalysis
+import sc.iview.commands.demo.advanced.HedgehogAnalysis.SpineGraphVertex
 import java.awt.Color
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -616,21 +615,24 @@ class SphereLinkNodes(
         }
     }
 
-    var prevVertex: Spot? = null
+    /** Passed to EyeTracking to send a list of vertices from sciview to Mastodon. */
+    val addTrackToMastodon: (List<Pair<Vector3f, SpineGraphVertex>>) -> Unit = { list ->
+        logger.info("got this track list: l${list.joinToString { ", " }}")
+        var prevVertex: Spot? = null
 
-    /** Passed to EyeTracking to send vertices from sciview to Mastodon, while creating a link to the previous spot. */
-    val addLinkToMastodon: (HedgehogAnalysis.SpineGraphVertex) -> Unit = { spineVertex ->
-
-        val v = mastodonData.model.graph.addVertex()
-        val pos = spineVertex.position.toDoubleArray()
-
-        v.init(spineVertex.timepoint, pos, 20.0)
-        if (prevVertex != null) {
-            val e = mastodonData.model.graph.addEdge(prevVertex, v)
-            e.init()
-            mastodonData.model.graph.notifyGraphChanged()
+        list.forEachIndexed { index, (pos, spineVertex) ->
+            val v = mastodonData.model.graph.addVertex()
+            val p = pos.toDoubleArray()
+            v.init(spineVertex.timepoint, p, 20.0)
+            logger.info("added vertex $v at position $pos")
+            // start adding edges once the first vertex was added
+            if (index > 0) {
+                val e = mastodonData.model.graph.addEdge(prevVertex, v)
+                e.init()
+                mastodonData.model.graph.notifyGraphChanged()
+            }
+            prevVertex = v
         }
-        prevVertex = v
     }
 
     /** Lambda that is passed to sciview to send individual spots from sciview to Mastodon. */
